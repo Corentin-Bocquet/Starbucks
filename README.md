@@ -36,4 +36,3 @@ Deux recettes de Mamie (gratin de courgettes, tarte jambon asperge) n'ont pas de
 ## Crédits visuels
 
 Les 124 visuels de boissons et cocktails sont générés par IA (Google Gemini via Composio), sans logo ni élément de marque. Les 24 photos de recettes viennent du carnet Notion familial. Projet personnel non affilié à Starbucks Corporation.
-# Starbucks
