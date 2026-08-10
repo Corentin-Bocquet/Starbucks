@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Le Codex — Starbucks, Cocktails & Recettes de Mamie</title>
+<title>Le Starbucks, Cocktails & Recettes de Mamie</title>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Codex">
-<meta name="application-name" content="Codex">
+<meta name="apple-mobile-web-app-title" content="Starbucks">
+<meta name="application-name" content="Starbucks">
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
 <link rel="apple-touch-icon" sizes="167x167" href="apple-touch-icon-167.png">
 <link rel="apple-touch-icon" sizes="152x152" href="apple-touch-icon-152.png">
@@ -17,8 +17,8 @@
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#700122">
-<meta name="description" content="Le Codex : 103 boissons Starbucks, 21 cocktails et 22 recettes de famille. Trois questions et tu tombes sur la bonne recette.">
-<meta property="og:title" content="Le Codex - Starbucks, Cocktails et Recettes de Mamie">
+<meta name="description" content="Le Starbucks : 103 boissons Starbucks, 21 cocktails et 22 recettes de famille. Trois questions et tu tombes sur la bonne recette.">
+<meta property="og:title" content="Le Starbucks - Starbucks, Cocktails et Recettes de Mamie">
 <meta property="og:image" content="assets/hero.webp"><meta property="og:type" content="website">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -366,12 +366,16 @@ const STOCKTITLE={sb:'Mon placard',ck:'Mon bar',mm:'Mon garde-manger'};
 const DATA={sb:()=>DRINKS,ck:()=>COCKTAILS,mm:()=>MAMIE};
 const CATLIST={sb:()=>CATS,ck:()=>CKCATS,mm:()=>MMCATS};
 const HERO={
- sb:{img:IMG._hero,eye:"☕ "+DRINKS.length+" boissons · France · Eletta Explore",t:'Le Codex',em:'Starbucks',
-     p:"Réponds à trois questions, ou cherche directement. Toutes les quantités sont en millilitres."},
- ck:{img:IMG['_hero-ck'],eye:'🍸 '+COCKTAILS.length+' cocktails · Dosages IBA',t:'Le Codex',em:'Cocktails',
-     p:"Ton alcool, ton envie, ton bar. Trois choix et tu tombes sur le bon verre."},
- mm:{img:IMG['_hero-mm'],eye:'🧓 '+MAMIE.length+' recettes · Depuis Notion',t:'Les recettes',em:'de Mamie',
-     p:"Le moment, la température, le four. Trois choix et le carnet de famille s'ouvre à la bonne page."}};
+ sb:{img:IMG.hero, eye:"☕ 103 recettes · France · De'Longhi Eletta Explore", t:'Le Codex', em:'Starbucks',
+     p:"Toutes les boissons de la carte décomposées en quantités réelles, en millilitres, avec l'ordre d'assemblage exact et les réglages machine.",
+     stats:[[DRINKS.length,'recettes'],[CATS.length,'catégories'],[3,'tailles'],[0,'prix']]},
+ ck:{img:IMG['hero-ck'], eye:'🍸 21 cocktails · Dosages IBA · Mon bar intégré', t:'Le Codex', em:'Cocktails',
+     p:"Vingt classiques aux dosages officiels, plus une création maison. Coche ce que tu as dans ton bar, l'app te dit ce que tu peux faire ce soir.",
+     stats:[[COCKTAILS.length,'cocktails'],[BAR.length,'ingrédients'],[3,'familles'],['0','à deviner']]},
+ mm:{img:IMG['hero-mm'], eye:'🧓 22 recettes de famille · Directement de Notion', t:'Les recettes', em:'de Mamie',
+     p:"Les vraies, celles qui se transmettent à l'oral et qu'on finit par oublier. Photos et quantités récupérées telles quelles depuis le carnet Notion.",
+     stats:[[MAMIE.length,'recettes'],[MAMIE.filter(r=>r.cat==='mamie-sucre').length,'sucrées'],[MAMIE.filter(r=>r.cat==='mamie-sale').length,'salées'],['100 %','maison']]}
+};
 
 /* ÉTAT */
 const LS='codex.v3.';
