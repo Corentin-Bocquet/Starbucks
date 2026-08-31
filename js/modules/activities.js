@@ -1,0 +1,640 @@
+/* ============================================================
+   EVER — Activités : « Qu'est-ce qu'on fait ? »
+
+   Deux étages :
+     1. la roulette choisit un TYPE d'activité (bar, karting, musée)
+     2. le moteur choisit ensuite un ÉTABLISSEMENT réel parmi ceux
+        qui correspondent, par tirage pondéré sur le score
+
+   Trois façons de décider, selon l'humeur :
+     TOURNER        le hasard pondéré
+     SURPRENDS-MOI  l'app règle tout et lance elle-même
+     3 IDÉES        trois propositions, et la roue tranche
+
+   Le tout tient compte du lieu, de la météo, de la saison, de
+   l'heure, du budget, de l'historique, des goûts appris, des
+   événements du moment et du temps réellement libre dans l'agenda.
+   ============================================================ */
+(function (global) {
+  'use strict';
+
+  let root = null, ctx = null, roul = null, events = [], eventsLoading = false;
+
+  const prefs = () => Object.assign({
+    city: 'le-touquet', category: 'all', favOnly: false, avoidRecent: true,
+    source: 'all', events: false
+  }, Store.get('actPrefs', {}));
+  const setPrefs = (p) => Store.set('actPrefs', Object.assign(prefs(), p));
+
+  const cities = () => {
+    const set = new Map();
+    Store.all('activities').forEach((a) => { if (a.city) set.set(a.city, cityName(a.city)); });
+    return Array.from(set, ([id, nom]) => ({ id, nom }));
+  };
+  const cityName = (id) => ({ 'le-touquet': 'Le Touquet', 'meribel': 'Méribel' })[id] ||
+    id.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  /* Français correct : « au Touquet », pas « à Le Touquet ». */
+  function prep(name, kind) {
+    const n = String(name || '');
+    if (/^Le /i.test(n))  return (kind === 'de' ? 'du ' : 'au ') + n.slice(3);
+    if (/^Les /i.test(n)) return (kind === 'de' ? 'des ' : 'aux ') + n.slice(4);
+    if (/^La /i.test(n))  return (kind === 'de' ? 'de la ' : 'à la ') + n.slice(3);
+    if (/^L'/i.test(n))   return (kind === 'de' ? "de l'" : "à l'") + n.slice(2);
+    return (kind === 'de' ? 'de ' : 'à ') + n;
+  }
+
+  const slug = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+  /* ---------- Le vivier ---------- */
+  function pool(opts) {
+    opts = opts || {};
+    const p = prefs();
+    let list = Store.all('activities').filter((a) => !a.city || a.city === p.city);
+    if (!opts.ignoreCategory && p.category !== 'all') list = list.filter((a) => a.category === p.category);
+    if (!opts.ignoreFav && p.favOnly) list = list.filter((a) => Store.isFav('activity', a.id));
+    if (p.source === 'mine') list = list.filter((a) => a.source !== 'seed');
+
+    const season = ctx ? ctx.season : UI.day.season();
+    list = list.filter((a) => !a.seasons || !a.seasons.length || a.seasons.indexOf(season) >= 0);
+
+    /* Les événements entrent dans la roue comme des activités. */
+    if (p.events && events.length && !opts.noEvents) {
+      const upcoming = Events.soon(events, 3);
+      const ok = (!opts.ignoreCategory && p.category !== 'all') ? [] : upcoming;
+      list = list.concat(ok);
+    }
+
+    /* Calendrier intelligent : on écarte ce qui ne rentre pas dans le
+       temps libre restant, sauf s'il ne reste rien d'autre. */
+    if (!opts.ignoreTime && global.Cal) {
+      const fitting = list.filter((a) => Cal.fits(a, UI.day.today()));
+      if (fitting.length >= 3) list = fitting;
+    }
+    return list;
+  }
+
+  /* ============================================================
+     Rendu
+     ============================================================ */
+  function mount(el) {
+    root = el;
+    ctx = {
+      place: Ctx.place(), weather: null,
+      season: UI.day.season(), slot: UI.day.slot(),
+      hour: new Date().getHours(), weekend: [0, 6].indexOf(new Date().getDay()) >= 0,
+      date: UI.day.today(), budget: Store.get('budget', 2)
+    };
+    events = [];
+    render();
+    Ctx.snapshot().then((full) => {
+      if (!root.isConnected) return;
+      ctx = full;
+      render();
+      if (prefs().events) loadEvents();
+    }).catch(() => {});
+    if (global.Cal && Cal.googleReady()) Cal.refreshGoogleDay();
+  }
+
+  async function loadEvents() {
+    if (eventsLoading || !ctx) return;
+    eventsLoading = true;
+    render();
+    try { events = await Events.fetchFor(ctx, 10); }
+    catch (e) { events = []; UI.toast(AI.humanError(e)); }
+    eventsLoading = false;
+    if (root && root.isConnected) render();
+  }
+
+  function render() {
+    const p = prefs(), list = pool();
+    const cats = Array.from(new Set(Store.all('activities').filter((a) => a.city === p.city).map((a) => a.category)));
+
+    root.innerHTML = '<div class="wrap">' +
+      headerBlock(list.length) +
+      '<div class="chips" style="margin-top:14px">' +
+        '<button class="chip ' + (p.category === 'all' ? 'on' : '') + '" data-cat="all">Tout</button>' +
+        cats.map((c) => '<button class="chip ' + (p.category === c ? 'on' : '') + '" data-cat="' + UI.attr(c) + '">' + UI.esc(c) + '</button>').join('') +
+      '</div>' +
+      '<div id="actRoul" style="margin-top:8px"></div>' +
+      '<div class="btnrow" style="margin-top:10px">' +
+        '<button class="btn grow" data-act="surprise">' + Icon('sparkle', 17) + 'Surprends-moi</button>' +
+        '<button class="btn grow" data-act="three">' + Icon('dice', 17) + '3 idées</button>' +
+      '</div>' +
+      eventsBlock() +
+      quickToggles(p) +
+      agendaBlock() +
+      manageBlock() +
+      guideTeaser() +
+      '</div>';
+
+    roul = Roulette.mount(UI.$('#actRoul'), {
+      items: () => pool().map((a) => Object.assign({}, a, { label: a.nom, icon: iconFor(a) })),
+      weight: (a) => weightOf(a),
+      cta: 'TOURNER',
+      emptyText: 'Aucune activité avec ces filtres',
+      onResult: (a, box) => onResult(a, box)
+    });
+    bind();
+  }
+
+  function headerBlock(n) {
+    const wx = ctx && ctx.weather;
+    return '<div class="section" style="padding:16px 0 0">' +
+      '<button class="row-between panel" style="width:100%;text-align:left" data-place>' +
+        '<span><b style="display:block;font-size:19px;letter-spacing:-.02em">' + UI.esc(cityName(prefs().city)) + '</b>' +
+        '<small class="muted">' + n + ' activité' + (n > 1 ? 's' : '') + ' disponible' + (n > 1 ? 's' : '') + '</small></span>' +
+        (wx ? '<span class="row" style="gap:6px;color:var(--muted)">' + Icon(wx.icon, 20) +
+          '<b style="font-size:16px">' + wx.temp + '°</b></span>' : Icon('next', 18)) +
+      '</button></div>';
+  }
+
+  function eventsBlock() {
+    if (!prefs().events) return '';
+    if (eventsLoading) return '<div class="section"><div class="panel">' + UI.thinking('Recherche des événements…') + '</div></div>';
+    const up = Events.soon(events, 10);
+    if (!up.length) {
+      return '<div class="section"><div class="banner">' + Icon('calendar', 18) +
+        '<span>Rien trouvé de fiable ' + UI.esc(prep(cityName(prefs().city))) + ' pour les jours qui viennent. ' +
+        'Plutôt que d\'inventer des dates, on n\'affiche rien.</span></div></div>';
+    }
+    return '<div class="section"><div class="sechead"><h2 style="font-size:16px">En ce moment</h2>' +
+      '<button data-act="refreshEvents">Actualiser</button></div>' +
+      '<div class="list">' + up.slice(0, 6).map((e) =>
+        '<button class="rowitem" data-ev="' + UI.attr(e.id) + '">' +
+        '<span class="ic">' + Icon(evIcon(e.type), 17) + '</span>' +
+        '<span class="tx"><b>' + UI.esc(e.nom) + '</b><small>' + UI.esc(Events.label(e)) +
+        (e.lieu ? ' · ' + UI.esc(e.lieu) : '') + (e.fiable ? '' : ' · à vérifier') + '</small></span>' +
+        '<span class="rt">' + Icon('next', 15) + '</span></button>').join('') + '</div></div>';
+  }
+  const evIcon = (t) => ({ concert: 'sparkle', festival: 'sparkle', marche: 'bag', exposition: 'book',
+    spectacle: 'film', sport: 'activity', animation: 'users', saisonnier: 'sun' })[t] || 'calendar';
+
+  function quickToggles(p) {
+    const row = (key, label, on, ic, sub) => '<button class="rowitem" data-toggle="' + key + '">' +
+      '<span class="ic">' + Icon(ic, 17) + '</span><span class="tx"><b>' + UI.esc(label) + '</b>' +
+      (sub ? '<small>' + UI.esc(sub) + '</small>' : '') + '</span>' +
+      '<span class="switch ' + (on ? 'on' : '') + '"></span></button>';
+    return '<div class="section"><div class="list">' +
+      row('favOnly', 'Favoris uniquement', p.favOnly, 'star') +
+      row('avoidRecent', "Éviter ce qui vient d'être fait", p.avoidRecent, 'clock') +
+      row('events', 'Événements du moment', p.events, 'calendar', 'Concerts, marchés, expositions, festivals') +
+      '</div>' +
+      '<div class="row" style="margin-top:10px;gap:8px">' +
+        '<span class="muted" style="font-size:12.5px;font-weight:650">Budget</span>' +
+        '<div class="seg grow">' + [1, 2, 3, 4].map((b) => '<button data-budget="' + b + '" class="' + (ctx && ctx.budget === b ? 'on' : '') + '">' + '€'.repeat(b) + '</button>').join('') + '</div>' +
+      '</div></div>';
+  }
+
+  function agendaBlock() {
+    if (!global.Cal) return '';
+    const list = Cal.dayEvents();
+    const free = Cal.timeAvailable();
+    if (!list.length) return '';
+    return '<div class="section"><div class="banner">' + Icon('clock', 18) +
+      '<span><b>' + list.length + ' chose' + (list.length > 1 ? 's' : '') + ' de prévu aujourd\'hui.</b> ' +
+      (free ? 'Il te reste environ ' + UI.fmt.dur(free) + ' de libre, et les propositions en tiennent compte.' :
+        'La journée est pleine : les propositions restent courtes.') + '</span></div></div>';
+  }
+
+  function manageBlock() {
+    const mine = Store.all('activities').filter((a) => a.source !== 'seed').length;
+    const places = Store.all('places').length;
+    return '<div class="section"><div class="list">' +
+      '<button class="rowitem" data-act="addActivity"><span class="ic">' + Icon('plus', 17) + '</span>' +
+        '<span class="tx"><b>Ajouter une activité</b><small>' + mine + ' ajoutée' + (mine > 1 ? 's' : '') + '</small></span>' +
+        '<span class="rt">' + Icon('next', 15) + '</span></button>' +
+      '<button class="rowitem" data-act="places"><span class="ic">' + Icon('pin', 17) + '</span>' +
+        '<span class="tx"><b>Mes établissements</b><small>' + places + ' enregistré' + (places > 1 ? 's' : '') + '</small></span>' +
+        '<span class="rt">' + Icon('next', 15) + '</span></button>' +
+      '<button class="rowitem" data-act="history"><span class="ic">' + Icon('clock', 17) + '</span>' +
+        '<span class="tx"><b>Historique</b><small>Ce que la roue a déjà donné</small></span>' +
+        '<span class="rt">' + Icon('next', 15) + '</span></button>' +
+      '</div></div>';
+  }
+
+  function guideTeaser() {
+    return '<div class="section"><button class="rowitem list" style="width:100%;border-radius:var(--r-md)" data-act="guide">' +
+      '<span class="ic">' + Icon('book', 17) + '</span>' +
+      '<span class="tx"><b>Guide ' + UI.esc(prep(cityName(prefs().city), 'de')) + '</b><small>Ce qu\'il faut savoir et voir ici</small></span>' +
+      '<span class="rt">' + Icon('next', 15) + '</span></button></div>';
+  }
+
+  function iconFor(a) {
+    if (a.isEvent) return evIcon(a.type);
+    const m = { bar: 'glass', cafe: 'coffee', restaurant: 'fork', brunch: 'fork', glacier: 'apple',
+      musee: 'book', galerie: 'book', exposition: 'book', monument: 'pin', cinema: 'film',
+      plage: 'sun', promenade: 'map', randonnee: 'map', velo: 'activity', vtt: 'activity',
+      ski: 'activity', spa: 'water', shopping: 'bag', karting: 'dice', bowling: 'dice', escape: 'dice' };
+    return m[a.kind] || 'activity';
+  }
+
+  function weightOf(a) {
+    const p = prefs();
+    const copy = Object.assign({}, a);
+    Reco.scorePlace(copy, ctx, {
+      favIds: new Set(Store.all('activities').filter((x) => Store.isFav('activity', x.id)).map((x) => x.id)),
+      recent: p.avoidRecent ? Reco.recentMap('activite', 45) : {}
+    });
+    /* Un événement qui a lieu aujourd'hui mérite d'être poussé. */
+    if (a.isEvent) {
+      copy._score *= a.debut === UI.day.today() ? 1.7 : 1.25;
+      if (!a.fiable) copy._score *= 0.6;
+      copy._why = (copy._why || []).concat([Events.label(a).toLowerCase()]);
+    }
+    a._why = copy._why; a._score = copy._score;
+    return copy._score;
+  }
+
+  /* ============================================================
+     Résultat
+     ============================================================ */
+  async function onResult(a, box, why) {
+    Store.log('activite', { id: a.id, label: a.nom, kind: a.kind });
+    if (global.Game) Game.award('roulette', 5);
+
+    box.innerHTML = resultCard(a, null, true, why);
+    bindResult(box, a, null);
+    if (a.isEvent) { const s = box.querySelector('[data-venue]'); if (s) s.innerHTML = ''; return; }
+
+    const p = prefs();
+    if (p.source === 'mine') return;
+    const local = Store.all('places').filter((x) => x.kind === a.kind && (!x.city || x.city === p.city));
+    let candidates = local;
+
+    if (AI.available() && needsVenue(a.kind)) {
+      const spin = box.querySelector('[data-venue]');
+      if (spin) spin.innerHTML = UI.thinking('Recherche des adresses…');
+      try { candidates = local.concat(await findVenues(a)); }
+      catch (e) {
+        const s2 = box.querySelector('[data-venue]');
+        if (s2) s2.innerHTML = '<p class="muted" style="font-size:12.5px">' + UI.esc(AI.humanError(e)) + '</p>';
+        return;
+      }
+    }
+    if (!candidates.length) { const s = box.querySelector('[data-venue]'); if (s) s.innerHTML = ''; return; }
+
+    const ranked = Reco.rank(candidates, ctx, {
+      favIds: new Set(Store.all('places').filter((x) => Store.isFav('place', x.id)).map((x) => x.id)),
+      recent: p.avoidRecent ? Reco.recentMap('etablissement', 45) : {}
+    });
+    const venue = Roulette.pick(ranked, { weight: (x) => x._score, sharpness: 1.9 });
+    box.innerHTML = resultCard(a, Object.assign(venue, { _pool: ranked.length }), false, why);
+    bindResult(box, a, venue);
+    Store.log('etablissement', { id: venue.id, label: venue.nom });
+  }
+
+  const VENUE_KINDS = new Set(['bar', 'cafe', 'restaurant', 'brunch', 'glacier', 'musee', 'galerie', 'exposition', 'cinema', 'bowling', 'karting', 'escape', 'spa', 'golf', 'shopping', 'marche', 'equitation', 'tennis']);
+  const needsVenue = (k) => VENUE_KINDS.has(k);
+
+  function resultCard(a, venue, loading, extraWhy) {
+    const title = venue ? venue.nom : a.nom;
+    const kicker = venue ? a.nom : (a.isEvent ? Events.label(a) : a.category);
+    const meta = [];
+    if (venue) {
+      if (venue.rating) meta.push(venue.rating.toFixed(1).replace('.', ',') + ' ★' + (venue.reviews ? ' · ' + UI.fmt.n(venue.reviews) + ' avis' : ''));
+      if (venue._distance != null) meta.push(UI.fmt.km(venue._distance));
+      if (venue.price) meta.push('€'.repeat(venue.price));
+      if (venue.hours) meta.push(venue.hours);
+    } else {
+      if (a.price != null) meta.push(a.price === 0 ? 'Gratuit' : '€'.repeat(a.price));
+      if (a.lieu) meta.push(a.lieu);
+      if (!a.isEvent) meta.push(a.category);
+      meta.push(UI.fmt.dur(Cal.durationOf(a)));
+    }
+    const why = Reco.why(venue || a, ctx, extraWhy);
+    const isFav = venue ? Store.isFav('place', venue.id) : Store.isFav('activity', a.id);
+
+    return '<div class="result"><div class="rbody">' +
+      '<div class="rkick">' + UI.esc(kicker) + '</div>' +
+      '<h3>' + UI.esc(title) + '</h3>' +
+      (venue && venue.pitch ? '<p class="muted" style="font-size:13.5px;margin-top:6px">' + UI.esc(venue.pitch) + '</p>' : '') +
+      (a.description ? '<p class="muted" style="font-size:13.5px;margin-top:6px">' + UI.esc(a.description) + '</p>' : '') +
+      (meta.length ? '<div class="rmeta">' + meta.map((m) => '<span>' + UI.esc(m) + '</span>').join('') + '</div>' : '') +
+      (venue && venue._pool > 1 ? '<p class="muted" style="font-size:11.5px;margin-top:8px">Choisi parmi ' + venue._pool + ' établissements</p>' : '') +
+      (a.isEvent && a.source ? '<p class="muted" style="font-size:11.5px;margin-top:8px">Source : ' + UI.esc(a.source) + '</p>' : '') +
+      (a.isEvent && !a.fiable ? '<div class="warn" style="margin-top:10px">Date et lieu à vérifier avant de te déplacer.</div>' : '') +
+      (why ? '<div class="rwhy"><b>Pourquoi ? </b>' + UI.esc(why) + '</div>' : '') +
+      '<div data-venue>' + (loading && !a.isEvent && needsVenue(a.kind) && AI.available() ? UI.thinking('Recherche des adresses…') : '') + '</div>' +
+      '<div class="ract">' +
+        (venue || a.lieu ? '<button class="btn sm primary" data-maps>' + Icon('map', 15) + 'Y aller</button>' : '') +
+        '<button class="btn sm" data-fav>' + Icon('star', 15) + (isFav ? 'Retirer' : 'Favori') + '</button>' +
+        '<button class="btn sm" data-cal>' + Icon('calendar', 15) + 'Planifier</button>' +
+        (venue ? '<button class="btn sm ghost" data-save>' + Icon('plus', 15) + 'Garder</button>' : '') +
+      '</div>' +
+      '<div class="row" style="gap:8px;margin-top:10px">' +
+        '<button class="btn sm ghost" data-like="1">Bon choix</button>' +
+        '<button class="btn sm ghost" data-like="0">Pas envie</button>' +
+      '</div>' +
+      '</div></div>';
+  }
+
+  function bindResult(box, a, venue) {
+    const q = (s) => box.querySelector(s);
+    const target = venue || a;
+    if (q('[data-maps]')) q('[data-maps]').onclick = () => openMaps(venue || { nom: a.nom, adresse: a.lieu });
+    if (q('[data-fav]')) q('[data-fav]').onclick = (e) => {
+      const on = Store.toggleFav(venue ? 'place' : 'activity', target.id);
+      UI.haptic('toggle'); UI.toast(on ? 'Ajouté aux favoris' : 'Retiré');
+      e.currentTarget.innerHTML = Icon('star', 15) + (on ? 'Retirer' : 'Favori');
+    };
+    if (q('[data-cal]')) q('[data-cal]').onclick = () => {
+      const slotFree = Cal.freeSlot(a.isEvent ? a.debut : UI.day.today(), Cal.durationOf(a));
+      Cal.add({
+        title: (venue ? venue.nom : a.nom),
+        location: venue ? (venue.adresse || cityName(prefs().city)) : (a.lieu || cityName(prefs().city)),
+        description: a.isEvent ? a.description : a.nom,
+        kind: 'activite',
+        minutes: Cal.durationOf(a),
+        date: a.isEvent ? a.debut : UI.day.today(),
+        time: slotFree ? String(slotFree.getHours()).padStart(2, '0') + ':' + String(slotFree.getMinutes()).padStart(2, '0') : null
+      });
+    };
+    if (q('[data-save]')) q('[data-save]').onclick = () => {
+      if (Store.find('places', venue.id)) { UI.toast('Déjà enregistré'); return; }
+      Store.add('places', Object.assign({}, venue, { id: venue.id, city: prefs().city, source: 'ai-kept' }));
+      UI.toast('Ajouté à mes établissements'); render();
+    };
+    box.querySelectorAll('[data-like]').forEach((b) => b.onclick = () => {
+      Reco.learn(target, b.dataset.like === '1');
+      UI.haptic(b.dataset.like === '1' ? 'success' : 'tap');
+      UI.toast(b.dataset.like === '1' ? 'Noté' : 'On évitera');
+    });
+  }
+
+  function openMaps(v) {
+    if (!v) return;
+    const provider = Store.get('mapsProvider', 'apple');
+    const q = encodeURIComponent((v.nom || '') + ' ' + (v.adresse || cityName(prefs().city)));
+    window.open(provider === 'google'
+      ? 'https://www.google.com/maps/search/?api=1&query=' + q
+      : 'https://maps.apple.com/?q=' + q, '_blank', 'noopener');
+  }
+
+  /* ============================================================
+     Surprends-moi et 3 idées
+     ============================================================ */
+
+  /* L'app règle tout : elle ignore les filtres, prend le contexte
+     complet, choisit et lance. L'utilisateur ne décide de rien. */
+  async function surprise() {
+    UI.haptic('launch');
+    const all = pool({ ignoreCategory: true, ignoreFav: true });
+    if (!all.length) { UI.toast('Rien à proposer ici'); return; }
+
+    const wx = ctx.weather;
+    const bits = [];
+    if (wx) bits.push(wx.text.toLowerCase() + ', ' + wx.temp + ' degrés');
+    bits.push(ctx.slot);
+    if (ctx.weekend) bits.push('week-end');
+    const free = Cal.timeAvailable();
+    if (free && free < 240) bits.push(UI.fmt.dur(free) + ' devant toi');
+
+    const winner = Roulette.pick(all, { weight: weightOf, sharpness: 2.2 });
+    if (!winner) return;
+
+    const box = UI.$('#actRoul').querySelector('[data-result]');
+    await Roulette.spin(UI.$('#actRoul').querySelector('.roulwin'),
+      all.map((a) => Object.assign({}, a, { label: a.nom, icon: iconFor(a) })),
+      Object.assign({}, winner, { label: winner.nom, icon: iconFor(winner) }), 2200);
+    onResult(winner, box, bits.join(', '));
+    box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  /* Trois propositions distinctes, puis la roue tranche si on hésite. */
+  function threeIdeas() {
+    const all = pool();
+    if (all.length < 3) { UI.toast('Pas assez d\'activités pour trois idées'); return; }
+    const picks = Roulette.pickMany(all, 3, { weight: weightOf, sharpness: 2 });
+
+    UI.openSheet(
+      '<div class="mbody" style="padding-top:6px">' +
+        '<h2 style="font-size:22px;margin-bottom:4px">Trois idées</h2>' +
+        '<p class="secdesc">Choisis, ou laisse la roue décider entre les trois.</p>' +
+        '<div class="list">' + picks.map((a, i) =>
+          '<button class="rowitem" data-i="' + i + '"><span class="ic">' + Icon(iconFor(a), 17) + '</span>' +
+          '<span class="tx"><b>' + UI.esc(a.nom) + '</b><small>' +
+          UI.esc(a.isEvent ? Events.label(a) : a.category) + ' · ' + UI.fmt.dur(Cal.durationOf(a)) +
+          (a.price ? ' · ' + '€'.repeat(a.price) : '') + '</small></span>' +
+          '<span class="rt">' + Icon('next', 15) + '</span></button>').join('') + '</div>' +
+        '<button class="btn primary block lg" style="margin-top:14px" data-wheel>' + Icon('dice', 17) + 'Laisser la roue décider</button>' +
+      '</div>',
+      { onMount: (s) => {
+        s.querySelectorAll('[data-i]').forEach((b) => b.onclick = () => {
+          const a = picks[+b.dataset.i];
+          UI.closeSheet();
+          const box = UI.$('#actRoul').querySelector('[data-result]');
+          onResult(a, box, 'tu l\'as choisie parmi trois');
+          box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        });
+        s.querySelector('[data-wheel]').onclick = async () => {
+          UI.closeSheet();
+          const winner = Roulette.pick(picks, { weight: weightOf });
+          const box = UI.$('#actRoul').querySelector('[data-result]');
+          await Roulette.spin(UI.$('#actRoul').querySelector('.roulwin'),
+            picks.map((a) => Object.assign({}, a, { label: a.nom, icon: iconFor(a) })),
+            Object.assign({}, winner, { label: winner.nom, icon: iconFor(winner) }), 2000);
+          onResult(winner, box, 'la roue a tranché entre trois idées');
+          box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        };
+      } }
+    );
+  }
+
+  /* ============================================================
+     Recherche d'établissements par IA
+     ============================================================ */
+  const VENUE_SCHEMA = AI.T.obj({
+    etablissements: AI.T.arr(AI.T.obj({
+      nom: AI.T.str('Nom exact'),
+      adresse: AI.T.str('Adresse ou rue'),
+      note: AI.T.num('Note sur 5, 0 si inconnue'),
+      avis: AI.T.int('Nombre d avis approximatif, 0 si inconnu'),
+      prix: AI.T.int('1 à 4'),
+      pitch: AI.T.str('Une phrase, ce qui le distingue'),
+      horaires: AI.T.str('Horaires connus, vide sinon')
+    }))
+  });
+
+  async function findVenues(a) {
+    const p = prefs();
+    const res = await AI.json(
+      "Liste des établissements réels de type « " + a.nom + " » " + prep(cityName(p.city)) + ".\n" +
+      Ctx.describe(ctx) + "\n\n" +
+      "Règles strictes :\n" +
+      "- uniquement des lieux qui existent vraiment et que tu connais ;\n" +
+      "- si tu n'es pas sûr d'un établissement, ne l'invente pas, renvoie moins de résultats ;\n" +
+      "- mets 0 pour la note et le nombre d'avis quand tu ne les connais pas plutôt que de deviner ;\n" +
+      "- huit résultats maximum.",
+      VENUE_SCHEMA, { ttl: 3 * 86400e3, temperature: 0.4 });
+
+    return (res.etablissements || []).map((v) => ({
+      id: 'ai-' + a.kind + '-' + slug(v.nom),
+      nom: v.nom, adresse: v.adresse, kind: a.kind, category: a.category,
+      rating: v.note > 0 ? v.note : null, reviews: v.avis > 0 ? v.avis : null,
+      price: v.prix || null, pitch: v.pitch, hours: v.horaires || '',
+      city: p.city, source: 'ai',
+      lat: ctx.place.lat, lon: ctx.place.lon
+    }));
+  }
+
+  /* ============================================================
+     Interactions
+     ============================================================ */
+  function bind() {
+    root.querySelectorAll('[data-cat]').forEach((b) => b.onclick = () => { UI.haptic('select'); setPrefs({ category: b.dataset.cat }); render(); });
+    root.querySelectorAll('[data-toggle]').forEach((b) => b.onclick = () => {
+      const k = b.dataset.toggle, next = !prefs()[k];
+      setPrefs({ [k]: next });
+      UI.haptic('toggle');
+      render();
+      if (k === 'events' && next && !events.length) loadEvents();
+    });
+    root.querySelectorAll('[data-budget]').forEach((b) => b.onclick = () => {
+      Store.set('budget', +b.dataset.budget); ctx.budget = +b.dataset.budget; UI.haptic('select'); render();
+    });
+    root.querySelectorAll('[data-ev]').forEach((b) => b.onclick = () => {
+      const e = events.find((x) => x.id === b.dataset.ev);
+      if (!e) return;
+      const box = UI.$('#actRoul').querySelector('[data-result]');
+      onResult(e, box, 'événement repéré ' + prep(cityName(prefs().city)));
+      box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+    const pb = root.querySelector('[data-place]');
+    if (pb) pb.onclick = placePicker;
+    root.querySelectorAll('[data-act]').forEach((b) => b.onclick = () => acts[b.dataset.act] && acts[b.dataset.act]());
+  }
+
+  const acts = {
+    addActivity: () => addActivity(),
+    places: () => managePlaces(),
+    history: () => showHistory(),
+    guide: () => App.go('#/m/city/' + prefs().city),
+    surprise: () => surprise(),
+    three: () => threeIdeas(),
+    refreshEvents: () => { Events.clearCache(ctx.place.name); events = []; loadEvents(); }
+  };
+
+  function placePicker() {
+    const list = cities();
+    UI.openSheet('<div class="mbody" style="padding-top:6px">' +
+      '<h2 style="font-size:22px;margin-bottom:12px">Où es-tu ?</h2>' +
+      '<div class="list">' + list.map((c) => '<button class="rowitem" data-c="' + UI.attr(c.id) + '">' +
+        '<span class="ic">' + Icon('pin', 17) + '</span><span class="tx"><b>' + UI.esc(c.nom) + '</b></span>' +
+        '<span class="rt">' + (prefs().city === c.id ? Icon('check', 16) : Icon('next', 15)) + '</span></button>').join('') + '</div>' +
+      '<label class="search" style="margin-top:14px;box-shadow:var(--sh-inset)">' + Icon('search', 17) +
+        '<input data-q placeholder="Chercher une autre ville" autocomplete="off"></label>' +
+      '<div data-res style="margin-top:10px"></div>' +
+      '<div class="btnrow" style="margin-top:12px">' +
+        '<button class="btn grow" data-map>' + Icon('map', 16) + 'Sur la carte</button>' +
+        '<button class="btn grow" data-locate>' + Icon('pin', 16) + 'Ma position</button>' +
+      '</div></div>', {
+      onMount: (s) => {
+        s.querySelectorAll('[data-c]').forEach((b) => b.onclick = async () => {
+          setPrefs({ city: b.dataset.c, category: 'all' });
+          const found = await Ctx.searchCity(cityName(b.dataset.c));
+          if (found[0]) Ctx.setPlace(found[0]);
+          UI.closeSheet(); await refreshCtx();
+        });
+        const q = s.querySelector('[data-q]'), out = s.querySelector('[data-res]');
+        q.oninput = UI.debounce(async () => {
+          if (q.value.trim().length < 2) { out.innerHTML = ''; return; }
+          out.innerHTML = UI.thinking('Recherche…');
+          const r = await Ctx.searchCity(q.value.trim());
+          out.innerHTML = r.length ? '<div class="list">' + r.map((c, i) =>
+            '<button class="rowitem" data-i="' + i + '"><span class="ic">' + Icon('pin', 17) + '</span>' +
+            '<span class="tx"><b>' + UI.esc(c.name) + '</b><small>' + UI.esc(c.label) + '</small></span></button>').join('') + '</div>'
+            : '<p class="muted" style="font-size:13px">Aucune ville trouvée.</p>';
+          out.querySelectorAll('[data-i]').forEach((b) => b.onclick = async () => {
+            const c = r[+b.dataset.i];
+            Ctx.setPlace(c); setPrefs({ city: slug(c.name), category: 'all' });
+            UI.closeSheet(); await refreshCtx();
+          });
+        }, 400);
+        s.querySelector('[data-map]').onclick = async () => {
+          UI.closeSheet();
+          const picked = await MapPick.pick(Ctx.place());
+          if (!picked) return;
+          Ctx.setPlace(picked); setPrefs({ city: slug(picked.name), category: 'all' });
+          await refreshCtx();
+        };
+        s.querySelector('[data-locate]').onclick = async () => {
+          try { const p = await Ctx.locate(); setPrefs({ city: slug(p.name), category: 'all' }); UI.closeSheet(); await refreshCtx(); }
+          catch (e) { UI.toast(e.message); }
+        };
+      }
+    });
+  }
+
+  async function refreshCtx() {
+    events = [];
+    ctx = await Ctx.snapshot();
+    render();
+    if (prefs().events) loadEvents();
+  }
+
+  async function addActivity() {
+    const res = await UI.promptSheet('Nouvelle activité', [
+      { name: 'nom', label: 'Nom', placeholder: 'Karting indoor' },
+      { name: 'category', label: 'Catégorie', placeholder: 'Fun' },
+      { name: 'kind', label: 'Type', type: 'select', value: 'autre', options: [
+        { v: 'bar', n: 'Bar' }, { v: 'cafe', n: 'Café' }, { v: 'restaurant', n: 'Restaurant' },
+        { v: 'glacier', n: 'Glacier' }, { v: 'musee', n: 'Musée' }, { v: 'cinema', n: 'Cinéma' },
+        { v: 'plage', n: 'Plage' }, { v: 'randonnee', n: 'Randonnée' }, { v: 'shopping', n: 'Shopping' },
+        { v: 'spa', n: 'Spa' }, { v: 'karting', n: 'Karting' }, { v: 'autre', n: 'Autre' } ] },
+      { name: 'price', label: 'Budget (0 à 4)', type: 'number', inputmode: 'numeric', value: 2 }
+    ], 'Ajouter');
+    if (!res || !res.nom) return;
+    Store.add('activities', {
+      nom: res.nom, category: res.category || 'Mes activités', kind: res.kind,
+      price: Number(res.price) || 0, city: prefs().city, source: 'user'
+    });
+    UI.toast('Activité ajoutée'); render();
+  }
+
+  function managePlaces() {
+    const list = Store.all('places');
+    UI.openSheet('<div class="mbody" style="padding-top:6px">' +
+      '<h2 style="font-size:22px;margin-bottom:4px">Mes établissements</h2>' +
+      '<p class="secdesc">Ceux que tu ajoutes toi-même passent toujours avant ceux trouvés par l\'IA.</p>' +
+      (list.length ? '<div class="list">' + list.map((p) =>
+        '<div class="rowitem"><span class="ic">' + Icon('pin', 17) + '</span>' +
+        '<span class="tx"><b>' + UI.esc(p.nom) + '</b><small>' + UI.esc(p.kind || '') + (p.adresse ? ' · ' + UI.esc(p.adresse) : '') + '</small></span>' +
+        '<button class="rt" data-rm="' + UI.attr(p.id) + '">' + Icon('trash', 16) + '</button></div>').join('') + '</div>'
+        : UI.empty('pin', 'Aucun établissement', 'Ajoute tes adresses, ou garde celles que la roue te propose.')) +
+      '<button class="btn primary block lg" style="margin-top:14px" data-add>' + Icon('plus', 17) + 'Ajouter une adresse</button>' +
+      '</div>', {
+      onMount: (s) => {
+        s.querySelectorAll('[data-rm]').forEach((b) => b.onclick = () => { Store.del('places', b.dataset.rm); UI.closeSheet(); render(); });
+        s.querySelector('[data-add]').onclick = async () => {
+          UI.closeSheet();
+          const r = await UI.promptSheet('Nouvel établissement', [
+            { name: 'nom', label: 'Nom' },
+            { name: 'kind', label: 'Type', placeholder: 'bar, restaurant, café…' },
+            { name: 'adresse', label: 'Adresse' },
+            { name: 'rating', label: 'Ta note sur 5', type: 'number', step: '0.1', value: '' },
+            { name: 'price', label: 'Budget (1 à 4)', type: 'number', value: 2 }
+          ], 'Ajouter');
+          if (!r || !r.nom) return;
+          Store.add('places', {
+            nom: r.nom, kind: (r.kind || 'autre').toLowerCase(), adresse: r.adresse,
+            rating: Number(r.rating) || null, reviews: null, price: Number(r.price) || null,
+            city: prefs().city, source: 'user', lat: ctx.place.lat, lon: ctx.place.lon
+          });
+          UI.toast('Ajouté'); render();
+        };
+      }
+    });
+  }
+
+  function showHistory() {
+    const h = Store.history('activite', 60).concat(Store.history('etablissement', 60)).sort((a, b) => b.at - a.at).slice(0, 60);
+    UI.openSheet('<div class="mbody" style="padding-top:6px"><h2 style="font-size:22px;margin-bottom:12px">Historique</h2>' +
+      (h.length ? '<div class="list">' + h.map((x) =>
+        '<div class="rowitem"><span class="ic">' + Icon(x.kind === 'activite' ? 'activity' : 'pin', 17) + '</span>' +
+        '<span class="tx"><b>' + UI.esc(x.payload.label || '') + '</b><small>' + UI.esc(UI.fmt.date(x.at)) + '</small></span></div>').join('') + '</div>'
+        : UI.empty('clock', 'Rien encore', 'Lance la roue une première fois.')) + '</div>');
+  }
+
+  App.register('activities', { mount: mount });
+  global.Activities = { mount, surprise, threeIdeas };
+})(window);
