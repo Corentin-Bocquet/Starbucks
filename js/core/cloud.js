@@ -135,6 +135,24 @@
       .upsert({ user_id: user().id, name: name, data: rows, updated_at: new Date().toISOString() }, { onConflict: 'user_id,name' });
     if (error) throw error;
   }
+  /* ---------- Profil ---------- */
+  async function getProfile() {
+    if (!ready()) return null;
+    const { data, error } = await client.from('profiles').select('*').eq('id', user().id).maybeSingle();
+    if (error) { console.warn(error); return null; }
+    return data;
+  }
+  async function updateProfile(patch) {
+    if (!ready()) throw new Error('Connexion requise');
+    const row = Object.assign({ id: user().id, updated_at: new Date().toISOString() }, patch);
+    const { error } = await client.from('profiles').upsert(row, { onConflict: 'id' });
+    if (error) throw error;
+    /* Le pseudo vit aussi dans les métadonnées du compte, c'est ce
+       que lit la barre du haut avant même le chargement du profil. */
+    if (patch.pseudo) { try { await client.auth.updateUser({ data: { pseudo: patch.pseudo } }); } catch (e) {} }
+    return row;
+  }
+
   async function getAll() {
     if (!ready()) return null;
     const uid = user().id;
@@ -222,6 +240,6 @@
     signUp, signIn, signInMagic, resetPassword, signOut,
     putSettings, putCollection, getAll,
     createSharedList, joinSharedList, myLists, listItems, addListItem, removeListItem, leaveList,
-    uploadImage, deleteImage
+    uploadImage, deleteImage, getProfile, updateProfile
   };
 })(window);

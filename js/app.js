@@ -65,16 +65,22 @@
   /* ---------- Barre superieure ---------- */
   function renderTopbar() {
     const bar = UI.$('#topbar');
+    const title = UI.$('#topTitle') ? UI.$('#topTitle').textContent : 'EVER';
     const u = global.Cloud && Cloud.ready() ? Cloud.user() : null;
     const initial = u ? (u.user_metadata && u.user_metadata.pseudo || u.email || '?').charAt(0).toUpperCase() : '';
+    const photo = Store.get('avatar', null), photoUrl = Store.get('avatarUrl', null);
+
     bar.innerHTML =
       '<button class="tbtn" id="btnHub" aria-label="Modules">' + Icon('grid', 20) + '</button>' +
-      '<div class="title" id="topTitle">EVER</div>' +
-      '<button class="tbtn" id="btnAccount" aria-label="Compte">' +
+      '<div class="title" id="topTitle">' + UI.esc(title) + '</div>' +
+      '<button class="tbtn" id="btnAccount" aria-label="Compte" style="overflow:hidden;position:relative">' +
         (initial ? '<b style="font-size:14px">' + UI.esc(initial) + '</b>' : Icon('user', 20)) +
+        ((photo || photoUrl) ? Photos.img({ photo: photo, photoUrl: photoUrl }, 'photo',
+          'position:absolute;inset:0;width:100%;height:100%;object-fit:cover') : '') +
       '</button>';
     UI.$('#btnHub').onclick = () => { UI.haptic('light'); openHub(); };
     UI.$('#btnAccount').onclick = () => { UI.haptic('light'); go('#/m/settings'); };
+    if (photo || photoUrl) Photos.hydrate(bar);
   }
 
   function setTitle(t) { const el = UI.$('#topTitle'); if (el) el.textContent = t; }
@@ -214,7 +220,20 @@
     if (!location.hash) location.hash = '#/' + Store.get('lastTab', 'cafe');
     route();
 
-    Store.on('auth', () => renderTopbar());
+    Store.on('auth', async (user) => {
+      renderTopbar();
+      if (!user) return;
+      /* À la connexion : on récupère la photo du profil si l'appareil
+         ne l'a pas, et on rattrape les photos de vêtements en fond. */
+      try {
+        const prof = await Cloud.getProfile();
+        if (prof && prof.avatar_url && !Store.get('avatarUrl', null)) {
+          Store.set('avatarUrl', prof.avatar_url);
+          renderTopbar();
+        }
+      } catch (e) {}
+      if (global.Photos) Photos.sync('garments', 'photo', 'garments').catch(() => {});
+    });
     Store.on('sync', (s) => { if (!s.ok) console.warn('[EVER] synchronisation differee'); });
 
     /* Supabase en arrière-plan : on n'attend jamais dessus. */
@@ -227,5 +246,6 @@
   }
 
   global.App = { boot, go, register, route, setTitle, TABS, MODULES, openHub, applyTheme, seedOnce,
+    refreshTopbar: renderTopbar,
     currentTab: () => current, currentModule: () => currentModule };
 })(window);

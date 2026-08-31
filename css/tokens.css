@@ -197,6 +197,49 @@ body[data-accent="brand"] {
   --accent: var(--brand); --accent-2: #D4335A; --accent-deep: var(--brand-ink); --accent-soft: var(--brand-soft);
 }
 
+/* ============================================================
+   Bandeau du héros
+
+   Le héros pose son texte sur un aplat de couleur profonde, et
+   fond le haut de la photo dans ce même aplat. En clair, l'aplat
+   est sombre et le texte est blanc.
+
+   En sombre, --accent-deep bascule volontairement vers une teinte
+   CLAIRE : c'est ce qui donne le contraste au reste de l'interface.
+   Le bandeau devient donc clair lui aussi, et un texte blanc y
+   disparaît. D'où ces jetons dédiés : l'encre du héros suit son
+   fond, et pas le thème.
+   ============================================================ */
+/* Attention au point de déclaration : l'accent de l'onglet est posé
+   sur <body>. Un var() déclaré sur :root se résout contre :root, et
+   renverrait donc toujours l'accent de marque, quel que soit
+   l'onglet. --hero-bg doit vivre sur body. */
+body { --hero-bg: var(--accent-deep); }
+
+:root {
+  --hero-ink:       #FFFFFF;
+  --hero-ink-soft:  rgba(255, 255, 255, .88);
+  --hero-ink-faint: rgba(255, 255, 255, .78);
+  --hero-chip:      rgba(255, 255, 255, .15);
+  --hero-chip-line: rgba(255, 255, 255, .22);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --hero-ink:       #14110F;
+    --hero-ink-soft:  rgba(20, 17, 15, .78);
+    --hero-ink-faint: rgba(20, 17, 15, .62);
+    --hero-chip:      rgba(20, 17, 15, .08);
+    --hero-chip-line: rgba(20, 17, 15, .14);
+  }
+}
+:root[data-theme="dark"] {
+  --hero-ink:       #14110F;
+  --hero-ink-soft:  rgba(20, 17, 15, .78);
+  --hero-ink-faint: rgba(20, 17, 15, .62);
+  --hero-chip:      rgba(20, 17, 15, .08);
+  --hero-chip-line: rgba(20, 17, 15, .14);
+}
+
 /* Accents ajustes en sombre : on remonte la luminosite pour garder le contraste. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) body[data-accent="cafe"]     { --accent:#3FBF8B; --accent-2:#5FD6A6; --accent-deep:#CFF3E4; --accent-soft:#0F2A1F; }

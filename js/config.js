@@ -27,9 +27,15 @@ window.EVER_CONFIG = {
      clé personnelle devient inutile. */
   geminiProxyUrl:  '',
 
-  /* Modeles Gemini utilisés. */
-  geminiTextModel:   'gemini-2.0-flash',
-  geminiVisionModel: 'gemini-2.0-flash',
+  /* Modèles Gemini : NE PAS figer ici.
+     L'application interroge Google au premier appel, classe ce qui
+     existe vraiment, et garde une liste ordonnée en cache pendant
+     une semaine. Ces deux valeurs ne servent que de dernier recours
+     si la liste est injoignable — Google retire des modèles sans
+     préavis, et c'est exactement ce qui a cassé l'IA la première
+     fois : gemini-2.0-flash avait disparu. */
+  geminiTextModel:   'gemini-2.5-flash',
+  geminiImageModel:  'gemini-2.5-flash-image',
 
   /* Sources de données ouvertes, sans clé. */
   weatherApi:  'https://api.open-meteo.com/v1/forecast',

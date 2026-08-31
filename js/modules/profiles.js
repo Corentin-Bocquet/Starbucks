@@ -22,8 +22,10 @@
     root.innerHTML = '<div class="wrap">' +
       '<div class="section" style="padding-top:16px">' +
         (u ? '<div class="panel row" style="gap:14px">' +
-              '<span style="width:46px;height:46px;border-radius:50%;display:grid;place-items:center;background:var(--accent);color:#fff;font-weight:800;font-size:18px">' +
-              UI.esc(((u.user_metadata && u.user_metadata.pseudo) || u.email || '?').charAt(0).toUpperCase()) + '</span>' +
+              '<span style="position:relative;width:46px;height:46px;border-radius:50%;overflow:hidden;display:grid;place-items:center;background:var(--accent);color:#fff;font-weight:800;font-size:18px">' +
+              UI.esc(((u.user_metadata && u.user_metadata.pseudo) || u.email || '?').charAt(0).toUpperCase()) +
+              Photos.img({ photo: Store.get('avatar', null), photoUrl: Store.get('avatarUrl', null) }, 'photo',
+                'position:absolute;inset:0;width:100%;height:100%;object-fit:cover') + '</span>' +
               '<div class="grow"><b style="font-size:16px">' + UI.esc((u.user_metadata && u.user_metadata.pseudo) || 'Mon compte') + '</b>' +
               '<small class="muted" style="display:block">' + UI.esc(u.email || '') + '</small></div>' +
               Game.badge() +
@@ -56,6 +58,7 @@
       '<span>Les indices privés des fiches cadeaux ne sont jamais partages, même quand la liste correspondante l\'est.</span></div></div>' +
       '</div>';
 
+    Photos.hydrate(root);
     root.querySelectorAll('[data-act]').forEach((b) => b.onclick = () => ({
       account: () => App.go('#/m/settings/compte'),
       lists: () => Lists.open(),

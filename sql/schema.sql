@@ -266,20 +266,30 @@ insert into storage.buckets (id, name, public) values ('ever-garments', 'ever-ga
   on conflict (id) do nothing;
 insert into storage.buckets (id, name, public) values ('ever-meals', 'ever-meals', true)
   on conflict (id) do nothing;
+insert into storage.buckets (id, name, public) values ('ever-avatars', 'ever-avatars', true)
+  on conflict (id) do nothing;
 
+-- Chacun n'écrit que dans son propre dossier <uid>/…, et la lecture
+-- est publique : c'est ce qui permet à un autre appareil d'afficher
+-- la photo à partir de sa seule URL.
 drop policy if exists ever_storage_insert on storage.objects;
 create policy ever_storage_insert on storage.objects for insert to authenticated
-  with check (bucket_id in ('ever-garments', 'ever-meals')
+  with check (bucket_id in ('ever-garments', 'ever-meals', 'ever-avatars')
+    and (storage.foldername(name))[1] = auth.uid()::text);
+
+drop policy if exists ever_storage_update on storage.objects;
+create policy ever_storage_update on storage.objects for update to authenticated
+  using (bucket_id in ('ever-garments', 'ever-meals', 'ever-avatars')
     and (storage.foldername(name))[1] = auth.uid()::text);
 
 drop policy if exists ever_storage_delete on storage.objects;
 create policy ever_storage_delete on storage.objects for delete to authenticated
-  using (bucket_id in ('ever-garments', 'ever-meals')
+  using (bucket_id in ('ever-garments', 'ever-meals', 'ever-avatars')
     and (storage.foldername(name))[1] = auth.uid()::text);
 
 drop policy if exists ever_storage_read on storage.objects;
 create policy ever_storage_read on storage.objects for select
-  using (bucket_id in ('ever-garments', 'ever-meals'));
+  using (bucket_id in ('ever-garments', 'ever-meals', 'ever-avatars'));
 
 -- ------------------------------------------------------------
 -- 9. Vues de lecture

@@ -69,7 +69,7 @@ côté serveur et l'app n'appelle plus Google directement.
 | **Open-Meteo** | ✅ | Météo et géocodage, sans clé, sans compte |
 | **Open Food Facts** | ✅ | 900 000 produits, code-barres compris, sans clé |
 | **OpenStreetMap** | ✅ | Carte intégrée pour choisir un lieu au doigt |
-| **Gemini** | ⚙️ clé à coller | Scan de repas, analyses, guides, événements, cadeaux, tenues |
+| **Gemini** | ⚙️ clé à coller | Scan de repas, analyses, guides, événements, cadeaux, tenues. **Le modèle n'est pas écrit en dur** : l'app interroge Google, classe ce qui existe, et bascule toute seule si un modèle est retiré ou saturé |
 | **TMDB** | ⚙️ facultatif | Affiches de films, clé gratuite |
 | **Google Calendar** | ⚠️ voir plus bas | Les événements passent par `.ics`, qui marche partout |
 | **MyFitnessPal** | ⛔ impossible | Voir plus bas |
@@ -270,6 +270,49 @@ sql/
   schema.sql            ce qui tourne réellement sur Supabase
   edge/gemini-proxy.ts  fonction edge pour cacher la clé Gemini
 ```
+
+### Pourquoi le modèle Gemini n'est écrit nulle part
+
+La première version nommait `gemini-2.0-flash` dans le code. Google l'a
+retiré, et toute l'IA de l'app est tombée d'un coup, avec pour seul indice
+un « impossible de récupérer les suggestions ». Le nom d'un modèle est une
+donnée périssable : le figer dans du code, c'est programmer une panne.
+
+`js/core/ai.js` demande donc à Google la liste de ce qui existe, la classe
+selon des intentions plutôt que des numéros — le plus récent, rapide plutôt
+que lourd, pas une variante expérimentale, ni un modèle d'embedding ou de
+transcription — et garde les cinq meilleurs en cache une semaine.
+
+Trois replis sont branchés dessus :
+
+- **modèle retiré** (404) : le cache est vidé, la liste redécouverte, l'appel
+  rejoué sur le suivant ;
+- **modèle saturé** (503, fréquent sur le tout dernier sorti) : on descend
+  d'un cran dans la liste, et celui qui a répondu remonte en tête ;
+- **réponse vide** : les Gemini 3 réfléchissent avant d'écrire et consomment
+  le budget de sortie en raisonnement. Une réponse vide avec `MAX_TOKENS`
+  n'est pas une panne, c'est un budget trop court : l'appel est rejoué avec
+  trois fois plus de marge.
+
+Réglages → **Tester l'IA** affiche le modèle réellement utilisé, le modèle
+d'images, et le nombre de modèles disponibles. En cas d'échec, il dit
+laquelle des cinq causes possibles s'applique, au lieu du message générique.
+
+### Où vivent les photos
+
+Deux endroits, et c'est voulu. **IndexedDB** sur l'appareil, pour un
+affichage instantané et hors ligne. Le **compartiment Supabase** quand un
+compte est connecté, parce qu'un identifiant IndexedDB d'ordinateur ne veut
+rien dire sur un téléphone.
+
+Chaque photo porte donc deux références : `photo` (local) et `photoUrl`
+(en ligne). L'affichage prend l'URL en secours quand le local est absent.
+La penderie dit franchement où elle en est — « 3 photos seulement sur cet
+appareil » — et propose de rattraper en un geste. À la connexion, ce qui
+manque en local est retéléchargé en tâche de fond.
+
+Sans cela, on ajoute ses vêtements sur l'ordinateur et on trouve des carrés
+vides sur le téléphone.
 
 ### Les moteurs
 

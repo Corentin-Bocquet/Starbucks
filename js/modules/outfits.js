@@ -31,6 +31,14 @@
       ctx = full;
       if (full.weather) render();
     }).catch(() => {});
+
+    /* Rattrapage discret : sur un appareil qui vient de se connecter,
+       les images n'existent qu'en ligne. On les redescend en fond. */
+    if (global.Cloud && Cloud.ready() && Store.all('garments').some((g) => g.photoUrl && !g.photo)) {
+      Photos.sync('garments', 'photo', 'garments').then((r) => {
+        if (r.down && root && root.isConnected) render();
+      }).catch(() => {});
+    }
   }
 
   function render() {
@@ -79,9 +87,9 @@
       '<h3>' + UI.esc(o.nom || 'Tenue du jour') + '</h3>' +
       '<div class="grid tight" style="grid-template-columns:repeat(auto-fill,minmax(88px,1fr));margin-top:14px">' +
         items.map((g) => '<div style="text-align:center">' +
-          '<div style="aspect-ratio:1;border-radius:var(--r-md);overflow:hidden;background:var(--surface-2)">' +
-          (g.photo ? '<img data-photo="' + UI.attr(g.photo) + '" style="width:100%;height:100%;object-fit:cover" alt="">'
-                   : '<div style="width:100%;height:100%;display:grid;place-items:center;color:var(--faint)">' + Icon('shirt', 22) + '</div>') +
+          '<div style="position:relative;aspect-ratio:1;border-radius:var(--r-md);overflow:hidden;background:var(--surface-2)">' +
+          '<div style="position:absolute;inset:0;display:grid;place-items:center;color:var(--faint)">' + Icon('shirt', 22) + '</div>' +
+          Photos.img(g, 'photo', 'position:relative;width:100%;height:100%;object-fit:cover') +
           '</div><small style="display:block;font-size:11px;margin-top:5px;color:var(--muted)">' + UI.esc(g.nom) + '</small></div>').join('') +
       '</div>' +
       (why ? '<div class="rwhy"><b>Pourquoi ? </b>' + UI.esc(why) + '</div>' : '') +
@@ -103,20 +111,70 @@
         '<b style="font-size:17px">' + all.length + ' pièce' + (all.length > 1 ? 's' : '') + '</b>' +
         '<button class="btn sm primary" data-act="addGarment">' + Icon('camera', 15) + 'Ajouter</button>' +
       '</div>' +
+      photoSyncBlock(all) +
       (all.length ? SEED.GARMENT_SLOTS.map((s) => {
         const list = bySlot(s.id);
         if (!list.length) return '';
         return '<div class="section" style="padding-top:8px"><div class="sechead"><h2 style="font-size:15px">' + UI.esc(s.nom) + '</h2><span>' + list.length + '</span></div>' +
           '<div class="grid tight" style="grid-template-columns:repeat(auto-fill,minmax(104px,1fr))">' +
           list.map((g) => '<div class="card" data-g="' + UI.attr(g.id) + '">' +
-            '<div class="ph" style="aspect-ratio:1">' +
-            (g.photo ? '<img data-photo="' + UI.attr(g.photo) + '" alt="">' : '<div style="width:100%;height:100%;display:grid;place-items:center;color:var(--faint)">' + Icon('shirt', 24) + '</div>') +
+            '<div class="ph" style="position:relative;aspect-ratio:1">' +
+            '<div style="position:absolute;inset:0;display:grid;place-items:center;color:var(--faint)">' + Icon('shirt', 24) + '</div>' +
+            Photos.img(g, 'photo', 'position:relative;width:100%;height:100%;object-fit:cover') +
             '</div><div class="bd" style="padding:8px 9px 10px"><h3 style="font-size:12.5px">' + UI.esc(g.nom) + '</h3>' +
             (g.couleurs ? '<div class="row" style="gap:3px;margin-top:5px">' + (g.couleurs || []).slice(0, 4).map((c) =>
               '<span style="width:11px;height:11px;border-radius:50%;background:' + UI.attr(c) + ';box-shadow:inset 0 0 0 1px rgba(0,0,0,.15)"></span>').join('') + '</div>' : '') +
             '</div></div>').join('') + '</div></div>';
       }).join('') : UI.empty('shirt', 'Penderie vide', 'Prends tes vêtements en photo : l\'IA reconnaît le type, les couleurs et le style.')) +
       '</div>';
+  }
+
+  /* Les photos ne suivent pas toutes seules : IndexedDB est propre à
+     un appareil. Ce bloc dit franchement où en est la penderie et
+     propose de rattraper en un geste. */
+  function photoSyncBlock(all) {
+    if (!all.length) return '';
+    const connecte = global.Cloud && Cloud.ready();
+    const aEnvoyer = Photos.pendingUploads('garments');
+    const sansRien = all.filter((g) => !g.photo && !g.photoUrl).length;
+
+    if (!connecte) {
+      if (!aEnvoyer) return '';
+      return '<div class="banner warn" style="margin-bottom:12px">' + Icon('info', 18) +
+        '<span><b>' + aEnvoyer + ' photo' + (aEnvoyer > 1 ? 's' : '') + ' seulement sur cet appareil.</b> ' +
+        'Connecte-toi pour les retrouver sur ton téléphone.</span>' +
+        '<button class="btn sm" data-act="account" style="flex:none">Compte</button></div>';
+    }
+    if (aEnvoyer) {
+      return '<div class="banner warn" style="margin-bottom:12px">' + Icon('sync', 18) +
+        '<span><b>' + aEnvoyer + ' photo' + (aEnvoyer > 1 ? 's' : '') + ' à envoyer.</b> ' +
+        'Tant qu\'elles ne sont pas en ligne, les autres appareils voient un carré vide.</span>' +
+        '<button class="btn sm primary" data-act="syncPhotos" style="flex:none">Envoyer</button></div>';
+    }
+    if (sansRien) {
+      return '<div class="banner" style="margin-bottom:12px">' + Icon('info', 18) +
+        '<span>' + sansRien + ' pièce' + (sansRien > 1 ? 's' : '') + ' sans photo. ' +
+        'Ouvre-la et ajoute-en une, ou supprime-la.</span></div>';
+    }
+    return '<div class="banner ok" style="margin-bottom:12px">' + Icon('check', 18) +
+      '<span>Toutes les photos sont en ligne : tu les retrouves sur tous tes appareils.</span></div>';
+  }
+
+  async function syncPhotos() {
+    if (!global.Cloud || !Cloud.ready()) { App.go('#/m/settings/compte'); return; }
+    const box = UI.openSheet('<div class="mbody"><h2 style="font-size:20px;margin-bottom:14px">Synchronisation des photos</h2>' +
+      '<div class="bar-track"><div class="bar-fill" data-prog style="width:2%"></div></div>' +
+      '<p class="muted" style="font-size:13px;margin-top:10px" data-msg>Préparation…</p></div>');
+    const setMsg = (t) => { const e = box.querySelector('[data-msg]'); if (e) e.textContent = t; };
+    const setProg = (a, b) => { const e = box.querySelector('[data-prog]'); if (e) e.style.width = Math.max(2, Math.round(a / Math.max(1, b) * 100)) + '%'; };
+    try {
+      const r = await Photos.sync('garments', 'photo', 'garments', (a, b) => { setProg(a, b); setMsg(a + ' sur ' + b); });
+      UI.closeSheet();
+      UI.toast(r.up + ' envoyée' + (r.up > 1 ? 's' : '') + (r.down ? ', ' + r.down + ' récupérée' + (r.down > 1 ? 's' : '') : ''));
+      render();
+    } catch (e) {
+      UI.closeSheet(); UI.toast('Synchronisation impossible pour le moment');
+    }
   }
 
   /* ============================================================
@@ -146,9 +204,9 @@
         '<button class="tbtn" data-rmoutfit="' + UI.attr(o.id) + '">' + Icon('trash', 16) + '</button>' +
       '</div>' +
       '<div class="row" style="gap:7px;overflow-x:auto">' + items.map((g) =>
-        '<div style="flex:none;width:64px;height:64px;border-radius:var(--r-sm);overflow:hidden;background:var(--surface-2)">' +
-        (g.photo ? '<img data-photo="' + UI.attr(g.photo) + '" style="width:100%;height:100%;object-fit:cover" alt="">'
-                 : '<div style="width:100%;height:100%;display:grid;place-items:center;color:var(--faint)">' + Icon('shirt', 18) + '</div>') +
+        '<div style="position:relative;flex:none;width:64px;height:64px;border-radius:var(--r-sm);overflow:hidden;background:var(--surface-2)">' +
+        '<div style="position:absolute;inset:0;display:grid;place-items:center;color:var(--faint)">' + Icon('shirt', 18) + '</div>' +
+        Photos.img(g, 'photo', 'position:relative;width:100%;height:100%;object-fit:cover') +
         '</div>').join('') + '</div></div>';
   }
 
@@ -177,7 +235,7 @@
       for (const f of files) {
         try {
           const small = await AI.shrink(f, 1000, 0.82);
-          const photoId = await Photos.put(small);
+          const saved = await Photos.save(small, 'garments');
           let meta = { nom: 'Piece ' + (garments().length + 1), slot: 'haut', couleurs: ['#888888'], styles: ['chill'], chaleur: 3 };
           if (AI.available()) {
             try {
@@ -187,7 +245,7 @@
                 GARMENT_SCHEMA, { cache: false });
             } catch (e) {}
           }
-          Store.add('garments', Object.assign({ photo: photoId }, meta));
+          Store.add('garments', Object.assign({ photo: saved.id, photoUrl: saved.url || null }, meta));
           n++;
         } catch (e) { console.warn(e); }
       }
@@ -203,7 +261,7 @@
     const g = Store.find('garments', id);
     if (!g) return;
     UI.openSheet(
-      (g.photo ? '<div class="mimg"><img data-photo="' + UI.attr(g.photo) + '" alt=""></div>' : '') +
+      ((g.photo || g.photoUrl) ? '<div class="mimg">' + Photos.img(g) + '</div>' : '') +
       '<div class="mbody"><h2 style="font-size:22px">' + UI.esc(g.nom) + '</h2>' +
       '<div class="mtags" style="margin-top:10px">' +
         '<span class="tg b">' + UI.esc((SEED.GARMENT_SLOTS.find((s) => s.id === g.slot) || {}).nom || g.slot) + '</span>' +
@@ -295,8 +353,9 @@
       slots.map((s) => '<div style="margin-bottom:16px"><h4 style="font-size:12px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.08em">' + UI.esc(s.nom) + '</h4>' +
         '<div class="row" style="gap:8px;overflow-x:auto;padding-bottom:4px">' + bySlot(s.id).map((g) =>
           '<button data-pick="' + UI.attr(g.id) + '" style="flex:none;width:72px;text-align:center">' +
-          '<div style="aspect-ratio:1;border-radius:var(--r-sm);overflow:hidden;background:var(--surface-2);box-shadow:var(--sh-inset)">' +
-          (g.photo ? '<img data-photo="' + UI.attr(g.photo) + '" style="width:100%;height:100%;object-fit:cover" alt="">' : Icon('shirt', 20)) +
+          '<div style="position:relative;aspect-ratio:1;border-radius:var(--r-sm);overflow:hidden;background:var(--surface-2);box-shadow:var(--sh-inset)">' +
+          '<div style="position:absolute;inset:0;display:grid;place-items:center;color:var(--faint)">' + Icon('shirt', 20) + '</div>' +
+          Photos.img(g, 'photo', 'position:relative;width:100%;height:100%;object-fit:cover') +
           '</div><small style="font-size:10.5px;color:var(--muted);display:block;margin-top:4px">' + UI.esc(g.nom.slice(0, 14)) + '</small></button>').join('') +
         '</div></div>').join('') +
       '<label class="field"><span>Mood</span><select data-mood>' + SEED.MOODS.map((m) => '<option value="' + m.id + '">' + m.nom + '</option>').join('') + '</select></label>' +
@@ -366,8 +425,9 @@
       input.onchange = async () => {
         const f = input.files && input.files[0];
         if (!f) return;
-        const id = await Photos.put(f, 900);
-        Store.set('portraitPhoto', id);
+        const saved = await Photos.save(f, 'garments', 900);
+        Store.set('portraitPhoto', saved.id);
+        Store.set('portraitPhotoUrl', saved.url || null);
         preview();
       };
       input.click();
@@ -377,14 +437,17 @@
     UI.openSheet('<div class="mbody">' + UI.thinking('Génération de l\'aperçu…') + '</div>');
     try {
       const items = (pick.outfit.items || []).map((id) => garments().find((g) => g.id === id)).filter(Boolean);
-      const imgs = [await Photos.get(portrait)];
-      for (const g of items.slice(0, 4)) { const p = await Photos.get(g.photo); if (p) imgs.push(p); }
+      const imgs = [await Photos.get(portrait) || Store.get('portraitPhotoUrl', null)];
+      for (const g of items.slice(0, 4)) {
+        const p = await Photos.get(g.photo) || (g.photoUrl ? await Photos.get(g.photoUrl) : null);
+        if (p) imgs.push(p);
+      }
 
-      const out = await AI.vision(imgs,
+      const res = await AI.vision(imgs,
         "La première image est un portrait. Les suivantes sont des vêtements. " +
         "Généré une image de cette personne portant exactement ces vêtements, en pied, cadrage neutre, fond uni clair, lumière naturelle. " +
         "Respecte les couleurs et les coupes des vêtements fournis.",
-        null, { model: 'gemini-2.5-flash-image', cache: false });
+        null, { kind: 'image', wantImages: true, cache: false });
 
       /* Certains modeles renvoient l'image en base64 dans le texte,
          d'autres refusent la génération de personnes reelles. */
@@ -417,6 +480,8 @@
 
   const acts = {
     addGarment: addGarment,
+    syncPhotos: syncPhotos,
+    account: () => App.go('#/m/settings/compte'),
     composeOutfit: composeOutfit,
     aiOutfits: aiOutfits,
     preview: preview,

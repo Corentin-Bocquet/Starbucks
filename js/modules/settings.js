@@ -27,8 +27,13 @@
       '<div class="section" data-sec="compte" style="padding-top:16px">' +
         '<div class="sechead"><h2 style="font-size:16px">Compte</h2></div>' +
         (u ? '<div class="list">' +
-              '<div class="rowitem"><span class="ic">' + Icon('user', 17) + '</span>' +
-                '<span class="tx"><b>' + UI.esc((u.user_metadata && u.user_metadata.pseudo) || 'Connecté') + '</b><small>' + UI.esc(u.email) + '</small></span></div>' +
+              '<button class="rowitem" data-act="avatar">' + avatarBubble(38) +
+                '<span class="tx"><b>' + UI.esc((u.user_metadata && u.user_metadata.pseudo) || 'Connecté') + '</b>' +
+                '<small>' + UI.esc(u.email) + '</small></span>' +
+                '<span class="rt">' + (Store.get('avatar', null) || Store.get('avatarUrl', null) ? 'Changer' : 'Ajouter une photo') + Icon('next', 15) + '</span></button>' +
+              '<button class="rowitem" data-act="pseudo"><span class="ic">' + Icon('edit', 17) + '</span>' +
+                '<span class="tx"><b>Pseudo</b></span>' +
+                '<span class="rt">' + UI.esc((u.user_metadata && u.user_metadata.pseudo) || '—') + Icon('next', 15) + '</span></button>' +
               '<button class="rowitem" data-act="sync"><span class="ic">' + Icon('sync', 17) + '</span>' +
                 '<span class="tx"><b>Synchroniser maintenant</b><small>' + lastSync() + '</small></span>' +
                 '<span class="rt">' + Icon('next', 15) + '</span></button>' +
@@ -65,6 +70,10 @@
           '<button class="rowitem" data-act="google"><span class="ic">' + Icon('calendar', 17) + '</span>' +
             '<span class="tx"><b>Google Calendar</b><small>' + (Store.get('googleClientId', '') ? 'Configuré' : 'Sans cela, les événements passent par un fichier .ics') + '</small></span>' +
             '<span class="rt">' + Icon('next', 15) + '</span></button>' +
+          '<button class="rowitem" data-act="diag"><span class="ic">' + Icon('activity', 17) + '</span>' +
+            '<span class="tx"><b>Tester l\'IA</b><small>' +
+            (AI.currentModel() ? 'Modèle actif : ' + UI.esc(AI.currentModel()) : 'Vérifie la clé et choisit le modèle') +
+            '</small></span><span class="rt">' + Icon('next', 15) + '</span></button>' +
           '<button class="rowitem" data-act="clearcache"><span class="ic">' + Icon('refresh', 17) + '</span>' +
             '<span class="tx"><b>Vider le cache des réponses IA</b></span><span class="rt">' + Icon('next', 15) + '</span></button>' +
         '</div>' +
@@ -154,6 +163,21 @@
       '</div>';
 
     bind();
+    Photos.hydrate(root);
+  }
+
+  /* La pastille de compte : photo si elle existe, initiale sinon. */
+  function avatarBubble(size) {
+    const id = Store.get('avatar', null), url = Store.get('avatarUrl', null);
+    const u = Cloud.ready() ? Cloud.user() : null;
+    const initiale = u ? ((u.user_metadata && u.user_metadata.pseudo) || u.email || '?').charAt(0).toUpperCase() : '?';
+    const s = size || 38;
+    return '<span class="ic" style="position:relative;width:' + s + 'px;height:' + s + 'px;border-radius:50%;overflow:hidden;' +
+      'background:var(--accent);color:#fff;font-weight:800;font-size:' + Math.round(s * 0.42) + 'px">' +
+      UI.esc(initiale) +
+      ((id || url) ? Photos.img({ photo: id, photoUrl: url }, 'photo',
+        'position:absolute;inset:0;width:100%;height:100%;object-fit:cover') : '') +
+      '</span>';
   }
 
   const row = (ic, k, v, act) => '<button class="rowitem" data-act="' + act + '"><span class="ic">' + Icon(ic, 17) + '</span>' +
@@ -175,7 +199,39 @@
       if (!await UI.confirmSheet('Se déconnecter', 'Tes données restent sur cet appareil.', false)) return;
       await Cloud.signOut(); render();
     },
-    sync: async () => { UI.toast('Synchronisation…'); await Store.pull(); await Store.push(); render(); UI.toast('A jour'); },
+    sync: async () => { UI.toast('Synchronisation…'); await Store.pull(); await Store.push(); render(); UI.toast('À jour'); },
+
+    /* Photo de compte : enregistrée comme les autres, en local et en
+       ligne, et recopiée dans le profil Supabase pour qu'elle suive
+       le compte plutôt que l'appareil. */
+    avatar: () => {
+      const input = document.createElement('input');
+      input.type = 'file'; input.accept = 'image/*';
+      input.onchange = async () => {
+        const f = input.files && input.files[0];
+        if (!f) return;
+        UI.toast('Enregistrement…');
+        try {
+          const saved = await Photos.save(f, 'avatars', 512);
+          Store.set('avatar', saved.id);
+          Store.set('avatarUrl', saved.url || null);
+          if (saved.url && Cloud.ready()) { try { await Cloud.updateProfile({ avatar_url: saved.url }); } catch (e) {} }
+          App.refreshTopbar();
+          render();
+          UI.toast(saved.url ? 'Photo enregistrée' : 'Photo enregistrée sur cet appareil');
+        } catch (e) { UI.toast("Photo impossible à enregistrer"); }
+      };
+      input.click();
+    },
+    pseudo: async () => {
+      const u = Cloud.ready() ? Cloud.user() : null;
+      const r = await UI.promptSheet('Mon pseudo', [
+        { name: 'pseudo', label: 'Pseudo', value: (u && u.user_metadata && u.user_metadata.pseudo) || '' }
+      ], 'Enregistrer');
+      if (!r || !r.pseudo) return;
+      try { await Cloud.updateProfile({ pseudo: r.pseudo }); App.refreshTopbar(); render(); UI.toast('Pseudo mis à jour'); }
+      catch (e) { UI.toast('Modification impossible'); }
+    },
     supabase: async () => {
       const r = await UI.promptSheet('Projet Supabase', [
         { name: 'url', label: 'URL du projet', value: Store.get('supabaseUrl', ''), placeholder: 'https://xxxx.supabase.co', hint: 'Réglages > API > Project URL' },
@@ -203,8 +259,9 @@
       Store.set('geminiProxyUrl', r.proxy.trim());
       if (r.key.trim() || r.proxy.trim()) {
         UI.toast('Vérification…');
-        try { await AI.ask('Réponds uniquement par : ok', { cache: false, maxTokens: 10 }); UI.toast('IA active'); }
-        catch (e) { UI.toast(AI.humanError(e)); }
+        AI.forget();
+        const t = await AI.selfTest();
+        UI.toast(t.ok ? 'IA active · ' + t.model : t.message);
       }
       render();
     },
@@ -225,7 +282,30 @@
       if (!r) return;
       Store.set('googleClientId', r.id.trim()); render();
     },
-    clearcache: () => { AI.clearCache(); UI.toast('Cache vide'); },
+    clearcache: () => { AI.clearCache(); AI.forget(); UI.toast('Cache vidé'); render(); },
+
+    /* Diagnostic : dit exactement ce qui bloque, plutôt que le
+       sempiternel « impossible de récupérer les suggestions ». */
+    diag: async () => {
+      UI.openSheet('<div class="mbody">' + UI.thinking('Test en cours…') + '</div>');
+      AI.forget();
+      const r = await AI.selfTest();
+      UI.openSheet('<div class="mbody" style="padding-top:6px">' +
+        '<h2 style="font-size:22px;margin-bottom:12px">' + (r.ok ? "L'IA répond" : "L'IA ne répond pas") + '</h2>' +
+        (r.ok
+          ? '<div class="banner ok">' + Icon('check', 18) + '<span>Tout fonctionne.</span></div>' +
+            '<div class="list" style="margin-top:12px">' +
+              '<div class="rowitem"><span class="tx"><b>Modèle texte</b></span><span class="rt">' + UI.esc(r.model) + '</span></div>' +
+              (r.imageModel ? '<div class="rowitem"><span class="tx"><b>Modèle image</b></span><span class="rt">' + UI.esc(r.imageModel) + '</span></div>' : '') +
+              (r.count ? '<div class="rowitem"><span class="tx"><b>Modèles disponibles</b></span><span class="rt">' + r.count + '</span></div>' : '') +
+            '</div>' +
+            '<p class="muted" style="font-size:12px;margin-top:12px">Le modèle est choisi automatiquement parmi ce que Google expose, ' +
+            "et revérifié chaque semaine. Si Google en retire un, l'application bascule toute seule.</p>"
+          : '<div class="banner danger">' + Icon('alert', 18) + '<span>' + UI.esc(r.message) + '</span></div>' +
+            (r.detail ? '<p class="muted" style="font-size:11.5px;margin-top:12px;word-break:break-word">' + UI.esc(String(r.detail).slice(0, 300)) + '</p>' : '')) +
+        '<button class="btn block" style="margin-top:16px" data-sheet-close>Fermer</button></div>');
+      render();
+    },
 
     /* --- Objectifs --- */
     goalsFood: async () => {
