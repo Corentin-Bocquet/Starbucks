@@ -1,0 +1,212 @@
+/* ============================================================
+   EVER — Jetons de design
+   Une seule source de verite pour les couleurs, l'espace,
+   les rayons, les ombres et les durées.
+   Clair par défaut, sombre automatique, forcable par data-theme.
+   ============================================================ */
+
+:root {
+  /* --- Marque --- */
+  --brand:            #B00A32;
+  --brand-strong:     #8C0627;
+  --brand-soft:       #F6E4E9;
+  --brand-ink:        #5E0219;
+
+  /* --- Surfaces --- */
+  --bg:               #F6F4F3;
+  --bg-elev:          #FFFFFF;
+  --surface:          #FFFFFF;
+  --surface-2:        #F1EEEC;
+  --surface-3:        #E7E2DF;
+  --hairline:         rgba(16, 14, 13, .08);
+  --hairline-strong:  rgba(16, 14, 13, .14);
+
+  /* --- Texte --- */
+  --ink:              #14110F;
+  --ink-2:            #4A4441;
+  --muted:            #857D78;
+  --faint:            #B3ABA6;
+  --on-brand:         #FFFFFF;
+
+  /* --- États --- */
+  --ok:               #1F7A46;
+  --ok-soft:          #E6F4EC;
+  --warn:             #B4720B;
+  --warn-soft:        #FBF1DF;
+  --danger:           #C0342B;
+  --danger-soft:      #FBEAE8;
+  --info:             #2C5F8A;
+  --info-soft:        #E7F0F7;
+
+  /* --- Paliers de gamification --- */
+  --tier-lead:        #8E8E93;
+  --tier-bronze:      #A9713C;
+  --tier-argent:      #8E96A3;
+  --tier-or:          #C79A32;
+  --tier-platine:     #4FA8A0;
+
+  /* --- Accent contextuel (surcharge par onglet) --- */
+  --accent:           var(--brand);
+  --accent-2:         #D4335A;
+  --accent-deep:      var(--brand-ink);
+  --accent-soft:      var(--brand-soft);
+
+  /* --- Rayons --- */
+  --r-xs:  8px;
+  --r-sm:  12px;
+  --r-md:  16px;
+  --r-lg:  22px;
+  --r-xl:  28px;
+  --r-2xl: 34px;
+  --r-pill: 999px;
+
+  /* --- Espace (echelle 4) --- */
+  --s-1: 4px;  --s-2: 8px;  --s-3: 12px; --s-4: 16px;
+  --s-5: 20px; --s-6: 24px; --s-7: 32px; --s-8: 40px;
+  --s-9: 56px; --s-10: 72px;
+
+  /* --- Ombres --- */
+  --sh-1: 0 1px 2px rgba(20,17,15,.05);
+  --sh-2: 0 2px 6px rgba(20,17,15,.06), 0 10px 24px rgba(20,17,15,.05);
+  --sh-3: 0 4px 10px rgba(20,17,15,.07), 0 20px 46px rgba(20,17,15,.10);
+  --sh-4: 0 10px 24px rgba(20,17,15,.12), 0 32px 70px rgba(20,17,15,.18);
+  --sh-inset: inset 0 0 0 1px var(--hairline);
+
+  /* --- Typographie --- */
+  --font: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-num: 'Inter', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --t-xs:   11px;
+  --t-sm:   12.5px;
+  --t-base: 15px;
+  --t-md:   17px;
+  --t-lg:   20px;
+  --t-xl:   24px;
+  --t-2xl:  30px;
+  --t-3xl:  38px;
+
+  /* --- Mouvement --- */
+  --spring: cubic-bezier(.2, .85, .3, 1);
+  --ease:   cubic-bezier(.4, 0, .2, 1);
+  --d-fast: .16s;
+  --d-base: .24s;
+  --d-slow: .42s;
+
+  /* --- Gabarit --- */
+  --maxw: 1100px;
+  --gut: 18px;
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --tabbar-h: 58px;
+  --tabbar: calc(var(--tabbar-h) + var(--safe-b));
+  --topbar-h: 52px;
+  --topbar: calc(var(--topbar-h) + var(--safe-t));
+
+  color-scheme: light;
+}
+
+/* --- Sombre : automatique, sauf si l'utilisateur force le clair --- */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg:              #0E0C0C;
+    --bg-elev:         #171414;
+    --surface:         #1A1717;
+    --surface-2:       #221E1E;
+    --surface-3:       #2C2727;
+    --hairline:        rgba(255,255,255,.08);
+    --hairline-strong: rgba(255,255,255,.16);
+
+    --ink:    #F5F1EF;
+    --ink-2:  #C8C1BD;
+    --muted:  #918884;
+    --faint:  #5E5754;
+
+    --brand:        #E23A5E;
+    --brand-strong: #F2607E;
+    --brand-soft:   #2E1219;
+    --brand-ink:    #FFD9E1;
+
+    --ok:      #4ADE80;  --ok-soft:     #12271B;
+    --warn:    #F2B23C;  --warn-soft:   #2A2010;
+    --danger:  #FF6B5E;  --danger-soft: #2E1512;
+    --info:    #6FB2E8;  --info-soft:   #12222E;
+
+    --sh-1: 0 1px 2px rgba(0,0,0,.4);
+    --sh-2: 0 2px 6px rgba(0,0,0,.45), 0 10px 24px rgba(0,0,0,.35);
+    --sh-3: 0 4px 10px rgba(0,0,0,.5), 0 20px 46px rgba(0,0,0,.45);
+    --sh-4: 0 10px 24px rgba(0,0,0,.55), 0 32px 70px rgba(0,0,0,.6);
+
+    color-scheme: dark;
+  }
+}
+
+/* --- Sombre force --- */
+:root[data-theme="dark"] {
+  --bg:              #0E0C0C;
+  --bg-elev:         #171414;
+  --surface:         #1A1717;
+  --surface-2:       #221E1E;
+  --surface-3:       #2C2727;
+  --hairline:        rgba(255,255,255,.08);
+  --hairline-strong: rgba(255,255,255,.16);
+
+  --ink:    #F5F1EF;
+  --ink-2:  #C8C1BD;
+  --muted:  #918884;
+  --faint:  #5E5754;
+
+  --brand:        #E23A5E;
+  --brand-strong: #F2607E;
+  --brand-soft:   #2E1219;
+  --brand-ink:    #FFD9E1;
+
+  --ok:      #4ADE80;  --ok-soft:     #12271B;
+  --warn:    #F2B23C;  --warn-soft:   #2A2010;
+  --danger:  #FF6B5E;  --danger-soft: #2E1512;
+  --info:    #6FB2E8;  --info-soft:   #12222E;
+
+  --sh-1: 0 1px 2px rgba(0,0,0,.4);
+  --sh-2: 0 2px 6px rgba(0,0,0,.45), 0 10px 24px rgba(0,0,0,.35);
+  --sh-3: 0 4px 10px rgba(0,0,0,.5), 0 20px 46px rgba(0,0,0,.45);
+  --sh-4: 0 10px 24px rgba(0,0,0,.55), 0 32px 70px rgba(0,0,0,.6);
+
+  color-scheme: dark;
+}
+
+/* ============================================================
+   Accents contextuels par onglet du Codex.
+   On garde la direction artistique d'origine : vert pour le cafe,
+   prune pour le bar, terre cuite pour les recettes.
+   ============================================================ */
+body[data-accent="cafe"] {
+  --accent: #00643C; --accent-2: #008E65; --accent-deep: #0B4A31; --accent-soft: #DEEFE8;
+}
+body[data-accent="bar"] {
+  --accent: #7B2D56; --accent-2: #C9457B; --accent-deep: #3B1630; --accent-soft: #F3E3EC;
+}
+body[data-accent="recettes"] {
+  --accent: #A8542A; --accent-2: #C97A3C; --accent-deep: #5C2C13; --accent-soft: #F6E7DA;
+}
+body[data-accent="food"] {
+  --accent: #1F7A46; --accent-2: #35A967; --accent-deep: #0E3D22; --accent-soft: #E3F3EA;
+}
+body[data-accent="health"] {
+  --accent: #2C5F8A; --accent-2: #4A8CC2; --accent-deep: #16344B; --accent-soft: #E4EEF6;
+}
+body[data-accent="brand"] {
+  --accent: var(--brand); --accent-2: #D4335A; --accent-deep: var(--brand-ink); --accent-soft: var(--brand-soft);
+}
+
+/* Accents ajustes en sombre : on remonte la luminosite pour garder le contraste. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) body[data-accent="cafe"]     { --accent:#3FBF8B; --accent-2:#5FD6A6; --accent-deep:#CFF3E4; --accent-soft:#0F2A1F; }
+  :root:not([data-theme="light"]) body[data-accent="bar"]      { --accent:#E9749F; --accent-2:#F49BBB; --accent-deep:#FBDCE7; --accent-soft:#2A1220; }
+  :root:not([data-theme="light"]) body[data-accent="recettes"] { --accent:#E39A63; --accent-2:#F0B584; --accent-deep:#F8E4D3; --accent-soft:#2C1A0E; }
+  :root:not([data-theme="light"]) body[data-accent="food"]     { --accent:#4ADE80; --accent-2:#6FE79B; --accent-deep:#D6F7E3; --accent-soft:#0F2A1B; }
+  :root:not([data-theme="light"]) body[data-accent="health"]   { --accent:#6FB2E8; --accent-2:#93C8F1; --accent-deep:#D9ECFA; --accent-soft:#12222E; }
+}
+:root[data-theme="dark"] body[data-accent="cafe"]     { --accent:#3FBF8B; --accent-2:#5FD6A6; --accent-deep:#CFF3E4; --accent-soft:#0F2A1F; }
+:root[data-theme="dark"] body[data-accent="bar"]      { --accent:#E9749F; --accent-2:#F49BBB; --accent-deep:#FBDCE7; --accent-soft:#2A1220; }
+:root[data-theme="dark"] body[data-accent="recettes"] { --accent:#E39A63; --accent-2:#F0B584; --accent-deep:#F8E4D3; --accent-soft:#2C1A0E; }
+:root[data-theme="dark"] body[data-accent="food"]     { --accent:#4ADE80; --accent-2:#6FE79B; --accent-deep:#D6F7E3; --accent-soft:#0F2A1B; }
+:root[data-theme="dark"] body[data-accent="health"]   { --accent:#6FB2E8; --accent-2:#93C8F1; --accent-deep:#D9ECFA; --accent-soft:#12222E; }
