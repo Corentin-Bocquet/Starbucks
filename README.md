@@ -1,11 +1,30 @@
 # EVER
 
+**En ligne : [corentin-bocquet.github.io/Starbucks](https://corentin-bocquet.github.io/Starbucks/)**
+
 Une seule application pour décider : quoi boire, quoi manger, quoi faire,
 quoi regarder, quoi offrir, quoi porter, et où en est ta forme.
 
-Application web installable sur l'écran d'accueil iPhone. Aucun serveur
-obligatoire : tout fonctionne en local, le compte et le partage sont
-optionnels.
+PWA installable sur l'écran d'accueil iPhone, sous le nom **EVER**.
+Base de données et comptes déjà branchés. L'IA se débloque avec une clé.
+
+---
+
+## Démarrer en deux minutes
+
+| # | Étape | Détail |
+|---|---|---|
+| 1 | **Ouvrir le site sur iPhone** | Safari → Partager → *Sur l'écran d'accueil* → **EVER** |
+| 2 | **Coller la clé Gemini** | Hub (bouton grille) → Réglages → *Clé Gemini*. À créer sur [aistudio.google.com](https://aistudio.google.com/apikey) |
+| 3 | **Créer son compte** | Réglages → *Créer un compte*. Facultatif : tout marche sans, mais rien ne se synchronise ni ne se partage |
+
+C'est tout. Rien d'autre à configurer.
+
+**La clé Gemini n'est pas dans le dépôt, et c'est délibéré.** Une clé Google
+en clair dans un dépôt public est lisible par tout le monde et le quota se
+vide en quelques heures. Ici elle reste sur ton téléphone. Pour une vraie
+mise en production, déploie `sql/edge/gemini-proxy.ts` : la clé passe alors
+côté serveur et l'app n'appelle plus Google directement.
 
 ---
 
@@ -15,15 +34,15 @@ optionnels.
 
 | Onglet | Contenu |
 |---|---|
-| **Café** | 103 boissons de la carte Starbucks décomposées en millilitres, ordre d'assemblage, réglages De'Longhi Eletta Explore |
+| **Café** | 103 boissons Starbucks décomposées en millilitres, ordre d'assemblage, réglages De'Longhi Eletta Explore |
 | **Bar** | 21 cocktails aux dosages IBA, bar à cocher, liste de courses automatique |
-| **Recettes** | 22 recettes de famille avec photos et quantités d'origine |
+| **Recettes** | 22 recettes de famille, photos et quantités d'origine |
 | **Alimentation** | Journal, macros, scan de repas par photo, analyse du jour, passerelle MyFitnessPal |
 | **Santé** | Import Apple Santé, tableau de bord, tendances, lecture de la forme |
 
 **Huit modules dans le hub** — le bouton en grille, en haut à gauche.
 
-| Module | Question à laquelle il répond |
+| Module | Question |
 |---|---|
 | Activités | Qu'est-ce qu'on fait ? |
 | Aliments | Qu'est-ce qu'on mange ? |
@@ -34,183 +53,257 @@ optionnels.
 | Profils | Avec qui je partage quoi ? |
 | Progression | Où j'en suis ? |
 
+**Trois façons de décider**, dans Activités comme dans Aliments :
+
+- **TOURNER** — le hasard pondéré par le contexte
+- **SURPRENDS-MOI** — l'app règle tout elle-même et lance
+- **3 IDÉES** — trois propositions, et la roue tranche si on hésite
+
 ---
 
-## Ce qui marche, et ce qui ne peut pas marcher
+## Ce qui est déjà branché
 
-Autant le dire clairement plutôt que de le découvrir à l'usage.
-
-| Fonction demandée | État | Pourquoi |
+| Service | État | Détail |
 |---|---|---|
-| Lire et écrire sur **MyFitnessPal** | **Impossible en direct** | MyFitnessPal a fermé son API publique en 2020. L'accès est réservé aux partenaires sous contrat. Aucune bibliothèque ne contourne cela sans stocker ton mot de passe, ce qu'on ne fera pas. **À la place :** import du CSV exporté depuis MFP, export d'un CSV réimportable, et une couche `Food.Bridge` prête à recevoir une vraie API le jour où l'accès existe. |
-| Connexion **Apple Santé** en direct | **Impossible depuis le web** | HealthKit est une API native iOS. Aucune page web, aucune PWA, aucun connecteur ne peut y accéder. Ce n'est pas une limite de l'app, c'est une limite d'iOS. **À la place :** un importeur complet de l'export Apple Santé (`export.zip` ou `export.xml`), qui lit pas, distance, énergie, fréquence cardiaque, variabilité, VO2 max, sommeil, poids, entraînements, et agrège tout par jour. |
-| Recherche d'établissements réels | **Partiel** | Gemini connaît beaucoup d'adresses, mais peut se tromper. L'app lui interdit d'inventer et affiche moins de résultats plutôt que des faux. Vérifie avant de te déplacer. |
-| Génération d'une photo de toi habillé | **Expérimental** | Le modèle image de Google refuse souvent de représenter une personne réelle. Le bouton existe, l'échec est expliqué proprement. |
-| Google Calendar | **Optionnel** | Sans identifiant OAuth, les événements passent par un fichier `.ics` qui s'ouvre dans Calendrier iOS. C'est plus simple et ça marche partout. Avec un identifiant, l'app écrit directement dans l'agenda. |
+| **Supabase** | ✅ opérationnel | Projet `qjxeimsinxqvlodsusww`, schéma `ever`, RLS partout, compartiments de stockage créés, inscription et synchronisation testées de bout en bout |
+| **Open-Meteo** | ✅ | Météo et géocodage, sans clé, sans compte |
+| **Open Food Facts** | ✅ | 900 000 produits, code-barres compris, sans clé |
+| **OpenStreetMap** | ✅ | Carte intégrée pour choisir un lieu au doigt |
+| **Gemini** | ⚙️ clé à coller | Scan de repas, analyses, guides, événements, cadeaux, tenues |
+| **TMDB** | ⚙️ facultatif | Affiches de films, clé gratuite |
+| **Google Calendar** | ⚠️ voir plus bas | Les événements passent par `.ics`, qui marche partout |
+| **MyFitnessPal** | ⛔ impossible | Voir plus bas |
+| **Apple Santé** | ⛔ pas d'API web | Voir plus bas |
+
+### Pourquoi le schéma `ever` et pas un projet dédié
+
+Le plan gratuit Supabase plafonne à **deux projets actifs**, et les deux
+places étaient prises (`learno` et `WALLET`). Plutôt que de mettre un de tes
+projets en pause sans te demander, EVER vit dans son propre **schéma
+Postgres** à l'intérieur du projet WALLET.
+
+Ce n'est pas un bricolage : un schéma est une frontière réelle. Aucune table
+partagée, aucune collision de noms possible — WALLET a lui aussi des tables
+`profiles` et `user_settings` —, des policies RLS indépendantes, et le client
+configuré avec `db: { schema: 'ever' }` ne voit rien d'autre. Seul
+`auth.users` est commun, ce qui est plutôt confortable : un seul compte pour
+les deux applications.
+
+Si tu veux un projet dédié : mets `learno` en pause, crée le projet, colle
+`sql/schema.sql` en remplaçant `ever.` par `public.`, et change trois lignes
+dans `js/config.js`. Dix minutes.
 
 ---
 
-## Installation
+## Les trois murs, et ce qu'il y a à la place
 
-### 1. Mettre en ligne
+Ce sont des limites de plateforme, pas des raccourcis.
 
-Le dépôt est un site statique, sans build. Copie tous les fichiers à la
-racine du dépôt GitHub, active GitHub Pages, c'est en ligne.
+### MyFitnessPal
 
-### 2. Sur iPhone
+L'API publique est **fermée depuis 2020**. L'accès est réservé aux
+partenaires sous contrat commercial. Aucune bibliothèque ne contourne cela
+sans stocker ton mot de passe MyFitnessPal, ce qu'on ne fera pas.
 
-Ouvre le site dans Safari, bouton Partager, **Sur l'écran d'accueil**.
-L'app apparaît sous le nom **EVER** avec l'icône fournie, en plein écran,
-sans barre Safari.
+**À la place** : import du CSV exporté depuis MFP, export d'un CSV
+réimportable, et une couche `Food.Bridge` dont l'interface est déjà celle
+d'une vraie API — le jour où l'accès existe, on ajoute un adaptateur sans
+toucher au reste.
 
-### 3. Activer l'IA (2 minutes)
+### Apple Santé
 
-Le scan de repas, les analyses, le guide de ville, les idées cadeaux et
-les recommandations passent par Gemini.
+HealthKit est une **API native iOS**. Aucune page web, aucune PWA, aucun
+connecteur ne peut y accéder. Ce n'est pas une limite de l'app, c'est une
+limite d'iOS.
 
-1. Crée une clé sur [aistudio.google.com](https://aistudio.google.com/apikey)
-2. Dans EVER : hub → Réglages → **Clé Gemini**
-3. Colle la clé
+**À la place** : un importeur complet de l'export Apple Santé
+(`export.zip` ou `export.xml`), lu **par tranches de 4 Mo dans le
+navigateur** — un export fait souvent 300 Mo. Il couvre 22 types HealthKit
+et les entraînements, déduplique les mesures iPhone/Watch, agrège par jour.
+Santé → photo de profil → *Exporter toutes les données*.
 
-**La clé n'est pas dans le code, et c'est volontaire.** Une clé Google
-posée en clair dans un dépôt public est lisible par tout le monde et le
-quota se vide en quelques heures. Ici elle reste sur ton téléphone.
+### Google Calendar
 
-Pour une vraie mise en production, déploie la fonction edge
-`sql/edge/gemini-proxy.ts` : la clé reste alors côté serveur et l'app
-n'appelle plus Google directement.
+Créer un identifiant OAuth Google demande de passer par la console Google
+Cloud : créer un projet, configurer l'écran de consentement, déclarer le
+domaine autorisé. **Il n'existe aucune API pour faire ça à ta place** — c'est
+précisément le but d'un écran de consentement.
 
-### 4. Activer le compte et le partage (optionnel)
+**À la place** : chaque événement génère un fichier `.ics`. Sur iPhone il
+s'ouvre directement dans Calendrier, et si ton calendrier par défaut est un
+compte Google, l'événement atterrit dans Google Calendar. Zéro configuration,
+zéro autorisation à accorder.
 
-Sans compte, tout fonctionne, mais les données restent sur l'appareil et
-rien ne se partage.
+Si tu veux quand même l'API : console Google Cloud → *Identifiants* →
+*ID client OAuth* → type « Application Web » → origine autorisée
+`https://corentin-bocquet.github.io` → colle l'identifiant dans Réglages.
+Le code est déjà là et l'utilisera automatiquement.
 
-1. Crée un projet sur [supabase.com](https://supabase.com) (gratuit)
-2. Éditeur SQL → colle tout `sql/schema.sql` → Run
-3. Dans EVER : Réglages → **Renseigner un projet Supabase** → colle l'URL
-   et la clé publique (`anon`)
-
-L'URL et la clé `anon` sont faites pour être publiques : ce sont les
-policies RLS du schéma qui protègent les données, pas le secret de la clé.
-Tu peux donc aussi les écrire directement dans `js/config.js`.
-
-### 5. Affiches de films (optionnel)
-
-Une clé gratuite sur [themoviedb.org](https://www.themoviedb.org/settings/api),
-collée dans Réglages → **Clé TMDB**, ajoute les affiches et les fiches de
-films. Sans elle, le module marche avec des vignettes sobres.
+**Et le calendrier intelligent fonctionne sans tout ça** : l'app connaît son
+propre agenda, prévient avant de poser deux choses au même moment, propose
+un créneau libre, calcule le temps restant dans la journée et écarte de la
+roue ce qui n'y rentre pas.
 
 ---
 
-## Les bugs corrigés
+## L'audit des 138 points
 
-**Le texte des héros par-dessus les images.** C'était le plus visible, sur
-les trois onglets et sur tout iPhone. La cause : le bloc de texte était
-ancré en bas de la carte, en superposition, alors que les photos sont des
-plans produits en 16:9 dont le sujet occupe la moitié basse. Sur un écran
-étroit, la carte devient presque carrée, le texte s'étire et retombe
-pile sur les tasses, les verres et les plats.
+| Section | Points | État |
+|---|---|---|
+| 0 – 5 · Règles, inspection, DA, icônes, icône d'app | 1-5 | ✅ |
+| 6 · Hub des fonctionnalités | 6 | ✅ bouton grille en haut à gauche |
+| 7 · Architecture par moteurs | 7 | ✅ Roulette, Reco, AI, Ctx, Lists, Cal, Nutrition, Events |
+| 8 – 15 · Activités, roulette, types, établissements, pondération, score, distance | 8-15 | ✅ |
+| 16 – 18 · Localisation, carte, Maps/Plans | 16-18 | ✅ carte Leaflet + OpenStreetMap intégrée |
+| 19 – 21 · Météo, date et heure, saison | 19-21 | ✅ |
+| 22 · Événements | 22 | ✅ recherche Gemini, dates vérifiées, rien de périmé, source affichée |
+| 23 – 27 · Budget, favoris, historique, apprentissage, activités perso | 23-27 | ✅ 👍👎 partout |
+| 28 – 29 · Le Touquet, Méribel | 28-29 | ✅ listes exactes, adaptation saisonnière |
+| 30 – 38 · Aliments, listes, catégories, partage, groupes | 30-38 | ✅ listes reprises telles quelles |
+| 39 – 45 · Cadeaux, roue, partage, IA, indices privés, lieux d'achat | 39-45 | ✅ |
+| 46 – 48 · Cadeaux + calendrier, Google Calendar, planification | 46-48 | ✅ / ⚠️ OAuth à créer par toi / ✅ |
+| 49 – 58 · Cinéma et séries | 49-58 | ✅ |
+| 59 – 74 · Guide de ville | 59-74 | ✅ contexte solo/couple/amis/famille, roue depuis le guide, sources et date |
+| 75 – 83 · Nutrition, MyFitnessPal | 75-83 | ⛔ API fermée · pont par fichiers |
+| 84 – 88 · Calendrier partout | 84-88 | ✅ |
+| 89 – 90 · Recommandation unifiée, « Pourquoi ? » | 89-90 | ✅ |
+| 91 – 92 · Surprends-moi, 3 idées | 91-92 | ✅ |
+| 93 – 99 · Design, principe Apple, performance, erreurs, hors ligne, ajout rapide | 93-99 | ✅ |
+| 100 – 103 · Historique, favoris, personnalisation, généricité | 100-103 | ✅ |
+| 104 – 108 · Supabase, RLS, partage, profils | 104-108 | ✅ déployé et testé |
+| 109 – 110 · Intégrations externes | 109-110 | ✅ celles qui existent réellement |
+| 111 – 115 · UX des résultats, mobile, responsive, animations, accessibilité | 111-115 | ✅ |
+| 116 – 123 · Tests | 116-123 | ✅ tests navigateur automatisés, zéro erreur console |
+| 124 – 138 · Phases et philosophie | 124-138 | ✅ |
 
-La correction ne déplace pas le texte, elle sépare les deux zones : le
-texte a désormais sa propre bande, au-dessus, sur la couleur profonde de
-l'onglet, et l'image occupe la bande du dessous avec un dégradé qui fond
-son haut dans cette couleur. Aucune superposition n'est plus possible,
-quelle que soit la longueur du titre ou la largeur de l'écran. Sur écran
-large, les deux zones passent côte à côte.
+Trois points restent partiellement bloqués, toujours les mêmes : 47 (OAuth
+Google), 75-83 (MyFitnessPal), et la connexion directe à Apple Santé. Les
+trois sont des murs de plateforme, pas des raccourcis.
 
-**Autres corrections au passage :** barre de recherche écrasée par le
-sélecteur de taille sur iPhone, écrans qui attendaient la météo avant de
-s'afficher, emoji d'interface remplacés par un jeu d'icônes cohérent,
-zones tactiles remontées à 44 px, safe areas et Dynamic Island prises en
-compte partout.
+---
+
+## Ce qui a été corrigé
+
+**Le texte des héros par-dessus les images.** Le bug le plus visible, sur les
+trois onglets et sur tout iPhone. La cause : le bloc de texte était ancré
+**en bas** de la carte, en superposition, alors que les photos sont des plans
+produits en 16:9 dont le sujet occupe la moitié basse. Sur un écran étroit,
+la carte devient presque carrée, le texte s'étire et retombe pile sur les
+tasses, les verres et les plats.
+
+La correction ne déplace pas le texte, elle **sépare les deux zones** : le
+texte a sa propre bande, au-dessus, sur la couleur profonde de l'onglet, et
+l'image occupe la bande du dessous avec un dégradé qui fond son haut dans
+cette couleur. Aucune superposition n'est plus possible, quelle que soit la
+longueur du titre ou la largeur de l'écran. Sur écran large, les deux zones
+passent côte à côte.
+
+**Au passage** : barre de recherche écrasée par le sélecteur de taille sur
+iPhone, écrans qui attendaient la météo avant de s'afficher, emoji
+d'interface remplacés par un jeu d'icônes cohérent, zones tactiles à 44 px,
+safe areas et Dynamic Island partout, contractions françaises correctes
+(« au Touquet », pas « à Le Touquet »).
+
+---
+
+## Ce qui vient de WALLET
+
+Le projet WALLET a servi de référence, comme demandé :
+
+- **Retour sonore et haptique** — même principe : les sons sont décodés une
+  fois puis rejoués via WebAudio, parce qu'un `<audio>` par clic sature et
+  retarde sur iOS. Contexte créé au premier geste, comme l'exige Safari.
+  Onze sons repris, convertis en MP3 (116 Ko au lieu de 644 Ko). Coupés par
+  défaut, activables dans Réglages.
+- **La densité et le calme** — beaucoup d'air vertical, peu d'éléments par
+  écran, rayons généreux, boutons complètement arrondis, chiffres gros et
+  serrés, libellés gris moyen.
+- **La séparation tokens / base / composants**, et le découpage
+  `lib` + `components` + `engine` + `data`, qu'EVER suit à l'identique.
+- **« Je regarde → je comprends. Je clique → j'apprends. »** — c'est
+  exactement ce que fait le bouton *Pourquoi ?* sur chaque résultat.
+
+Ce qui n'a **pas** été repris : le fond noir absolu et l'accent lime. EVER
+garde la direction artistique du Codex — vert pour le café, prune pour le
+bar, terre cuite pour les recettes — parce qu'elle est bonne et qu'elle
+porte l'identité du projet.
 
 ---
 
 ## Architecture
 
-Pas de build, pas de framework, pas de dépendance obligatoire. Du
-JavaScript qui tourne tel quel, ouvrable et modifiable directement.
+Pas de build, pas de framework, pas de dépendance obligatoire. Du JavaScript
+qui tourne tel quel.
 
 ```
 index.html              coque : barre haute, cinq vues, barre d'onglets
 manifest.webmanifest    PWA, nom EVER, icônes
-sw.js                   service worker (réseau d'abord, images en cache)
+sw.js                   service worker (réseau d'abord, médias en cache)
 css/
   tokens.css            couleurs, espaces, rayons, ombres, clair et sombre
   base.css              remise à zéro, gabarit, chrome
   components.css        cartes, feuilles, roulette, anneaux, listes
+sounds/                 onze retours sonores, coupés par défaut
 js/
   config.js             valeurs publiques uniquement
   core/
     icons.js            bibliothèque d'icônes, aucune dépendance
-    ui.js               feuilles modales, toasts, formatage, haptique
+    feedback.js         son et vibration
+    ui.js               feuilles modales, toasts, formatage
     store.js            stockage local d'abord, synchronisation ensuite
     photos.js           images en IndexedDB
     ai.js               Gemini : texte, JSON structuré, vision, cache
     cloud.js            Supabase : comptes, sync, listes partagées
-    calendar.js         .ics et Google Calendar
+    calendar.js         .ics, Google Calendar, calendrier intelligent
+    map.js              choix d'un lieu sur carte
   engines/
     roulette.js         tirage pondéré et animation
     reco.js             scoring : note, distance, météo, saison, horaire
     context.js          lieu, météo, saison, moment
+    events.js           événements du moment, jamais périmés
   data/
     codex.data.js       les 146 recettes, extraites telles quelles
     codex.config.js     assistant en trois étapes, palettes, héros
     seed.js             activités, aliments, moods, paliers
   modules/              un fichier par module
 sql/
-  schema.sql            tables, RLS, buckets, vues
+  schema.sql            ce qui tourne réellement sur Supabase
   edge/gemini-proxy.ts  fonction edge pour cacher la clé Gemini
 ```
 
-### Trois moteurs, réutilisés partout
+### Les moteurs
 
-**Roulette.** `pick(items, {weight})` fait un tirage aléatoire pondéré :
-le meilleur score gagne souvent, jamais toujours. `mount(el, options)`
-ajoute la fenêtre animée. Un seul moteur pour les activités, les aliments,
-les cadeaux, les films et les séries.
+**Roulette.** `pick(items, {weight})` fait un tirage aléatoire pondéré : le
+meilleur score gagne souvent, jamais toujours. Un seul moteur pour les
+activités, les aliments, les cadeaux, les films, les séries et le guide.
 
-**Reco.** Un score unique qui combine note, nombre d'avis, distance,
-budget, météo, saison, horaire, préférences apprises et historique. Il
-n'est jamais montré brut : il sert à pondérer le tirage et à écrire la
-phrase « Pourquoi ? ». Un 4,9 avec sept avis à quarante kilomètres ne bat
-pas automatiquement un 4,4 avec neuf cents avis à six cents mètres.
+**Reco.** Un score unique combinant note, nombre d'avis, distance, budget,
+météo, saison, horaire, préférences apprises et historique. Jamais montré
+brut : il pondère le tirage et écrit la phrase *Pourquoi ?*. Un 4,9 avec sept
+avis à quarante kilomètres ne bat pas un 4,4 avec neuf cents avis à six cents
+mètres.
 
-**AI.** Trois entrées seulement : `ask` pour du texte, `json` pour une
-réponse structurée garantie par schéma, `vision` pour les images. Cache
-par empreinte du prompt, messages d'erreur humains, aucune erreur
-technique à l'écran.
+**Cal.** Le calendrier intelligent : conflits, créneaux libres, temps
+restant, et filtrage des propositions qui ne rentrent pas dans la journée.
 
-### Pourquoi pas quarante tables
-
-Le cahier des charges listait une quarantaine de tables Supabase, une par
-type d'objet. Pour une application personnelle dont la quasi-totalité des
-données n'est jamais interrogée en relationnel, cela aurait donné quarante
-policies RLS à maintenir et quarante chemins de synchronisation, sans
-aucun gain.
-
-Le schéma garde donc des tables réelles là où la structure sert vraiment,
-c'est-à-dire dès que plusieurs personnes touchent la même donnée
-(`shared_lists`, `list_members`, `list_items`), et une table générique
-`user_collections` pour les collections personnelles. Les vues
-`ever_meals` et `ever_health` montrent comment déplier le JSON en SQL, et
-comment sortir une collection vers sa propre table le jour où c'est utile.
+**AI.** Trois entrées : `ask` pour du texte, `json` pour une réponse
+structurée garantie par schéma, `vision` pour les images. Cache par empreinte
+du prompt, messages d'erreur humains, aucune erreur technique à l'écran.
 
 ---
 
 ## Vie privée
 
-- Tout est local par défaut. Sans compte, aucune donnée ne quitte
-  l'appareil.
+- Tout est local par défaut. Sans compte, aucune donnée ne quitte l'appareil.
 - L'export Apple Santé est lu **dans le navigateur**, par tranches. Le
   fichier n'est envoyé nulle part.
 - Les photos de vêtements vivent dans IndexedDB, sur l'appareil.
-- Les indices privés des fiches cadeaux ne sont jamais partagés, même
+- Les indices privés des fiches cadeaux ne sont **jamais** partagés, même
   quand la liste de cadeaux correspondante l'est.
-- Avec un compte, chaque utilisateur n'accède qu'à ses propres données et
-  à celles qui lui sont explicitement partagées (RLS).
-- Réglages → **Tout exporter** rend l'intégralité des données en JSON, et
-  **Tout effacer** les supprime pour de bon.
+- Avec un compte, chaque utilisateur n'accède qu'à ses propres données et à
+  celles qui lui sont explicitement partagées (RLS vérifié par test).
+- Réglages → *Tout exporter* rend l'intégralité des données en JSON, et
+  *Tout effacer* les supprime pour de bon.
 
 ---
 
@@ -220,22 +313,21 @@ Starbucks ne publie **aucun barème officiel de pumps** : les quantités
 viennent de témoignages de baristas et de recettes copycat concordantes.
 Valeurs indicatives.
 
-Les dosages cocktails suivent les standards IBA quand ils existent. Le
-Coco est une création maison. L'abus d'alcool est dangereux pour la santé.
+Les dosages cocktails suivent l'IBA quand il existe. Le Coco est une création
+maison. L'abus d'alcool est dangereux pour la santé.
 
-Deux recettes de Mamie (gratin de courgettes, tarte jambon asperge) n'ont
-pas de texte dans Notion : le détail y est stocké en capture d'écran
-inaccessible. Leurs quantités renvoient à la page d'origine.
+Deux recettes de Mamie (gratin de courgettes, tarte jambon asperge) n'ont pas
+de texte dans Notion : le détail y est en capture d'écran. Leurs quantités
+renvoient à la page d'origine.
 
-Les analyses nutritionnelles et les lectures de forme sont générées par
-IA à titre indicatif. Ce ne sont pas des conseils médicaux.
-
-Les guides de ville et les recherches d'établissements sont générés à
-partir de connaissances générales : vérifie horaires et adresses avant de
-te déplacer.
+Les analyses nutritionnelles, les lectures de forme, les guides de ville, les
+événements et les recherches d'établissements sont **générés par IA**, à
+titre indicatif. Ce ne sont pas des conseils médicaux, et les horaires et
+adresses se vérifient avant de se déplacer.
 
 ## Crédits visuels
 
 Les 124 visuels de boissons et cocktails sont générés par IA, sans logo ni
 élément de marque. Les 24 photos de recettes viennent du carnet Notion
-familial. Projet personnel non affilié à Starbucks Corporation.
+familial. Les onze sons viennent du projet WALLET. Projet personnel non
+affilié à Starbucks Corporation.

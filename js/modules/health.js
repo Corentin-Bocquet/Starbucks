@@ -286,7 +286,7 @@
         UI.openSheet('<div class="mbody"><h2 style="font-size:20px">Import impossible</h2>' +
           '<p class="mdesc">' + UI.esc(String(e.message || e)) + '</p>' +
           '<div class="banner warn" style="margin-top:14px">' + Icon('info', 18) +
-          '<span>Si le fichier dépassé quelques centaines de mega-octets, dezippe-le sur ton telephone et choisis directement <b>export.xml</b> : la lecture se fait alors par morceaux et ne sature plus la memoire.</span></div></div>');
+          '<span>Si le fichier dépassé quelques centaines de mega-octets, dezippe-le sur ton téléphone et choisis directement <b>export.xml</b> : la lecture se fait alors par morceaux et ne sature plus la memoire.</span></div></div>');
       }
     };
     input.click();

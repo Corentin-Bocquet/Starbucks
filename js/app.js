@@ -21,7 +21,7 @@
     { id: 'activities', title: "Qu'est-ce qu'on fait ?",   short: 'Activités',       icon: 'activity', tint: '#E6F0FA', tintink: '#2C5F8A' },
     { id: 'foods',      title: "Qu'est-ce qu'on mange ?",  short: 'Aliments',        icon: 'fork',     tint: '#E7F5EC', tintink: '#1F7A46' },
     { id: 'gifts',      title: "Qu'est-ce que je lui offre ?", short: 'Cadeaux',     icon: 'gift',     tint: '#FBE9EF', tintink: '#B0264F' },
-    { id: 'media',      title: "Qu'est-ce qu'on regarde ?", short: 'Cinéma & series', icon: 'film',    tint: '#EFE9F8', tintink: '#5B3E96' },
+    { id: 'media',      title: "Qu'est-ce qu'on regarde ?", short: 'Cinéma & séries', icon: 'film',    tint: '#EFE9F8', tintink: '#5B3E96' },
     { id: 'city',       title: 'Guide de ville',            short: 'Guide de ville',  icon: 'map',      tint: '#FDF0E0', tintink: '#A9713C' },
     { id: 'outfits',    title: 'Ma penderie',               short: 'Tenues',          icon: 'shirt',    tint: '#E9F2F1', tintink: '#2F6B5A' },
     { id: 'profiles',   title: 'Profils et partages',       short: 'Profils',         icon: 'users',    tint: '#F0EFEC', tintink: '#6B635E' },

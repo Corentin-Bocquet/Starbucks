@@ -37,6 +37,7 @@
     { id: 'amis',    nom: 'Entre amis' },
     { id: 'famille', nom: 'En famille' }
   ];
+  const SAISON = { hiver: 'hiver', printemps: 'printemps', ete: 'été', automne: 'automne' };
   const contexte = () => Store.get('guideContexte', 'auto');
   const cacheKey = (name, season) => 'guide:' + name.toLowerCase() + ':' + season + ':' + contexte();
 
@@ -102,7 +103,7 @@
     return '<div class="section" style="padding:16px 0 0">' +
       '<div class="row-between">' +
         '<div><b style="font-size:24px;letter-spacing:-.03em;display:block">' + UI.esc(city) + '</b>' +
-        '<small class="muted">Guide · ' + UI.esc(UI.day.season()) + '</small></div>' +
+        '<small class="muted">Guide · ' + UI.esc(SAISON[UI.day.season()] || UI.day.season()) + '</small></div>' +
         '<button class="tbtn" data-city aria-label="Changer de ville">' + Icon('search', 18) + '</button>' +
       '</div>' +
       '<div class="chips" style="margin-top:12px">' + CONTEXTES.map((c) =>
@@ -174,7 +175,7 @@
   async function generate(force) {
     if (!AI.available()) {
       root.innerHTML = '<div class="wrap">' + header() + '<div class="section">' +
-        UI.empty('key', 'Clé Gemini requise', 'Le guide est ecrit a la demande. Ajoute ta clé dans Réglages, elle reste sur ton telephone.') +
+        UI.empty('key', 'Clé Gemini requise', 'Le guide est ecrit a la demande. Ajoute ta clé dans Réglages, elle reste sur ton téléphone.') +
         '<button class="btn primary block" data-act="settings">Ouvrir les réglages</button></div></div>';
       bindHeader();
       const b = root.querySelector('[data-act="settings"]');
