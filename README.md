@@ -59,6 +59,55 @@ côté serveur et l'app n'appelle plus Google directement.
 - **SURPRENDS-MOI** — l'app règle tout elle-même et lance
 - **3 IDÉES** — trois propositions, et la roue tranche si on hésite
 
+**Et une quatrième, par l'humeur** — six états en haut d'Activités.
+
+---
+
+## Les six tasses
+
+Toutes les émotions positives passent par six neurotransmetteurs. Une drogue
+en remplit une très vite, et casse la capacité à la remplir seul. EVER fait
+l'inverse : environ soixante sources sans substance, étiquetées par ce
+qu'elles remplissent réellement.
+
+| Ce que tu ressens | Molécule | Ce que le manque révèle |
+|---|---|---|
+| **À plat** | Dopamine | Plus de moteur, plus de direction |
+| **Invisible** | Sérotonine | Le sentiment de ne pas être vu |
+| **Seul** | Cannabinoïdes | Manque de liens simples |
+| **À vif** | Opioïdes | Une douleur qu'on cherche à taire |
+| **Sans cran** | Testostérone | On n'ose plus rien tenter |
+| **Besoin des miens** | Ocytocine | Manque de chaleur intime |
+
+### La règle qui fait toute la différence
+
+**Trois de ces six molécules ne se sécrètent pas seul.** Cannabinoïdes,
+opioïdes, ocytocine : aucune activité en solo ne les déclenche, quel que
+soit le niveau de confort.
+
+L'application applique cette règle sans exception. Choisis *Seul* ou *À vif*,
+et elle ne propose **que** des choses impliquant quelqu'un d'autre — vérifié
+par test : sur les 28 propositions de l'état *Seul*, zéro est solo. Puis elle
+demande **avec qui**, et pose le créneau dans un trou libre de la journée.
+
+Sans cette contrainte, on rebâtit exactement le piège des réseaux sociaux :
+tu ouvres l'app parce que tu te sens seul, elle te donne un shoot de dopamine,
+et la tasse que tu cherchais à remplir reste vide.
+
+### Où ça se voit ailleurs
+
+- **Progression** affiche les six tasses sur sept jours glissants. Au-delà de
+  quatre jours sans rien faire avec quelqu'un, une alerte le dit franchement
+  et renvoie directement sur l'état *Seul*.
+- **Santé** croise cette donnée avec le sommeil et le cardio : plusieurs jours
+  sans contact humain sont traités comme un facteur de forme, au même titre
+  qu'une mauvaise nuit.
+
+Aucun nouvel onglet : l'humeur vit dans Activités, et le reste s'y branche.
+
+Source : entretien du chercheur Axel Bouchon repris par Max Joseph.
+Vulgarisation, pas médecine.
+
 ---
 
 ## Ce qui est déjà branché

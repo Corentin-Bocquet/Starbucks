@@ -35,6 +35,8 @@
         tile('Favoris', String(Store.get('favs', []).length + Store.get('codexFav', []).length), 'star') +
       '</div>' +
 
+      cupsBlock() +
+
       '<div class="section"><div class="sechead"><h2 style="font-size:16px">Cette semaine</h2></div>' +
         '<div class="quests">' + Game.quests().map(quest).join('') + '</div></div>' +
 
@@ -54,13 +56,69 @@
         historyBlock() + '</div>' +
 
       '<div class="section"><p class="muted" style="font-size:11.5px;line-height:1.55">' +
-      'Les points ne servent à rien d\'autre qu\'a se situer. Aucune fonctionnalité n\'est verrouillee derriere un palier, ' +
-      'et rien n\'est envoye a qui que ce soit.</p></div>' +
+      'Les points ne servent à rien d\'autre qu\'à se situer. Aucune fonctionnalité n\'est verrouillée derrière un palier, ' +
+      'et rien n\'est envoyé à qui que ce soit.</p></div>' +
       '</div>';
+
+    /* Le seul bouton de cette page : celui qui envoie régler le
+       manque au lieu de le contempler. */
+    root.querySelectorAll('[data-act="seul"]').forEach((b) => b.onclick = () => {
+      Store.set('actPrefs', Object.assign(Store.get('actPrefs', {}), { mood: 'seul', category: 'all' }));
+      App.go('#/m/activities');
+    });
   }
 
   const tile = (k, v, ic) => '<div class="stat"><div class="k">' + Icon(ic, 13) + UI.esc(k) + '</div><div class="v">' + UI.esc(v) + '</div></div>';
   const avg = (a) => { const f = a.filter((x) => x); return f.length ? f.reduce((x, y) => x + y, 0) / f.length : 0; };
+
+  /* ============================================================
+     Les six tasses, sur sept jours
+
+     C'est la seule mesure de cette application qui vaille vraiment
+     un regard. Les points, c'est du décor ; une tasse restée vide
+     toute la semaine, ça se corrige le soir même.
+     ============================================================ */
+  function cupsBlock() {
+    if (!global.Mood) return '';
+    const b = Mood.balance(7);
+    const max = Math.max(3, Math.max.apply(null, Object.keys(b).map((k) => b[k])));
+    const jours = Mood.joursSansLien();
+    const vides = Object.keys(b).filter((m) => b[m] === 0);
+
+    const lignes = Object.keys(MOODS.MOLECULES).map((m) => {
+      const mol = MOODS.MOLECULES[m], v = b[m];
+      const pct = Math.min(100, (v / max) * 100);
+      return '<div class="cup ' + (v === 0 ? 'vide' : '') + '">' +
+        '<span class="ci" style="background:color-mix(in srgb,' + mol.teinte + ' 14%,transparent);color:' + mol.teinte + '">' +
+          Icon(mol.icon, 17) + '</span>' +
+        '<span class="ct"><b>' + UI.esc(mol.nom) + '</b>' +
+          '<small>' + UI.esc(v === 0 ? mol.manque : mol.role) + '</small>' +
+          '<span class="bar-track"><span class="bar-fill" style="width:' + pct.toFixed(0) + '%;background:' + mol.teinte + '"></span></span>' +
+        '</span>' +
+        '<span class="cn">' + Math.round(v) + '</span></div>';
+    }).join('');
+
+    /* L'alerte sociale passe avant tout le reste : c'est la seule
+       chose que l'application ne peut pas régler à ta place. */
+    let alerte = '';
+    if (jours != null && jours >= 4) {
+      alerte = '<div class="banner danger" style="margin-bottom:12px">' + Icon('users', 18) +
+        '<span><b>' + jours + ' jours sans rien faire avec quelqu\'un.</b> ' +
+        'Trois des six tasses ne se remplissent pas autrement. Aucune activité solo ne rattrapera ça.</span>' +
+        '<button class="btn sm primary" data-act="seul" style="flex:none">Y remédier</button></div>';
+    } else if (vides.length >= 3) {
+      alerte = '<div class="banner warn" style="margin-bottom:12px">' + Icon('info', 18) +
+        '<span>' + vides.length + ' tasses sur six sont restées vides cette semaine.</span></div>';
+    }
+
+    return '<div class="section"><div class="sechead"><h2 style="font-size:16px">Les six tasses</h2>' +
+      '<span>7 derniers jours</span></div>' +
+      alerte +
+      '<div class="panel"><div class="cups">' + lignes + '</div>' +
+      '<p class="muted" style="font-size:11.5px;margin-top:12px;line-height:1.5">' +
+      'Toutes les émotions positives passent par ces six molécules. Les trois du bas ' +
+      'ne se sécrètent qu\'en présence de quelqu\'un — c\'est biologique, pas moral.</p></div></div>';
+  }
 
   function quest(q) {
     const done = q.value >= q.target;

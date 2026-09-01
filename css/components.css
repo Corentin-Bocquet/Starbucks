@@ -176,6 +176,39 @@
 .chip.on { background: var(--accent); color: #fff; box-shadow: none; }
 .chip .n { font-size: 11px; opacity: .6; font-weight: 700; }
 
+/* Les six états : chacun porte la teinte de sa molécule, ce qui les
+   rend reconnaissables sans avoir à lire l'étiquette. */
+.chip.mood { color: var(--moodink, var(--ink-2)); }
+.chip.mood svg { opacity: .85; }
+.chip.mood.on {
+  background: color-mix(in srgb, var(--moodink) 14%, transparent);
+  color: var(--moodink);
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--moodink) 42%, transparent);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .chip.mood { color: color-mix(in srgb, var(--moodink) 55%, #fff); }
+  :root:not([data-theme="light"]) .chip.mood.on {
+    background: color-mix(in srgb, var(--moodink) 26%, transparent);
+    color: color-mix(in srgb, var(--moodink) 40%, #fff);
+  }
+}
+:root[data-theme="dark"] .chip.mood { color: color-mix(in srgb, var(--moodink) 55%, #fff); }
+:root[data-theme="dark"] .chip.mood.on {
+  background: color-mix(in srgb, var(--moodink) 26%, transparent);
+  color: color-mix(in srgb, var(--moodink) 40%, #fff);
+}
+
+/* Les six tasses, dans Progression. */
+.cups { display: grid; gap: 10px; }
+.cup { display: flex; align-items: center; gap: 12px; }
+.cup .ci { flex: none; width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center; }
+.cup .ct { flex: 1; min-width: 0; }
+.cup .ct b { font-size: 13.5px; font-weight: 700; display: block; }
+.cup .ct small { color: var(--muted); font-size: 11.5px; }
+.cup .bar-track { margin-top: 5px; }
+.cup .cn { font-size: 12px; font-weight: 800; color: var(--muted); font-variant-numeric: tabular-nums; }
+.cup.vide .ct b { color: var(--danger); }
+
 .badge {
   position: absolute; top: 10px; left: 10px; z-index: 3;
   font-size: 10.5px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase;

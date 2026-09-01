@@ -511,8 +511,11 @@
         "Tu lis des données Apple Santé. Sois factuel, direct, sans flatterie et sans alarmisme. Tu n'es pas medecin : aucune conclusion diagnostique.\n\n" +
         "DONNEES QUOTIDIENNES :\n" + table + "\n\n" +
         (nutri ? "ALIMENTATION :\n" + nutri + "\n\n" : "") +
+        (global.Mood ? "VIE SOCIALE ET ÉQUILIBRE ÉMOTIONNEL :\n" + Mood.describe() + "\n\n" : "") +
         "Objectifs : " + JSON.stringify(goals()) + "\n\n" +
-        "Croise sommeil, fréquence cardiaque au repos, variabilite et activité. Signale une tendance seulement si elle est visible dans les chiffres. Réponds en francais.",
+        "Croise sommeil, fréquence cardiaque au repos, variabilité et activité. Signale une tendance seulement si elle est visible dans les chiffres. " +
+        "Si plusieurs jours ont passé sans aucune activité impliquant quelqu'un d'autre, dis-le franchement : c'est un facteur de forme au même titre que le sommeil, " +
+        "et aucune activité solo ne le compense. Réponds en français.",
         INSIGHT_SCHEMA, { cache: false, temperature: 0.5 });
       Store.set('healthInsight', { at: Date.now(), data: res });
       render();

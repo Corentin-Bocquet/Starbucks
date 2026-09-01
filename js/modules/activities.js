@@ -22,7 +22,7 @@
 
   const prefs = () => Object.assign({
     city: 'le-touquet', category: 'all', favOnly: false, avoidRecent: true,
-    source: 'all', events: false
+    source: 'all', events: false, mood: null
   }, Store.get('actPrefs', {}));
   const setPrefs = (p) => Store.set('actPrefs', Object.assign(prefs(), p));
 
@@ -49,6 +49,20 @@
   function pool(opts) {
     opts = opts || {};
     const p = prefs();
+
+    /* Une humeur choisie prend le dessus sur tout le reste : elle ne
+       filtre pas la liste habituelle, elle la remplace. C'est ce qui
+       permet d'appliquer la règle sociale sans exception — voir
+       js/engines/mood.js. */
+    if (p.mood && global.Mood && Mood.etat(p.mood)) {
+      let list = Mood.sourcesFor(p.mood, {
+        city: p.city, ctx: ctx,
+        temps: (global.Cal ? Cal.timeAvailable() : 0) || null
+      });
+      if (!opts.ignoreFav && p.favOnly) list = list.filter((a) => Store.isFav('activity', a.id));
+      return list;
+    }
+
     let list = Store.all('activities').filter((a) => !a.city || a.city === p.city);
     if (!opts.ignoreCategory && p.category !== 'all') list = list.filter((a) => a.category === p.category);
     if (!opts.ignoreFav && p.favOnly) list = list.filter((a) => Store.isFav('activity', a.id));
@@ -111,10 +125,12 @@
 
     root.innerHTML = '<div class="wrap">' +
       headerBlock(list.length) +
-      '<div class="chips" style="margin-top:14px">' +
-        '<button class="chip ' + (p.category === 'all' ? 'on' : '') + '" data-cat="all">Tout</button>' +
-        cats.map((c) => '<button class="chip ' + (p.category === c ? 'on' : '') + '" data-cat="' + UI.attr(c) + '">' + UI.esc(c) + '</button>').join('') +
-      '</div>' +
+      moodStrip(p) +
+      (p.mood ? moodBanner(p) :
+        '<div class="chips" style="margin-top:14px">' +
+          '<button class="chip ' + (p.category === 'all' ? 'on' : '') + '" data-cat="all">Tout</button>' +
+          cats.map((c) => '<button class="chip ' + (p.category === c ? 'on' : '') + '" data-cat="' + UI.attr(c) + '">' + UI.esc(c) + '</button>').join('') +
+        '</div>') +
       '<div id="actRoul" style="margin-top:8px"></div>' +
       '<div class="btnrow" style="margin-top:10px">' +
         '<button class="btn grow" data-act="surprise">' + Icon('sparkle', 17) + 'Surprends-moi</button>' +
@@ -146,6 +162,57 @@
         (wx ? '<span class="row" style="gap:6px;color:var(--muted)">' + Icon(wx.icon, 20) +
           '<b style="font-size:16px">' + wx.temp + '°</b></span>' : Icon('next', 18)) +
       '</button></div>';
+  }
+
+  /* ============================================================
+     L'humeur
+
+     Six états, pas davantage. Nommés par ce qu'on ressent, jamais
+     par la chimie : personne n'ouvre une application en se disant
+     « je manque de sérotonine ».
+     ============================================================ */
+  function moodStrip(p) {
+    return '<div class="section" style="padding:14px 0 0">' +
+      '<div class="row-between" style="margin-bottom:8px">' +
+        '<b style="font-size:14px">Comment tu te sens ?</b>' +
+        (p.mood ? '<button class="btn sm ghost" data-mood="">Enlever</button>' : '') +
+      '</div>' +
+      '<div class="chips">' +
+        MOODS.ETATS.map((e) =>
+          '<button class="chip mood ' + (p.mood === e.id ? 'on' : '') + '" data-mood="' + e.id + '"' +
+          ' style="--moodink:' + MOODS.MOLECULES[e.molecule].teinte + '">' +
+          Icon(e.icon, 15) + UI.esc(e.nom) + '</button>').join('') +
+      '</div></div>';
+  }
+
+  /* Le bandeau qui explique la règle. C'est lui qui fait la
+     différence entre un filtre et un vrai conseil. */
+  function moodBanner(p) {
+    const e = Mood.etat(p.mood);
+    if (!e) return '';
+    const mol = Mood.molecule(e.molecule);
+    const sociale = Mood.estSociale(e.molecule);
+    const jours = Mood.joursSansLien();
+
+    return '<div class="section" style="padding-top:10px">' +
+      '<div class="panel" style="border-left:3px solid ' + mol.teinte + '">' +
+        '<div class="row" style="gap:9px;align-items:flex-start">' +
+          '<span style="color:' + mol.teinte + ';flex:none">' + Icon(mol.icon, 19) + '</span>' +
+          '<div><b style="font-size:15px;display:block">' + UI.esc(e.sub) + '</b>' +
+          '<small class="muted" style="display:block;margin-top:2px">' + UI.esc(mol.nom) + ' · ' + UI.esc(mol.role) + '</small>' +
+          '<p style="font-size:13.5px;line-height:1.5;margin-top:8px">' + UI.esc(e.phrase) + '</p></div>' +
+        '</div>' +
+      '</div>' +
+      (sociale
+        ? '<div class="banner warn" style="margin-top:10px">' + Icon('users', 18) +
+          '<span><b>Rien de solo ici, et ce n\'est pas un choix de design.</b> ' +
+          'Cette molécule ne se sécrète pas seul devant un écran. ' +
+          'Tout ce qui suit implique quelqu\'un d\'autre.' +
+          (jours != null && jours >= 3 ? ' Ça fait ' + jours + ' jours que tu n\'as rien fait avec quelqu\'un.' : '') +
+          '</span></div>'
+        : '') +
+      '<p class="muted" style="font-size:12px;margin-top:10px;line-height:1.5">' + UI.esc(MOODS.MIROIR[e.molecule]) + '</p>' +
+      '</div>';
   }
 
   function eventsBlock() {
@@ -221,6 +288,7 @@
 
   function iconFor(a) {
     if (a.isEvent) return evIcon(a.type);
+    if (a.isMood && a.avecQuelquun) return 'users';
     const m = { bar: 'glass', cafe: 'coffee', restaurant: 'fork', brunch: 'fork', glacier: 'apple',
       musee: 'book', galerie: 'book', exposition: 'book', monument: 'pin', cinema: 'film',
       plage: 'sun', promenade: 'map', randonnee: 'map', velo: 'activity', vtt: 'activity',
@@ -230,6 +298,7 @@
 
   function weightOf(a) {
     const p = prefs();
+    if (p.mood && a.isMood && global.Mood) return Mood.weight(a, ctx);
     const copy = Object.assign({}, a);
     Reco.scorePlace(copy, ctx, {
       favIds: new Set(Store.all('activities').filter((x) => Store.isFav('activity', x.id)).map((x) => x.id)),
@@ -252,9 +321,16 @@
     Store.log('activite', { id: a.id, label: a.nom, kind: a.kind });
     if (global.Game) Game.award('roulette', 5);
 
+    if (a.isMood && global.Mood) Mood.log(prefs().mood, a);
+
     box.innerHTML = resultCard(a, null, true, why);
     bindResult(box, a, null);
     if (a.isEvent) { const s = box.querySelector('[data-venue]'); if (s) s.innerHTML = ''; return; }
+
+    /* Une source d'humeur qui ne se rattache à aucun lieu — un câlin,
+       une douche froide, un appel — n'a pas d'établissement à
+       chercher. Aller interroger l'IA là-dessus serait absurde. */
+    if (a.isMood && !needsVenue(a.kind)) { const s = box.querySelector('[data-venue]'); if (s) s.innerHTML = ''; return; }
 
     const p = prefs();
     if (p.source === 'mine') return;
@@ -298,8 +374,10 @@
     } else {
       if (a.price != null) meta.push(a.price === 0 ? 'Gratuit' : '€'.repeat(a.price));
       if (a.lieu) meta.push(a.lieu);
-      if (!a.isEvent) meta.push(a.category);
-      meta.push(UI.fmt.dur(Cal.durationOf(a)));
+      /* La catégorie est déjà en surtitre : inutile de la répéter. */
+      if (!a.isEvent && !a.isMood) meta.push(a.category);
+      if (a.isMood && a.avecQuelquun) meta.push(a.social === 'groupe' ? 'à plusieurs' : 'à deux');
+      meta.push(UI.fmt.dur(a.minutes || Cal.durationOf(a)));
     }
     const why = Reco.why(venue || a, ctx, extraWhy);
     const isFav = venue ? Store.isFav('place', venue.id) : Store.isFav('activity', a.id);
@@ -313,12 +391,18 @@
       (venue && venue._pool > 1 ? '<p class="muted" style="font-size:11.5px;margin-top:8px">Choisi parmi ' + venue._pool + ' établissements</p>' : '') +
       (a.isEvent && a.source ? '<p class="muted" style="font-size:11.5px;margin-top:8px">Source : ' + UI.esc(a.source) + '</p>' : '') +
       (a.isEvent && !a.fiable ? '<div class="warn" style="margin-top:10px">Date et lieu à vérifier avant de te déplacer.</div>' : '') +
+      (a.isMood && a.note ? '<div class="rwhy">' + UI.esc(a.note) + '</div>' : '') +
+      (a.isMood && a.avecQuelquun
+        ? '<div class="warn" style="margin-top:10px">Celle-là ne compte que si quelqu\'un est là. Seul, la tasse reste vide.</div>'
+        : '') +
       (why ? '<div class="rwhy"><b>Pourquoi ? </b>' + UI.esc(why) + '</div>' : '') +
       '<div data-venue>' + (loading && !a.isEvent && needsVenue(a.kind) && AI.available() ? UI.thinking('Recherche des adresses…') : '') + '</div>' +
       '<div class="ract">' +
         (venue || a.lieu ? '<button class="btn sm primary" data-maps>' + Icon('map', 15) + 'Y aller</button>' : '') +
         '<button class="btn sm" data-fav>' + Icon('star', 15) + (isFav ? 'Retirer' : 'Favori') + '</button>' +
-        '<button class="btn sm" data-cal>' + Icon('calendar', 15) + 'Planifier</button>' +
+        (a.isMood && a.avecQuelquun
+          ? '<button class="btn sm primary" data-who>' + Icon('users', 15) + 'Avec qui ?</button>'
+          : '<button class="btn sm" data-cal>' + Icon('calendar', 15) + 'Planifier</button>') +
         (venue ? '<button class="btn sm ghost" data-save>' + Icon('plus', 15) + 'Garder</button>' : '') +
       '</div>' +
       '<div class="row" style="gap:8px;margin-top:10px">' +
@@ -349,6 +433,7 @@
         time: slotFree ? String(slotFree.getHours()).padStart(2, '0') + ':' + String(slotFree.getMinutes()).padStart(2, '0') : null
       });
     };
+    if (q('[data-who]')) q('[data-who]').onclick = () => avecQui(a);
     if (q('[data-save]')) q('[data-save]').onclick = () => {
       if (Store.find('places', venue.id)) { UI.toast('Déjà enregistré'); return; }
       Store.add('places', Object.assign({}, venue, { id: venue.id, city: prefs().city, source: 'ai-kept' }));
@@ -359,6 +444,62 @@
       UI.haptic(b.dataset.like === '1' ? 'success' : 'tap');
       UI.toast(b.dataset.like === '1' ? 'Noté' : 'On évitera');
     });
+  }
+
+  /* « Avec qui ? » — l'étape qui manque à toutes les applications de
+     ce genre. Choisir l'activité ne sert à rien si on ne va pas
+     jusqu'à décider avec quelle personne, et quand. */
+  function avecQui(a) {
+    const gens = global.Mood ? Mood.gens() : [];
+    const duree = a.minutes || Cal.durationOf(a);
+
+    const planifier = (nom) => {
+      const slot = Cal.freeSlot(UI.day.today(), duree, 11, 22) ||
+                   Cal.freeSlot(UI.day.add(UI.day.today(), 1), duree, 11, 22);
+      const quand = slot || new Date();
+      UI.closeSheet();
+      Cal.add({
+        title: a.nom + (nom ? ' avec ' + nom : ''),
+        description: 'Proposé par EVER pour combler : ' + (Mood.molecule(a.molecule) || {}).nom,
+        kind: 'activite', minutes: duree,
+        date: UI.day.key(quand),
+        time: String(quand.getHours()).padStart(2, '0') + ':' + String(quand.getMinutes()).padStart(2, '0')
+      });
+    };
+
+    UI.openSheet(
+      '<div class="mbody" style="padding-top:6px">' +
+        '<h2 style="font-size:22px;margin-bottom:4px">Avec qui ?</h2>' +
+        '<p class="secdesc">' + UI.esc(a.nom) + ' — ' + UI.fmt.dur(duree) + '. ' +
+        'Poser un nom et une heure, c\'est ce qui fait la différence entre une bonne intention et un moment réel.</p>' +
+        (gens.length
+          ? '<div class="list">' + gens.map((g) =>
+              '<button class="rowitem" data-p="' + UI.attr(g.nom) + '">' +
+              '<span class="ic">' + Icon('user', 17) + '</span>' +
+              '<span class="tx"><b>' + UI.esc(g.nom) + '</b>' +
+              (g.relation ? '<small>' + UI.esc(g.relation) + '</small>' : '') + '</span>' +
+              '<span class="rt">' + Icon('calendar', 15) + '</span></button>').join('') + '</div>'
+          : '<div class="banner">' + Icon('info', 18) +
+            '<span>Aucune personne enregistrée. Ajoute-en une, elle servira aussi aux cadeaux.</span></div>') +
+        '<div class="btnrow" style="margin-top:14px">' +
+          '<button class="btn primary grow" data-new>' + Icon('plus', 16) + 'Quelqu\'un d\'autre</button>' +
+          '<button class="btn" data-skip>' + Icon('calendar', 16) + 'Planifier sans nom</button>' +
+        '</div>' +
+      '</div>',
+      { onMount: (s) => {
+        s.querySelectorAll('[data-p]').forEach((b) => b.onclick = () => planifier(b.dataset.p));
+        s.querySelector('[data-skip]').onclick = () => planifier(null);
+        s.querySelector('[data-new]').onclick = async () => {
+          const r = await UI.promptSheet('Avec qui ?', [
+            { name: 'nom', label: 'Prénom' },
+            { name: 'relation', label: 'Relation', placeholder: 'pote, frère, copine…' }
+          ], 'Planifier');
+          if (!r || !r.nom) return;
+          Store.add('people', { nom: r.nom, relation: r.relation });
+          planifier(r.nom);
+        };
+      } }
+    );
   }
 
   function openMaps(v) {
@@ -482,6 +623,12 @@
      ============================================================ */
   function bind() {
     root.querySelectorAll('[data-cat]').forEach((b) => b.onclick = () => { UI.haptic('select'); setPrefs({ category: b.dataset.cat }); render(); });
+    root.querySelectorAll('[data-mood]').forEach((b) => b.onclick = () => {
+      const next = b.dataset.mood || null;
+      UI.haptic(next ? 'select' : 'tap');
+      setPrefs({ mood: prefs().mood === next ? null : next, category: 'all' });
+      render();
+    });
     root.querySelectorAll('[data-toggle]').forEach((b) => b.onclick = () => {
       const k = b.dataset.toggle, next = !prefs()[k];
       setPrefs({ [k]: next });
