@@ -151,6 +151,38 @@
 .list .rowitem .rt { color: var(--faint); font-size: 13px; display: flex; align-items: center; gap: 6px; }
 .list .rowitem .rt svg { width: 15px; height: 15px; }
 
+/* Vignette de ligne : une photo quand on en a une, sinon une
+   pastille teintee. Une liste sans image ne se lit pas d'un coup
+   d'oeil, et toute l'application doit se lire d'un coup d'oeil. */
+.list .rowitem .thumb {
+  flex: none; width: 40px; height: 40px; border-radius: 11px;
+  display: grid; place-items: center; overflow: hidden;
+  background: var(--surface-2); box-shadow: var(--sh-inset);
+}
+.list .rowitem .thumb img { width: 100%; height: 100%; object-fit: cover; }
+.list .rowitem .thumb svg { width: 19px; height: 19px; }
+
+/* Viseur de code-barres */
+.scanbox {
+  position: relative; width: 100%; aspect-ratio: 4 / 3;
+  border-radius: var(--r-lg); overflow: hidden; background: #000;
+  box-shadow: var(--sh-2);
+}
+.scanbox video { width: 100%; height: 100%; object-fit: cover; }
+.scanline {
+  position: absolute; left: 8%; right: 8%; top: 50%; height: 2px;
+  background: var(--brand); box-shadow: 0 0 12px var(--brand);
+  animation: scanmove 1.8s ease-in-out infinite;
+}
+@keyframes scanmove { 0%, 100% { transform: translateY(-60px); } 50% { transform: translateY(60px); } }
+
+/* Ligne « Ajouter » : toujours en bas d'une liste, jamais confondue
+   avec un element deja saisi. */
+.list .rowitem.addrow { border-top: 1px solid var(--hairline); border-bottom: none; }
+.list .rowitem.addrow:first-child { border-top: none; }
+.list .rowitem.addrow .ic { background: var(--accent); color: var(--bg); }
+.list .rowitem.addrow .tx b { color: var(--accent); font-weight: 700; }
+
 /* Section */
 .section { padding: 20px 0 6px; }
 .sechead { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
@@ -320,6 +352,23 @@
 .search svg { flex: none; opacity: .4; width: 17px; height: 17px; }
 .iconbtn { flex: none; width: 42px; height: 42px; border-radius: 50%; background: var(--surface); box-shadow: var(--sh-1), var(--sh-inset); display: grid; place-items: center; position: relative; transition: transform var(--d-fast) var(--spring); }
 .iconbtn svg { width: 19px; height: 19px; }
+/* Le bouton « creer » se voit : c'est la nouveaute de l'onglet. */
+.iconbtn.accent { background: linear-gradient(155deg, var(--accent-2), var(--accent)); color: #fff; box-shadow: var(--sh-2); }
+
+/* Une fiche inventee par l'IA n'a pas de photo : on lui donne un
+   aplat degrade plutot qu'un trou blanc dans la grille. */
+.card .ph.creation {
+  aspect-ratio: 4 / 3; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 8px; padding: 12px;
+  background: linear-gradient(155deg, var(--g2), var(--g1)); color: #fff; text-align: center;
+}
+.card .ph.creation b { font-size: 15px; font-weight: 750; letter-spacing: -.02em; line-height: 1.2; }
+.mimg.creation {
+  aspect-ratio: 16 / 9; display: grid; place-items: center; text-align: center; padding: 18px;
+  background: linear-gradient(155deg, var(--g2), var(--g1)); color: #fff;
+}
+.mimg.creation b { display: block; font-size: 24px; font-weight: 800; letter-spacing: -.03em; margin-top: 8px; }
+.mimg.creation small { display: block; font-size: 11px; opacity: .8; margin-top: 4px; letter-spacing: .06em; text-transform: uppercase; font-weight: 700; }
 .iconbtn:active { transform: scale(.9); }
 .iconbtn.on { background: var(--accent); color: #fff; box-shadow: none; }
 
@@ -346,6 +395,28 @@
 .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--accent); background: var(--surface); }
 .field textarea { resize: vertical; min-height: 90px; line-height: 1.5; }
 .field .hint { font-size: 11.5px; color: var(--faint); margin-top: 5px; }
+
+/* Titre de groupe dans un formulaire riche (fiche vetement). */
+.ftitre { font-size: 12px; font-weight: 700; color: var(--muted); letter-spacing: .01em; margin: 16px 0 8px; }
+
+/* Les chips d'un formulaire se replient au lieu de defiler : on
+   doit voir toutes les categories d'un coup, pas en glisser une. */
+.mbody .chips { flex-wrap: wrap; overflow: visible; }
+
+/* Couleurs d'un vetement : on touche la pastille, la palette du
+   telephone s'ouvre. Plus visuel qu'un champ hexadecimal. */
+.couleurs { display: flex; flex-wrap: wrap; gap: 10px; }
+.pastille {
+  position: relative; width: 52px; height: 52px; border-radius: 16px;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.16), var(--sh-1);
+  display: grid; place-items: center; cursor: pointer;
+}
+.pastille input[type="color"] { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
+.pastille .x {
+  position: absolute; top: -5px; right: -5px; width: 20px; height: 20px; border-radius: 50%;
+  background: var(--ink); color: var(--bg); display: grid; place-items: center; box-shadow: var(--sh-1);
+}
+.pastille.add { background: var(--surface-2); color: var(--muted); box-shadow: var(--sh-inset); }
 
 /* ============================================================
    8. FEUILLE MODALE ET TIROIR
@@ -385,7 +456,8 @@
 .nums { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 18px 0; }
 .nums .num { background: var(--surface-2); border-radius: var(--r-sm); padding: 11px 8px; text-align: center; }
 .nums .num b { display: block; font-size: 15px; font-weight: 800; letter-spacing: -.02em; }
-.nums .num span { font-size: 10px; color: var(--muted); font-weight: 600; }
+.nums .num span { font-size: 10px; color: var(--muted); font-weight: 600; display: inline-flex; align-items: center; justify-content: center; gap: 2px; flex-wrap: wrap; }
+.nums .num .hintq { width: 14px; height: 14px; font-size: 9px; margin-left: 2px; }
 .blk { margin-top: 22px; }
 .blk h4 { font-size: 12px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .blk h4 .sz { text-transform: none; letter-spacing: 0; font-size: 11.5px; color: var(--accent); }
@@ -457,20 +529,62 @@
 .toast.on { opacity: 1; transform: translate(-50%, 0); }
 
 /* ============================================================
+   8 bis. LE POINT D'INTERROGATION
+   Le detail se demande, il ne s'impose pas.
+   ============================================================ */
+.hintq {
+  width: 18px; height: 18px; flex: none; border-radius: 50%;
+  display: inline-grid; place-items: center; vertical-align: middle;
+  margin-left: 6px; padding: 0;
+  background: var(--surface-3); color: var(--muted);
+  font-size: 11px; font-weight: 800; line-height: 1;
+  transition: transform var(--d-fast) var(--spring), background var(--d-fast);
+}
+.hintq:active { transform: scale(.85); background: var(--accent-soft); color: var(--accent); }
+
+#hintpop {
+  position: fixed; inset: 0; z-index: 320; display: none;
+  place-items: center; padding: 26px;
+  background: rgba(10, 8, 8, .5); backdrop-filter: blur(4px);
+}
+#hintpop.on { display: grid; }
+.hintcard {
+  width: 100%; max-width: 340px;
+  background: var(--bg-elev); border-radius: var(--r-lg);
+  padding: 20px 20px 16px; box-shadow: var(--sh-4);
+  animation: pop var(--d-base) var(--spring);
+}
+.hintcard h4 { font-size: 16px; font-weight: 750; letter-spacing: -.02em; margin-bottom: 8px; }
+.hintcard p { font-size: 14px; line-height: 1.5; color: var(--ink-2); margin-bottom: 10px; }
+.hintcard .btn { margin-top: 4px; }
+
+/* ============================================================
    9. HUB DE MODULES
    ============================================================ */
-.hubgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: 12px; }
+/* Grille facon ecran d'accueil : une pastille, un mot. Le nom du
+   module suffit ; un sous-titre en dessous n'apprenait rien. */
+.hubgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px 6px; }
 .hubtile {
-  background: var(--surface); border-radius: var(--r-lg); padding: 16px 14px 15px;
-  box-shadow: var(--sh-1), var(--sh-inset); text-align: left;
-  display: flex; flex-direction: column; gap: 10px; min-height: 118px;
-  transition: transform var(--d-fast) var(--spring), box-shadow var(--d-base);
+  background: none; box-shadow: none; padding: 0;
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  text-align: center;
+  transition: transform var(--d-fast) var(--spring);
 }
-.hubtile:active { transform: scale(.96); }
-.hubtile .ic { width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; background: var(--tint, var(--accent-soft)); color: var(--tintink, var(--accent)); }
-.hubtile .ic svg { width: 21px; height: 21px; }
-.hubtile b { font-size: 14.5px; font-weight: 750; letter-spacing: -.015em; }
-.hubtile small { color: var(--muted); font-size: 12px; line-height: 1.35; margin-top: -6px; }
+.hubtile:active { transform: scale(.9); }
+.hubtile .ic {
+  width: 58px; height: 58px; border-radius: 18px;
+  display: grid; place-items: center; color: #fff;
+  background: linear-gradient(155deg, var(--g2, #918B86), var(--g1, #5B5754));
+  box-shadow: 0 7px 16px -7px color-mix(in srgb, var(--g1, #000) 75%, transparent),
+              inset 0 1px 0 rgba(255, 255, 255, .32),
+              inset 0 -1px 0 rgba(0, 0, 0, .14);
+}
+.hubtile .ic svg { width: 25px; height: 25px; }
+.hubtile b {
+  font-size: 12px; font-weight: 620; letter-spacing: -.005em;
+  line-height: 1.2; color: var(--ink);
+}
+@media (max-width: 340px) { .hubgrid { grid-template-columns: repeat(3, 1fr); } }
 
 /* ============================================================
    10. ROULETTE
@@ -588,3 +702,54 @@
 
 footer#foot { padding: 26px var(--gut) 30px; color: var(--faint); font-size: 12px; line-height: 1.6; max-width: var(--maxw); margin: 0 auto; }
 footer#foot b { color: var(--muted); }
+
+/* Une seule ligne, discrete, cliquable : le detail est derriere. */
+footer#codexFoot { padding: 22px var(--gut) 34px; display: flex; justify-content: center; }
+.footnote {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 8px 14px; border-radius: var(--r-pill);
+  background: var(--surface-2); color: var(--muted);
+  font-size: 12.5px; font-weight: 600;
+  transition: transform var(--d-fast) var(--spring);
+}
+.footnote:active { transform: scale(.95); }
+.footnote .q {
+  width: 17px; height: 17px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--surface-3); color: var(--ink-2);
+  font-size: 10.5px; font-weight: 800;
+}
+
+/* ============================================================
+   16. BANDEAU D'ACCUEIL
+
+   Premier ecran de l'application. Il doit se regarder avant de se
+   lire : un aplat colore par la saison, la ville en grand, la
+   meteo du moment. Le reste de la page suit en dessous.
+   ============================================================ */
+.accueil {
+  width: 100%; text-align: left;
+  border-radius: var(--r-xl); padding: 18px 20px 16px;
+  background: linear-gradient(150deg, var(--g2), var(--g1));
+  color: #fff; box-shadow: var(--sh-2);
+  transition: transform var(--d-fast) var(--spring);
+  position: relative; overflow: hidden;
+}
+.accueil::after {
+  content: ''; position: absolute; right: -40px; top: -60px;
+  width: 190px; height: 190px; border-radius: 50%;
+  background: rgba(255, 255, 255, .1);
+}
+.accueil:active { transform: scale(.985); }
+.accueil .ligne { display: flex; align-items: center; justify-content: space-between; gap: 12px; position: relative; z-index: 2; }
+.accueil .quand { font-size: 11px; font-weight: 750; letter-spacing: .1em; text-transform: uppercase; opacity: .85; }
+.accueil .meteo { display: inline-flex; align-items: center; gap: 6px; font-size: 15px; }
+.accueil .meteo svg { width: 18px; height: 18px; }
+.accueil .ville {
+  display: block; position: relative; z-index: 2;
+  font-size: clamp(28px, 8vw, 40px); font-weight: 800; letter-spacing: -.03em;
+  line-height: 1.05; margin: 8px 0 10px;
+}
+.accueil .bas { font-size: 12.5px; font-weight: 600; opacity: .9; }
+.accueil .chg { display: inline-flex; align-items: center; gap: 3px; }
+.accueil .chg svg { width: 14px; height: 14px; }

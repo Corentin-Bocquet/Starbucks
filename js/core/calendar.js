@@ -86,7 +86,7 @@
     Store.log('calendrier', { title: payload.title, at: start.getTime() });
 
     if (googleReady()) {
-      try { await googleInsert(payload); UI.toast('Ajoute a Google Calendar'); return payload; }
+      try { await googleInsert(payload); UI.toast('Ajouter à Google Agenda'); return payload; }
       catch (e) { console.warn(e); }
     }
     UI.download(slug(payload.title) + '.ics', icsFor(payload), 'text/calendar');

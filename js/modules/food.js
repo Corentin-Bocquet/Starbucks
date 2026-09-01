@@ -24,9 +24,9 @@
   'use strict';
 
   const SLOTS = [
-    { id: 'matin',     nom: 'Petit-dejeuner', icon: 'coffee' },
-    { id: 'midi',      nom: 'Dejeuner',       icon: 'fork' },
-    { id: 'soir',      nom: 'Diner',          icon: 'plate' },
+    { id: 'matin',     nom: 'Petit-déjeuner', icon: 'coffee' },
+    { id: 'midi',      nom: 'Déjeuner',       icon: 'fork' },
+    { id: 'soir',      nom: 'Dîner',          icon: 'plate' },
     { id: 'collation', nom: 'Collations',     icon: 'apple' }
   ];
 
@@ -142,7 +142,7 @@
       '</div>' +
       '<div class="btnrow" style="margin-top:8px">' +
         '<button class="btn sm ghost" data-act="manual">' + Icon('plus', 15) + 'Saisie manuelle</button>' +
-        '<button class="btn sm ghost" data-act="fromcodex">' + Icon('coffee', 15) + 'Depuis le Codex</button>' +
+        '<button class="btn sm ghost" data-act="fromcodex">' + Icon('coffee', 15) + 'Mes recettes</button>' +
       '</div>';
   }
 
@@ -153,18 +153,29 @@
       return '<div class="section" style="padding-bottom:0">' +
         '<div class="sechead"><h2 style="font-size:16px;display:flex;align-items:center;gap:8px">' + Icon(s.icon, 17) + UI.esc(s.nom) + '</h2>' +
         '<span>' + (kcal ? UI.fmt.kcal(kcal) : '—') + '</span></div>' +
-        (items.length
-          ? '<div class="list">' + items.map(mealRow).join('') + '</div>'
-          : '<button class="list rowitem" data-addslot="' + s.id + '" style="width:100%;border-radius:var(--r-md)">' +
-              '<span class="ic">' + Icon('plus', 17) + '</span><span class="tx"><b class="muted" style="font-weight:600">Ajouter</b></span></button>') +
-        '</div>';
+        /* Le bouton d'ajout est toujours la derniere ligne du repas,
+           meme quand il contient deja quelque chose : sans ca, on ne
+           pouvait pas ajouter un deuxieme plat a un dejeuner. */
+        '<div class="list">' + items.map(mealRow).join('') +
+          '<button class="rowitem addrow" data-addslot="' + s.id + '">' +
+            '<span class="ic">' + Icon('plus', 17) + '</span>' +
+            '<span class="tx"><b>Ajouter</b></span></button>' +
+        '</div>' +
+      '</div>';
     }).join('');
   }
 
   function mealRow(m) {
     const q = m.qty ? UI.fmt.n(m.qty) + ' ' + UI.esc(m.unit || 'g') : '';
-    return '<div class="rowitem" data-meal="' + UI.attr(m.id) + '">' +
-      '<span class="ic">' + Icon(m.src === 'ai' ? 'sparkle' : m.src === 'off' ? 'scan' : 'fork', 17) + '</span>' +
+    /* Un aliment de la table interne rapporte sa famille, donc sa
+       couleur : le journal se lit alors comme une image et pas
+       comme un tableau. */
+    const ref = global.ALIMENTS ? ALIMENTS.TABLE.find((a) => ALIMENTS.norm(a.nom) === ALIMENTS.norm(m.nom)) : null;
+    const vign = m.photoUrl || m.image
+      ? '<span class="thumb"><img loading="lazy" src="' + UI.attr(m.photoUrl || m.image) + '" alt=""></span>'
+      : '<span class="thumb" style="background:' + (ref ? (CATTINT[ref.cat] || 'var(--accent-soft)') : 'var(--accent-soft)') + ';color:var(--ink-2)">' +
+          Icon(ref ? (CATICON[ref.cat] || 'fork') : (m.src === 'ai' ? 'sparkle' : m.src === 'off' ? 'scan' : 'fork'), 19) + '</span>';
+    return '<div class="rowitem" data-meal="' + UI.attr(m.id) + '">' + vign +
       '<span class="tx"><b>' + UI.esc(m.nom) + '</b><small>' + q + (m.brand ? ' · ' + UI.esc(m.brand) : '') + '</small></span>' +
       '<span class="rt tabnum">' + UI.fmt.n(m.kcal) + ' kcal</span></div>';
   }
@@ -307,10 +318,9 @@
 
   function scanFlow() {
     if (!AI.available()) return needKey();
-    const input = document.createElement('input');
-    input.type = 'file'; input.accept = 'image/*'; input.capture = 'environment';
-    input.onchange = async () => {
-      const f = input.files && input.files[0];
+    /* Passe par Photos.pick : c'est lui qui corrige la premiere
+       photo qui ne declenchait rien sur iPhone. */
+    Photos.pick(async (f) => {
       if (!f) return;
       UI.openSheet('<div class="mbody">' + UI.thinking('Analyse de la photo…') + '</div>');
       try {
@@ -325,8 +335,7 @@
         UI.closeSheet();
         UI.toast(AI.humanError(e) || 'Analyse impossible');
       }
-    };
-    input.click();
+    }, { capture: 'environment' });
   }
 
   function showScanResult(res, img) {
@@ -370,42 +379,130 @@
   }
 
   /* ---------- Recherche Open Food Facts ---------- */
+  /* ============================================================
+     Recherche d'aliments
+
+     Deux sources, dans cet ordre :
+       1. la table interne (js/data/aliments.js) : les plats, la
+          street food, les fruits, tout ce qui n'a pas de
+          code-barres. C'est elle qui permet enfin de consigner un
+          kebab ;
+       2. Open Food Facts pour les produits emballes.
+
+     La table repond instantanement, sans reseau. Open Food Facts
+     arrive ensuite et vient completer la liste.
+     ============================================================ */
   function searchFlow(slot) {
     slot = slot || guessSlot();
     UI.openSheet(
       '<div class="mbody" style="padding-top:6px">' +
-        '<h2 style="font-size:22px;margin-bottom:12px">Chercher un aliment</h2>' +
+        '<h2 style="font-size:22px;margin-bottom:12px">Ajouter un aliment</h2>' +
         '<label class="search" style="box-shadow:var(--sh-inset)">' + Icon('search', 17) +
-        '<input type="search" data-q placeholder="Nom du produit ou code-barres" autocomplete="off"></label>' +
+        '<input type="search" data-q placeholder="Kebab, pates, yaourt, code-barres…" autocomplete="off"></label>' +
+        '<div class="btnrow" style="margin-top:10px">' +
+          '<button class="btn soft sm" data-bar>' + Icon('scan', 16) + 'Scanner un code-barres</button>' +
+          '<button class="btn soft sm" data-manual>' + Icon('plus', 16) + 'Saisir à la main</button>' +
+        '</div>' +
         '<div data-res style="margin-top:14px"></div>' +
       '</div>',
       { onMount: (s) => {
         const q = s.querySelector('[data-q]'), out = s.querySelector('[data-res]');
         setTimeout(() => q.focus(), 260);
+
+        s.querySelector('[data-bar]').onclick = () => { UI.closeSheet(); barcodeFlow(slot); };
+        s.querySelector('[data-manual]').onclick = () => { UI.closeSheet(); manualFlow(q.value.trim(), slot); };
+
         const run = UI.debounce(async () => {
           const v = q.value.trim();
-          if (v.length < 2) { out.innerHTML = recentSuggestions(slot); bindPick(out, slot); return; }
-          out.innerHTML = UI.thinking('Recherche…');
+          if (v.length < 2) { out.innerHTML = startBlock(slot); bindPick(out, slot); return; }
+
+          /* La table repond tout de suite. */
+          const locaux = global.ALIMENTS ? ALIMENTS.chercher(v, 10) : [];
+          out.innerHTML = resultList(locaux) + UI.thinking('On regarde aussi les produits emballés…');
+          bindPick(out, slot);
+
           const rows = await offSearch(v);
-          if (!rows.length) {
-            out.innerHTML = UI.empty('search', 'Aucun produit', 'Essaie un autre nom, ou passe par la saisie manuelle.') +
-              '<button class="btn block" data-manual>' + Icon('plus', 16) + 'Saisie manuelle</button>';
-            const b = out.querySelector('[data-manual]');
-            if (b) b.onclick = () => { UI.closeSheet(); manualFlow(v, slot); };
+          const vus = new Set(locaux.map((x) => ALIMENTS.norm(x.nom)));
+          const nets = rows.filter((r) => !vus.has(ALIMENTS.norm(r.nom)));
+          const tout = locaux.concat(nets);
+
+          if (!tout.length) {
+            out.innerHTML = UI.empty('search', 'Rien sous ce nom', "Ajoute-le à la main : l'IA remplira les calories toute seule.") +
+              '<button class="btn primary block" data-man2>' + Icon('plus', 16) + 'Ajouter « ' + UI.esc(v) + ' »</button>';
+            out.querySelector('[data-man2]').onclick = () => { UI.closeSheet(); manualFlow(v, slot); };
             return;
           }
-          out.innerHTML = '<div class="list">' + rows.map((r, i) =>
-            '<button class="rowitem" data-pick=\'' + UI.attr(JSON.stringify(r)) + '\'>' +
-              '<span class="ic">' + Icon('scan', 17) + '</span>' +
-              '<span class="tx"><b>' + UI.esc(r.nom) + '</b><small>' + UI.esc(r.brand || '') + ' · ' + UI.fmt.n(r.kcal100) + ' kcal / 100 ' + r.base + '</small></span>' +
-              '<span class="rt">' + Icon('next', 15) + '</span></button>').join('') + '</div>';
+          out.innerHTML = resultList(tout) +
+            '<button class="btn ghost block" style="margin-top:10px" data-man2>' + Icon('plus', 16) + 'Aucun ne correspond, saisir à la main</button>';
           bindPick(out, slot);
-        }, 380);
+          out.querySelector('[data-man2]').onclick = () => { UI.closeSheet(); manualFlow(v, slot); };
+        }, 320);
+
         q.oninput = run;
-        out.innerHTML = recentSuggestions(slot);
+        out.innerHTML = startBlock(slot);
         bindPick(out, slot);
       } }
     );
+  }
+
+  /* Une vignette pour chaque aliment : photo du produit quand Open
+     Food Facts en fournit une, sinon une pastille de couleur par
+     famille. Une liste d'aliments doit se lire d'un coup d'oeil. */
+  const CATTINT = {
+    plat: '#E9F1FB', sandwich: '#FBEDE3', viande: '#FBE7E7', poisson: '#E4F1F6',
+    feculent: '#F7EFDF', legume: '#E7F5EC', fruit: '#FBEFF4', laitier: '#F1F0FB',
+    petitdej: '#FAF0DE', entree: '#EFF3E9', dessert: '#FBE9EF', snack: '#F2EFEA',
+    boisson: '#E4F0F6', sauce: '#F5EEE6'
+  };
+  const CATICON = {
+    plat: 'pot', sandwich: 'fork', viande: 'fork', poisson: 'fork',
+    feculent: 'fork', legume: 'apple', fruit: 'apple', laitier: 'apple',
+    petitdej: 'coffee', entree: 'fork', dessert: 'apple', snack: 'apple',
+    boisson: 'glass', sauce: 'fork'
+  };
+  function vignette(r) {
+    if (r.image) return '<span class="thumb"><img loading="lazy" src="' + UI.attr(r.image) + '" alt=""></span>';
+    const tint = CATTINT[r.cat] || 'var(--accent-soft)';
+    return '<span class="thumb" style="background:' + tint + ';color:var(--ink-2)">' + Icon(CATICON[r.cat] || 'fork', 19) + '</span>';
+  }
+
+  function resultList(rows) {
+    if (!rows.length) return '';
+    return '<div class="list">' + rows.map((r) =>
+      '<button class="rowitem" data-pick=\'' + UI.attr(JSON.stringify(r)) + '\'>' +
+        vignette(r) +
+        '<span class="tx"><b>' + UI.esc(r.nom) + '</b><small>' +
+          (r.brand ? UI.esc(r.brand) + ' · ' : (r.catNom ? UI.esc(r.catNom) + ' · ' : '')) +
+          UI.fmt.n(r.kcal100) + ' kcal / 100 ' + r.base + '</small></span>' +
+        '<span class="rt">' + Icon('next', 15) + '</span></button>').join('') + '</div>';
+  }
+
+  /* Avant la premiere lettre : ce qu'il a mange recemment, puis les
+     aliments les plus courants. Rien de vide, jamais. */
+  function startBlock(slot) {
+    const seen = new Map();
+    Store.all('meals').slice().reverse().forEach((m) => { if (!seen.has(m.nom)) seen.set(m.nom, m); });
+    const recents = Array.from(seen.values()).slice(0, 6).map(mealToPick);
+
+    const courants = global.ALIMENTS
+      ? ['Kebab', 'Pizza margherita', 'Pates cuites', 'Riz blanc cuit', 'Escalope de poulet', 'Salade composee',
+         'Oeuf', 'Yaourt nature', 'Banane', 'Pomme', 'Baguette', 'Frites']
+          .map((n) => ALIMENTS.TABLE.find((a) => a.nom === n)).filter(Boolean)
+      : [];
+
+    const titre = (t) => '<h4 style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:14px 0 8px">' + t + '</h4>';
+    return (recents.length ? titre('Récemment') + resultList(recents) : '') +
+           (courants.length ? titre('Les plus courants') + resultList(courants) : '');
+  }
+
+  function mealToPick(m) {
+    return {
+      nom: m.nom, brand: m.brand || '', base: m.unit === 'ml' ? 'ml' : 'g',
+      kcal100: Math.round(m.qty ? (m.kcal / m.qty) * 100 : m.kcal),
+      per100: { prot: safe100(m.prot, m.qty), carb: safe100(m.carb, m.qty), fat: safe100(m.fat, m.qty),
+                fiber: safe100(m.fiber, m.qty), sugar: safe100(m.sugar, m.qty), sodium: safe100(m.sodium, m.qty) },
+      defaultQty: m.qty || 100, src: m.src, cat: 'plat'
+    };
   }
 
   function bindPick(out, slot) {
@@ -438,8 +535,8 @@
     const isBarcode = /^\d{8,14}$/.test(q);
     const base = (global.EVER_CONFIG && EVER_CONFIG.foodApi) || 'https://world.openfoodfacts.org/api/v2';
     const url = isBarcode
-      ? base + '/product/' + encodeURIComponent(q) + '?fields=product_name,product_name_fr,brands,nutriments,quantity,serving_quantity'
-      : base + '/search?search_terms=' + encodeURIComponent(q) + '&countries_tags_en=france&page_size=14&fields=product_name,product_name_fr,brands,nutriments,quantity,serving_quantity';
+      ? base + '/product/' + encodeURIComponent(q) + '?fields=product_name,product_name_fr,brands,nutriments,quantity,serving_quantity,image_front_small_url,image_small_url'
+      : base + '/search?search_terms=' + encodeURIComponent(q) + '&page_size=24&fields=product_name,product_name_fr,brands,nutriments,quantity,serving_quantity,image_front_small_url,image_small_url';
     try {
       const r = await fetch(url, { headers: { 'Accept': 'application/json' } });
       if (!r.ok) return [];
@@ -463,6 +560,7 @@
         fiber: n.fiber_100g || 0, sugar: n.sugars_100g || 0, sodium: (n.sodium_100g || 0) * 1000
       },
       defaultQty: Number(p.serving_quantity) || 100,
+      image: p.image_front_small_url || p.image_small_url || '',
       src: 'off'
     };
   }
@@ -517,17 +615,154 @@
     }, res.slot);
   }
 
-  function codexFlow() {
-    const favs = Codex.favorites();
-    const drinks = (global.DRINKS || []).slice(0, 40);
-    const rows = (favs.length ? favs : drinks.map((d) => ({ nom: d.nom, kcal: d.kcal })));
+  /* ============================================================
+     Code-barres
+
+     Deux chemins, parce qu'aucun ne marche partout :
+       - BarcodeDetector, natif, quand le navigateur le propose
+         (Chrome, Android). Lecture en direct, instantanee.
+       - sinon une photo du code-barres, lue par Gemini. C'est le
+         cas d'iOS, ou l'API native n'existe pas dans Safari.
+     Dans les deux cas on finit par un chiffre, qu'on envoie a Open
+     Food Facts.
+     ============================================================ */
+  function barcodeFlow(slot) {
+    if ('BarcodeDetector' in global) return barcodeLive(slot);
+    return barcodePhoto(slot);
+  }
+
+  async function barcodeLive(slot) {
+    let stream = null, arret = false;
     UI.openSheet(
-      '<div class="mbody" style="padding-top:6px"><h2 style="font-size:22px;margin-bottom:12px">Depuis le Codex</h2>' +
-      '<div class="list">' + rows.map((r) =>
-        '<button class="rowitem" data-c="' + UI.attr(r.nom) + '" data-k="' + (r.kcal || 0) + '">' +
-        '<span class="ic">' + Icon('coffee', 17) + '</span><span class="tx"><b>' + UI.esc(r.nom) + '</b></span>' +
-        '<span class="rt tabnum">' + (r.kcal ? UI.fmt.n(r.kcal) + ' kcal' : '') + '</span></button>').join('') + '</div></div>',
-      { onMount: (s) => s.querySelectorAll('[data-c]').forEach((b) => b.onclick = () => { UI.closeSheet(); quickAdd({ nom: b.dataset.c, kcal: +b.dataset.k }); }) }
+      '<div class="mbody" style="padding-top:6px">' +
+        '<h2 style="font-size:22px;margin-bottom:4px">Vise le code-barres</h2>' +
+        '<p class="muted" style="font-size:13px;margin-bottom:12px">Approche jusqu\'à ce que les barres remplissent le cadre.</p>' +
+        '<div class="scanbox"><video data-v playsinline muted autoplay></video><div class="scanline"></div></div>' +
+        '<button class="btn ghost block" style="margin-top:12px" data-photo>Plutôt prendre une photo</button>' +
+      '</div>',
+      { onMount: async (sh) => {
+          const v = sh.querySelector('[data-v]');
+          sh.querySelector('[data-photo]').onclick = () => { arret = true; stop(); UI.closeSheet(); barcodePhoto(slot); };
+          try {
+            stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+            v.srcObject = stream;
+          } catch (e) { UI.closeSheet(); barcodePhoto(slot); return; }
+
+          const det = new global.BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128'] });
+          const boucle = async () => {
+            if (arret) return;
+            try {
+              const codes = await det.detect(v);
+              if (codes && codes.length) {
+                arret = true; stop(); UI.closeSheet();
+                return lookupBarcode(codes[0].rawValue, slot);
+              }
+            } catch (e) {}
+            requestAnimationFrame(boucle);
+          };
+          requestAnimationFrame(boucle);
+        },
+        onClose: () => { arret = true; stop(); } }
+    );
+    function stop() { if (stream) stream.getTracks().forEach((t) => t.stop()); stream = null; }
+  }
+
+  function barcodePhoto(slot) {
+    if (!AI.available()) { UI.toast("Ajoute ta clé IA dans les réglages pour lire un code en photo"); return manualFlow('', slot); }
+    Photos.pick(async (f) => {
+      if (!f) return;
+      UI.toast('Lecture du code…');
+      try {
+        const petite = await AI.shrink(f, 1100, 0.85);
+        const lu = await AI.vision([petite],
+          "Cette photo contient un code-barres de produit alimentaire. Renvoie uniquement la suite de chiffres imprimee sous les barres, sans espace ni tiret. Si aucun code n'est lisible, renvoie une chaine vide.",
+          AI.T.obj({ code: AI.T.str('Les chiffres du code-barres, ou une chaine vide') }, ['code']),
+          { cache: false });
+        const code = String((lu && lu.code) || '').replace(/\D/g, '');
+        if (code.length < 8) { UI.toast('Code illisible, réessaie de plus près'); return; }
+        lookupBarcode(code, slot);
+      } catch (e) { UI.toast(AI.humanError ? AI.humanError(e) : 'Lecture impossible'); }
+    }, { capture: 'environment' });
+  }
+
+  async function lookupBarcode(code, slot) {
+    UI.toast('Produit ' + code + '…');
+    const rows = await offSearch(code);
+    if (!rows.length) {
+      UI.toast('Produit inconnu de la base');
+      return manualFlow('', slot);
+    }
+    askQuantity(rows[0], slot || guessSlot());
+  }
+
+  /* ============================================================
+     Depuis le Codex
+
+     L'ancienne version lisait `global.DRINKS`, qui n'existe pas :
+     les donnees du Codex sont declarees en `const` au niveau du
+     script, donc visibles par la portee mais absentes de `window`.
+     Resultat : une feuille vide des qu'aucun favori n'existait.
+     On lit maintenant directement les trois jeux de donnees, et on
+     affiche les photos.
+     ============================================================ */
+  function codexFlow(slot) {
+    slot = slot || guessSlot();
+    const favs = (global.Codex && Codex.favorites) ? Codex.favorites() : [];
+
+    const boissons = (typeof DRINKS !== 'undefined' ? DRINKS : [])
+      .map((d) => ({ nom: d.nom, kcal: d.kcal, img: IMG[d.id] }));
+    const cocktails = (typeof COCKTAILS !== 'undefined' ? COCKTAILS : [])
+      .map((d) => ({ nom: d.nom, kcal: null, img: IMG['ck-' + d.id] }));
+    const plats = (typeof MAMIE !== 'undefined' ? MAMIE : [])
+      .map((d) => ({ nom: d.nom, kcal: null, img: IMG['mm-' + (d.img || 'crepes-bocuse')] }));
+
+    const favRows = favs.map((f) => ({
+      nom: f.nom, kcal: f.kcal != null ? f.kcal : null,
+      img: f.tab === 'sb' ? IMG[f.id] : f.tab === 'ck' ? IMG['ck-' + f.id] : IMG['mm-' + f.id]
+    }));
+
+    const bloc = (titre, rows) => rows.length
+      ? '<h4 style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:16px 0 8px">' + titre + '</h4>' +
+        '<div class="list">' + rows.map((r) =>
+          '<button class="rowitem" data-c="' + UI.attr(r.nom) + '" data-k="' + (r.kcal == null ? '' : r.kcal) + '">' +
+            (r.img ? '<span class="thumb"><img loading="lazy" src="' + UI.attr(r.img) + '" alt=""></span>'
+                   : '<span class="ic">' + Icon('coffee', 17) + '</span>') +
+            '<span class="tx"><b>' + UI.esc(r.nom) + '</b></span>' +
+            '<span class="rt tabnum">' + (r.kcal != null ? UI.fmt.n(r.kcal) + ' kcal' : Icon('next', 15)) + '</span>' +
+          '</button>').join('') + '</div>'
+      : '';
+
+    UI.openSheet(
+      '<div class="mbody" style="padding-top:6px">' +
+        '<h2 style="font-size:22px;margin-bottom:2px">Mes boissons et recettes</h2>' +
+        '<p class="muted" style="font-size:13px">Tout ce qui est dans Café, Bar et Recettes.</p>' +
+        '<label class="search" style="box-shadow:var(--sh-inset);margin-top:12px">' + Icon('search', 17) +
+          '<input type="search" data-cq placeholder="Filtrer…" autocomplete="off"></label>' +
+        '<div data-cout>' +
+          bloc('Mes favoris', favRows) +
+          bloc('Café', boissons) +
+          bloc('Bar', cocktails) +
+          bloc('Recettes', plats) +
+        '</div>' +
+      '</div>',
+      { onMount: (sh) => {
+          const bind = () => sh.querySelectorAll('[data-c]').forEach((b) => b.onclick = () => {
+            UI.closeSheet();
+            const k = b.dataset.k;
+            if (k === '') return manualFlow(b.dataset.c, slot);
+            addEntry({ nom: b.dataset.c, kcal: +k, qty: 1, unit: 'portion', src: 'manual' }, slot);
+          });
+          bind();
+          const q = sh.querySelector('[data-cq]'), out = sh.querySelector('[data-cout]');
+          q.oninput = () => {
+            const v = ALIMENTS ? ALIMENTS.norm(q.value) : q.value.toLowerCase();
+            if (!v) { out.querySelectorAll('[data-c]').forEach((b) => b.style.display = ''); return; }
+            out.querySelectorAll('[data-c]').forEach((b) => {
+              const n = ALIMENTS ? ALIMENTS.norm(b.dataset.c) : b.dataset.c.toLowerCase();
+              b.style.display = n.indexOf(v) >= 0 ? '' : 'none';
+            });
+          };
+        } }
     );
   }
 
@@ -553,13 +788,13 @@
   async function analyse() {
     if (!AI.available()) return needKey();
     const list = entries();
-    if (!list.length) { UI.toast('Rien a analyser pour ce jour'); return; }
+    if (!list.length) { UI.toast('Rien à analyser pour ce jour'); return; }
     const g = goals(), t = totals(list);
 
     const target = root.querySelector('[data-act="analyse"]');
     if (target) target.outerHTML = UI.thinking('Analyse de la journée…');
 
-    const détail = SLOTS.map((s) => {
+    const detail = SLOTS.map((s) => {
       const it = list.filter((m) => m.slot === s.id);
       if (!it.length) return null;
       return s.nom + ' : ' + it.map((m) => m.nom + ' (' + UI.fmt.n(m.qty) + ' ' + m.unit + ', ' + Math.round(m.kcal) + ' kcal, P ' + r1(m.prot) + ' G ' + r1(m.carb) + ' L ' + r1(m.fat) + ')').join(', ');
@@ -569,7 +804,7 @@
       "Tu es un nutritionniste francais, direct, sans flatterie. Analyse cette journée alimentaire.\n\n" +
       "OBJECTIFS : " + g.kcal + " kcal, " + g.prot + " g de protéines, " + g.carb + " g de glucides, " + g.fat + " g de lipides, " + g.fiber + " g de fibres.\n" +
       "REALISE : " + Math.round(t.kcal) + " kcal, " + r1(t.prot) + " g de protéines, " + r1(t.carb) + " g de glucides, " + r1(t.fat) + " g de lipides, " + r1(t.fiber) + " g de fibres, " + r1(t.sugar) + " g de sucrés, " + Math.round(t.sodium) + " mg de sodium.\n\n" +
-      "DETAIL :\n" + détail + "\n\n" +
+      "DETAIL :\n" + detail + "\n\n" +
       "Règles de reponse :\n" +
       "- Ne felicite pas pour rien. Si la journée est médiocre, dis-le.\n" +
       "- Les remplacements doivent garder le même repas et le même plaisir : on change deux ou trois aliments, on ne remplace pas un burger par une salade.\n" +

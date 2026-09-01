@@ -175,7 +175,7 @@
   async function generate(force) {
     if (!AI.available()) {
       root.innerHTML = '<div class="wrap">' + header() + '<div class="section">' +
-        UI.empty('key', 'Clé Gemini requise', 'Le guide est ecrit a la demande. Ajoute ta clé dans Réglages, elle reste sur ton téléphone.') +
+        UI.empty('key', 'Clé Gemini requise', "Le guide est écrit à la demande. Ajoute ta clé dans Réglages, elle reste sur ton téléphone.") +
         '<button class="btn primary block" data-act="settings">Ouvrir les réglages</button></div></div>';
       bindHeader();
       const b = root.querySelector('[data-act="settings"]');
@@ -293,7 +293,7 @@
       let p; try { p = JSON.parse(b.dataset.savep); } catch (err) { return; }
       const place = Ctx.place();
       Store.add('places', Object.assign(p, { city: slug(city), source: 'guide', lat: place.lat, lon: place.lon }));
-      UI.haptic('light'); UI.toast('Ajoute a mes établissements');
+      UI.haptic('light'); UI.toast('Ajouter à mes adresses');
     });
     root.querySelectorAll('[data-act]').forEach((b) => b.onclick = () => {
       if (b.dataset.act === 'refresh') { data = null; render(); generate(true); }

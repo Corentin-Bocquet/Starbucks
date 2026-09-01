@@ -222,16 +222,55 @@
     return '<div class="thinking"><div class="spinner"></div>' + esc(text || 'Un instant…') + '</div>';
   }
 
+  /* --- Le petit point d'interrogation ---------------------------
+     Tout ce qui est vrai mais dont personne n'a besoin pour agir
+     part ici : dosages officiels, précisions de mesure, mises en
+     garde. Le texte visible reste court, le détail attend qu'on le
+     demande.
+
+     Ça ouvre son propre calque et non une feuille modale : on doit
+     pouvoir demander une précision depuis l'intérieur d'une fiche
+     sans la faire disparaître. */
+  function hint(text, title) {
+    return '<button type="button" class="hintq" data-hint="' + attr(text) + '"' +
+      (title ? ' data-hint-t="' + attr(title) + '"' : '') +
+      ' aria-label="En savoir plus">?</button>';
+  }
+  function showHint(text, title) {
+    let pop = $('#hintpop');
+    if (!pop) { pop = document.createElement('div'); pop.id = 'hintpop'; document.body.appendChild(pop); }
+    pop.innerHTML = '<div class="hintcard">' +
+      '<h4>' + esc(title || 'Pour info') + '</h4>' +
+      String(text).split('\n').filter(Boolean).map((l) => '<p>' + esc(l) + '</p>').join('') +
+      '<button type="button" class="btn soft block" data-hint-close>Compris</button></div>';
+    pop.classList.add('on');
+  }
+  function hideHint() { const p = $('#hintpop'); if (p) p.classList.remove('on'); }
+
   global.UI = {
     $, $$, esc, attr, haptic, toast,
     openSheet, closeSheet, confirmSheet, promptSheet,
+    hint, showHint, hideHint,
     fmt, day, uid, clamp, debounce, sleep, download, copy,
     ring, sparkline, empty, thinking
   };
 
   /* Fermetures globales */
   document.addEventListener('click', (e) => {
+    const q = e.target.closest('[data-hint]');
+    if (q) {
+      e.preventDefault(); e.stopPropagation();
+      haptic('light');
+      showHint(q.dataset.hint, q.dataset.hintT);
+      return;
+    }
+    if (e.target.closest('[data-hint-close]') || e.target.id === 'hintpop') { hideHint(); return; }
     if (e.target.closest('[data-sheet-close]')) closeSheet();
   });
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeSheet(); });
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    const p = $('#hintpop');
+    if (p && p.classList.contains('on')) { hideHint(); return; }
+    closeSheet();
+  });
 })(window);

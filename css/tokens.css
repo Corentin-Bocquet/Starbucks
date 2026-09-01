@@ -193,6 +193,12 @@ body[data-accent="food"] {
 body[data-accent="health"] {
   --accent: #2C5F8A; --accent-2: #4A8CC2; --accent-deep: #16344B; --accent-soft: #E4EEF6;
 }
+body[data-accent="activites"] {
+  --accent: #2C5F8A; --accent-2: #4A8CC2; --accent-deep: #16344B; --accent-soft: #E6F0FA;
+}
+body[data-accent="tenues"] {
+  --accent: #2F6B5A; --accent-2: #4A937E; --accent-deep: #17372E; --accent-soft: #E9F2F1;
+}
 body[data-accent="brand"] {
   --accent: var(--brand); --accent-2: #D4335A; --accent-deep: var(--brand-ink); --accent-soft: var(--brand-soft);
 }
@@ -247,9 +253,13 @@ body { --hero-bg: var(--accent-deep); }
   :root:not([data-theme="light"]) body[data-accent="recettes"] { --accent:#E39A63; --accent-2:#F0B584; --accent-deep:#F8E4D3; --accent-soft:#2C1A0E; }
   :root:not([data-theme="light"]) body[data-accent="food"]     { --accent:#4ADE80; --accent-2:#6FE79B; --accent-deep:#D6F7E3; --accent-soft:#0F2A1B; }
   :root:not([data-theme="light"]) body[data-accent="health"]   { --accent:#6FB2E8; --accent-2:#93C8F1; --accent-deep:#D9ECFA; --accent-soft:#12222E; }
+  :root:not([data-theme="light"]) body[data-accent="activites"] { --accent:#6FB2E8; --accent-2:#93C8F1; --accent-deep:#D9ECFA; --accent-soft:#12222E; }
+  :root:not([data-theme="light"]) body[data-accent="tenues"]    { --accent:#67B79E; --accent-2:#89CBB6; --accent-deep:#D6EFE7; --accent-soft:#122822; }
 }
 :root[data-theme="dark"] body[data-accent="cafe"]     { --accent:#3FBF8B; --accent-2:#5FD6A6; --accent-deep:#CFF3E4; --accent-soft:#0F2A1F; }
 :root[data-theme="dark"] body[data-accent="bar"]      { --accent:#E9749F; --accent-2:#F49BBB; --accent-deep:#FBDCE7; --accent-soft:#2A1220; }
 :root[data-theme="dark"] body[data-accent="recettes"] { --accent:#E39A63; --accent-2:#F0B584; --accent-deep:#F8E4D3; --accent-soft:#2C1A0E; }
 :root[data-theme="dark"] body[data-accent="food"]     { --accent:#4ADE80; --accent-2:#6FE79B; --accent-deep:#D6F7E3; --accent-soft:#0F2A1B; }
 :root[data-theme="dark"] body[data-accent="health"]   { --accent:#6FB2E8; --accent-2:#93C8F1; --accent-deep:#D9ECFA; --accent-soft:#12222E; }
+:root[data-theme="dark"] body[data-accent="activites"] { --accent:#6FB2E8; --accent-2:#93C8F1; --accent-deep:#D9ECFA; --accent-soft:#12222E; }
+:root[data-theme="dark"] body[data-accent="tenues"]    { --accent:#67B79E; --accent-2:#89CBB6; --accent-deep:#D6EFE7; --accent-soft:#122822; }

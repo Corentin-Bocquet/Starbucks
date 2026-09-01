@@ -69,13 +69,13 @@ const STOCKTITLE={sb:'Mon placard',ck:'Mon bar',mm:'Mon garde-manger'};
 const DATA={sb:()=>DRINKS,ck:()=>COCKTAILS,mm:()=>MAMIE};
 const CATLIST={sb:()=>CATS,ck:()=>CKCATS,mm:()=>MMCATS};
 const HERO={
- sb:{img:IMG.hero, kicker:'Café', eye:"103 recettes · Eletta Explore", t:'Café', em:'',
-     p:"Toute la carte décomposée en millilitres, avec l'ordre d'assemblage et les réglages machine.",
+ sb:{img:IMG.hero, kicker:'Café', eye:"103 boissons à refaire chez toi", t:'Café', em:'',
+     p:"Toute la carte, en millilitres, avec l'ordre à suivre et les réglages de la machine.",
      stats:[[DRINKS.length,'recettes'],[CATS.length,'catégories'],[3,'tailles']]},
- ck:{img:IMG['hero-ck'], kicker:'Bar', eye:'21 cocktails · Dosages IBA', t:'Bar', em:'',
-     p:"Vingt classiques aux dosages officiels et une création maison. Coche ton bar, l'app dit ce que tu peux faire ce soir.",
+ ck:{img:IMG['hero-ck'], kicker:'Bar', eye:'21 cocktails, du classique au maison', t:'Bar', em:'',
+     p:"Vingt grands classiques et une création maison. Coche ce que tu as, l'app te dit ce que tu peux faire ce soir.",
      stats:[[COCKTAILS.length,'cocktails'],[BAR.length,'ingrédients'],[3,'familles']]},
  mm:{img:IMG['hero-mm'], kicker:'Recettes', eye:'22 recettes de famille', t:'Recettes', em:'',
-     p:"Celles qui se transmettent à l'oral et qu'on finit par oublier. Quantités et photos d'origine.",
+     p:"Celles qu'on se raconte et qu'on finit par oublier. Les quantités exactes et les photos d'origine.",
      stats:[[MAMIE.length,'recettes'],[MAMIE.filter(r=>r.cat==='mamie-sucre').length,'sucrées'],[MAMIE.filter(r=>r.cat==='mamie-sale').length,'salées']]}
 };

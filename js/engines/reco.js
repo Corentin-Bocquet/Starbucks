@@ -126,7 +126,7 @@
     const wf = weatherFit(p, ctx && ctx.weather, ctx && ctx.season);
     s *= wf;
     if (wf > 1.2 && ctx && ctx.weather) why.push(ctx.weather.text.toLowerCase());
-    if (wf < 0.4) why.push('peu adapte a la météo');
+    if (wf < 0.4) why.push('peu adapté à la météo');
 
     const sf = slotFit(p, ctx && ctx.slot);
     s *= sf;
@@ -142,7 +142,7 @@
     const pref = prefOf(p);
     s += pref * 12;
     if (pref > 0.4) why.push('tu aimés ce genre');
-    if (pref < -0.4) why.push('tu avais dit non a ce genre');
+    if (pref < -0.4) why.push('tu avais dit non à ce genre');
 
     /* Favori. */
     if (opts.favIds && opts.favIds.has(p.id)) { s += 14; why.push('dans tes favoris'); }

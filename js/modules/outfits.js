@@ -73,8 +73,9 @@
       '</div>' +
       (fresh ? outfitCard(pick.outfit, pick.pourquoi) :
         '<div class="panel" style="text-align:center;padding:26px 18px">' +
-        '<b style="display:block;margin-bottom:6px">Quel registre aujourd\'hui ?</b>' +
-        '<p class="muted" style="font-size:13px">Choisis un mood ci-dessus. La météo et l\'heure sont déjà prises en compte.</p>' +
+        '<div class="ei" style="width:52px;height:52px;margin:0 auto 12px;border-radius:16px;display:grid;place-items:center;background:var(--accent-soft);color:var(--accent)">' + Icon('shirt', 26) + '</div>' +
+        '<b style="display:block;margin-bottom:6px;font-size:17px">Tu t\'habilles comment aujourd\'hui ?</b>' +
+        '<p class="muted" style="font-size:13px">Choisis une ambiance juste au-dessus. La météo et l\'heure sont déjà prises en compte.</p>' +
         (garments().length < 3 ? '<button class="btn primary" style="margin-top:14px" data-act="addGarment">' + Icon('plus', 16) + 'Ajouter des vêtements</button>' : '') +
         '</div>') +
       '</div>';
@@ -213,37 +214,90 @@
   /* ============================================================
      Ajout d'un vêtement avec reconnaissance
      ============================================================ */
+  /* La reconnaissance ratait souvent la categorie et sortait des
+     couleurs approximatives. Trois corrections :
+       - on nomme le type exact avant de le classer, ce qui force
+         le modele a regarder la piece plutot qu'a deviner ;
+       - la couleur est demandee en francais ET en hexadecimal, et
+         les deux doivent correspondre ;
+       - la photo part en meilleure definition. */
   const GARMENT_SCHEMA = AI.T.obj({
-    nom: AI.T.str('Nom court, en francais, ex. chemise en lin beige'),
-    slot: AI.T.enu(['haut', 'bas', 'chaussures', 'veste', 'sousvetement', 'chaussettes', 'accessoire'], ''),
-    couleurs: AI.T.arr(AI.T.str('Code hexadecimal, ex. #2C3E50'), 'Une a trois couleurs dominantes'),
-    matiere: AI.T.str('Matière apparente'),
+    type: AI.T.str('Le type exact du vetement en un ou deux mots : t-shirt, chemise, pull, sweat, jean, chino, short, jupe, robe, veste, manteau, basket, botte, chaussure de ville, casquette, echarpe, ceinture, sac…'),
+    nom: AI.T.str('Nom court et parlant, en francais : matiere ou motif + type + couleur. Exemple : chemise en lin beige'),
+    slot: AI.T.enu(['haut', 'bas', 'chaussures', 'veste', 'sousvetement', 'chaussettes', 'accessoire'], 'La categorie deduite du type'),
+    couleur_nom: AI.T.str('La couleur principale en francais courant : beige, bleu marine, blanc casse…'),
+    couleurs: AI.T.arr(AI.T.str('Code hexadecimal exact, ex. #2C3E50'), 'Une a trois couleurs dominantes, la principale en premier'),
+    motif: AI.T.str('uni, raye, carreaux, imprime, jean brut, delave, ou autre'),
+    matiere: AI.T.str('Matiere apparente'),
+    marque: AI.T.str('Marque si un logo est nettement lisible, sinon chaine vide'),
     styles: AI.T.arr(AI.T.enu(['chill', 'soiree', 'classe', 'oldmoney', 'sport'], ''), 'Registres qui conviennent'),
     saisons: AI.T.arr(AI.T.enu(['printemps', 'ete', 'automne', 'hiver'], ''), ''),
-    chaleur: AI.T.int('De 1 (très leger) a 5 (très chaud)'),
+    chaleur: AI.T.int('De 1 (tres leger, un t-shirt) a 5 (tres chaud, une doudoune)'),
     pluie: AI.T.bool('Convient sous la pluie')
-  }, ['nom', 'slot', 'couleurs']);
+  }, ['type', 'nom', 'slot', 'couleur_nom', 'couleurs', 'chaleur']);
+
+  const PROMPT_VETEMENT =
+    "Tu remplis la fiche d'un vetement dans un dressing numerique.\n\n" +
+    "Methode, dans cet ordre :\n" +
+    "1. Nomme d'abord le type exact de la piece (t-shirt, chemise, pull, jean, veste, basket, casquette…).\n" +
+    "2. Deduis-en la categorie : un t-shirt, une chemise, un pull, un sweat et un polo sont des « haut » ; " +
+    "un jean, un chino, un pantalon, un short et une jupe sont des « bas » ; " +
+    "une veste, un blouson, un manteau et un blazer sont des « veste » ; " +
+    "les baskets, bottes et chaussures de ville sont des « chaussures » ; " +
+    "casquettes, bonnets, echarpes, ceintures, sacs, montres et bijoux sont des « accessoire ».\n" +
+    "3. Donne la couleur principale en francais courant, puis son code hexadecimal. Les deux doivent decrire la meme couleur : " +
+    "si tu ecris « bleu marine », le code doit etre sombre. Prends la couleur du tissu, pas celle du fond ni de l'ombre.\n" +
+    "4. Estime la chaleur d'apres l'epaisseur visible du tissu.\n\n" +
+    "Si plusieurs vetements sont visibles, ne decris que celui du premier plan. " +
+    "N'invente pas de marque : si aucun logo n'est nettement lisible, laisse le champ vide. Reponds en francais.";
+
+  /* Un seul chemin de reconnaissance, utilise a l'ajout et au
+     bouton « relancer l'IA » de la fiche. */
+  async function reconnaitre(image) {
+    const meta = await AI.vision([image], PROMPT_VETEMENT, GARMENT_SCHEMA, { cache: false, temperature: 0.2 });
+    const slots = SEED.GARMENT_SLOTS.map((x) => x.id);
+    if (slots.indexOf(meta.slot) < 0) meta.slot = devinerSlot(meta.type);
+    meta.couleurs = (meta.couleurs || []).map((c) => safeHex(c)).slice(0, 4);
+    if (!meta.couleurs.length) meta.couleurs = ['#888888'];
+    if (!meta.nom) meta.nom = [meta.type, meta.couleur_nom].filter(Boolean).join(' ') || 'Piece';
+    meta.chaleur = Math.max(1, Math.min(5, Number(meta.chaleur) || 3));
+    if (meta.marque === 'chaine vide') meta.marque = '';
+    return meta;
+  }
+
+  /* Filet de securite quand le modele renvoie une categorie hors
+     liste : on retombe sur le type, qui lui est presque toujours bon. */
+  const MOTS_SLOT = [
+    ['chaussures', /basket|sneaker|botte|chaussure|mocassin|derby|sandale|tong|escarpin/i],
+    ['veste',      /veste|blouson|manteau|parka|doudoune|blazer|trench|gilet/i],
+    ['bas',        /jean|pantalon|chino|short|jupe|jogging|bermuda|legging/i],
+    ['chaussettes', /chaussette|socquette/i],
+    ['sousvetement', /calecon|boxer|slip|sous-vetement|maillot de corps/i],
+    ['accessoire', /casquette|bonnet|echarpe|ceinture|sac|montre|lunette|bijou|chapeau|gant|cravate/i],
+    ['haut',       /t-shirt|tee-shirt|chemise|pull|sweat|polo|debardeur|hoodie|robe|top/i]
+  ];
+  function devinerSlot(type) {
+    const t = String(type || '');
+    for (const [slot, re] of MOTS_SLOT) if (re.test(t)) return slot;
+    return 'haut';
+  }
 
   function addGarment() {
-    const input = document.createElement('input');
-    input.type = 'file'; input.accept = 'image/*'; input.multiple = true;
-    input.onchange = async () => {
-      const files = Array.from(input.files || []);
+    /* Photos.pick corrige la premiere photo qui ne declenchait rien. */
+    Photos.pick(async (files) => {
+      files = [].concat(files || []);
       if (!files.length) return;
       UI.openSheet('<div class="mbody">' + UI.thinking('Analyse de ' + files.length + ' photo' + (files.length > 1 ? 's' : '') + '…') + '</div>');
       let n = 0;
       for (const f of files) {
         try {
-          const small = await AI.shrink(f, 1000, 0.82);
+          /* 1400 px : la definition d'origine etait trop basse pour
+             que le modele distingue une maille d'un tissage. */
+          const small = await AI.shrink(f, 1400, 0.86);
           const saved = await Photos.save(small, 'garments');
-          let meta = { nom: 'Piece ' + (garments().length + 1), slot: 'haut', couleurs: ['#888888'], styles: ['chill'], chaleur: 3 };
+          let meta = { nom: 'Pièce ' + (garments().length + 1), slot: 'haut', couleurs: ['#888888'], styles: ['chill'], chaleur: 3 };
           if (AI.available()) {
-            try {
-              meta = await AI.vision([small],
-                "Decris ce vêtement pour un dressing numérique. Sois précis sur les couleurs : donne des codes hexadecimaux fideles. " +
-                "Si plusieurs vêtements sont visibles, decris le plus au premier plan. Réponds en francais.",
-                GARMENT_SCHEMA, { cache: false });
-            } catch (e) {}
+            try { meta = await reconnaitre(small); } catch (e) { console.warn(e); }
           }
           Store.add('garments', Object.assign({ photo: saved.id, photoUrl: saved.url || null }, meta));
           n++;
@@ -253,39 +307,175 @@
       UI.toast(n + ' pièce' + (n > 1 ? 's ajoutées' : ' ajoutée'));
       if (n && global.Game) Game.award('vetement', 5);
       view = 'penderie'; render();
-    };
-    input.click();
+    }, { multiple: true });
   }
+
+  /* ============================================================
+     La fiche d'un vetement
+
+     Tout est modifiable : la categorie, les couleurs une par une,
+     la matiere, les styles, les saisons, la chaleur, la pluie et
+     la photo. L'IA propose, elle ne decide pas, et une categorie
+     fausse se corrige en deux touches.
+     ============================================================ */
+  const SAISONS = [
+    { id: 'printemps', nom: 'Printemps' }, { id: 'ete', nom: 'Été' },
+    { id: 'automne', nom: 'Automne' }, { id: 'hiver', nom: 'Hiver' }
+  ];
+  const CHALEURS = ['Très léger', 'Léger', 'Moyen', 'Chaud', 'Très chaud'];
 
   function openGarment(id) {
     const g = Store.find('garments', id);
     if (!g) return;
-    UI.openSheet(
-      ((g.photo || g.photoUrl) ? '<div class="mimg">' + Photos.img(g) + '</div>' : '') +
-      '<div class="mbody"><h2 style="font-size:22px">' + UI.esc(g.nom) + '</h2>' +
-      '<div class="mtags" style="margin-top:10px">' +
-        '<span class="tg b">' + UI.esc((SEED.GARMENT_SLOTS.find((s) => s.id === g.slot) || {}).nom || g.slot) + '</span>' +
-        (g.matiere ? '<span class="tg">' + UI.esc(g.matiere) + '</span>' : '') +
-        (g.styles || []).map((s) => '<span class="tg">' + UI.esc(moodName(s)) + '</span>').join('') +
-      '</div>' +
-      (g.couleurs && g.couleurs.length ? '<div class="row" style="gap:8px;margin-top:14px">' + g.couleurs.map((c) =>
-        '<span style="width:30px;height:30px;border-radius:10px;background:' + UI.attr(c) + ';box-shadow:inset 0 0 0 1px rgba(0,0,0,.15)"></span>').join('') + '</div>' : '') +
-      '<div class="btnrow" style="margin-top:20px">' +
-        '<button class="btn grow" data-rename>' + Icon('edit', 16) + 'Renommer</button>' +
-        '<button class="btn danger" data-del>' + Icon('trash', 16) + 'Supprimer</button>' +
-      '</div></div>', {
-      onMount: async (s) => {
-        await Photos.hydrate(s);
-        s.querySelector('[data-del]').onclick = async () => {
-          await Photos.del(g.photo); Store.del('garments', id); UI.closeSheet(); render();
+
+    /* Copie de travail : on n'ecrit dans le stock qu'a l'enregistrement. */
+    const w = {
+      nom: g.nom || '',
+      slot: g.slot || 'haut',
+      couleurs: (g.couleurs && g.couleurs.length ? g.couleurs.slice() : ['#888888']),
+      matiere: g.matiere || '',
+      marque: g.marque || '',
+      styles: (g.styles || []).slice(),
+      saisons: (g.saisons || []).slice(),
+      chaleur: Number(g.chaleur) || 3,
+      pluie: !!g.pluie
+    };
+
+    const chip = (actif, attr, val, texte, extra) =>
+      '<button class="chip' + (actif ? ' on' : '') + '" data-' + attr + '="' + UI.attr(val) + '">' + (extra || '') + UI.esc(texte) + '</button>';
+
+    const corps = () =>
+      '<div class="mbody">' +
+        '<label class="field"><span>Nom</span><input type="text" data-nom value="' + UI.attr(w.nom) + '" placeholder="Chemise en lin beige"></label>' +
+
+        '<h4 class="ftitre">Catégorie</h4>' +
+        '<div class="chips">' + SEED.GARMENT_SLOTS.map((sl) => chip(w.slot === sl.id, 'slot', sl.id, sl.nom)).join('') + '</div>' +
+
+        '<h4 class="ftitre">Couleurs</h4>' +
+        '<div class="couleurs" data-cols>' +
+          w.couleurs.map((c, i) =>
+            '<label class="pastille" style="background:' + UI.attr(c) + '">' +
+              '<input type="color" data-col="' + i + '" value="' + UI.attr(safeHex(c)) + '">' +
+              '<button class="x" data-delcol="' + i + '" aria-label="Retirer">' + Icon('close', 12) + '</button>' +
+            '</label>').join('') +
+          (w.couleurs.length < 4 ? '<button class="pastille add" data-addcol>' + Icon('plus', 18) + '</button>' : '') +
+        '</div>' +
+
+        '<h4 class="ftitre">Style</h4>' +
+        '<div class="chips">' + SEED.MOODS.map((m) => chip(w.styles.indexOf(m.id) >= 0, 'style', m.id, m.nom)).join('') + '</div>' +
+
+        '<h4 class="ftitre">Saisons</h4>' +
+        '<div class="chips">' + SAISONS.map((x) => chip(w.saisons.indexOf(x.id) >= 0, 'saison', x.id, x.nom)).join('') + '</div>' +
+
+        '<h4 class="ftitre">Chaleur</h4>' +
+        '<div class="chips">' + CHALEURS.map((n, i) => chip(w.chaleur === i + 1, 'chaleur', i + 1, n)).join('') + '</div>' +
+
+        '<h4 class="ftitre">Et aussi</h4>' +
+        '<div class="chips">' + chip(w.pluie, 'pluie', '1', 'Va sous la pluie', Icon('water', 14) + ' ') + '</div>' +
+
+        '<label class="field" style="margin-top:14px"><span>Matière</span><input type="text" data-mat value="' + UI.attr(w.matiere) + '" placeholder="Coton, lin, laine…"></label>' +
+        '<label class="field"><span>Marque</span><input type="text" data-marque value="' + UI.attr(w.marque) + '" placeholder="Facultatif"></label>' +
+
+        '<button class="btn primary block lg" style="margin-top:18px" data-save>' + Icon('check', 18) + 'Enregistrer</button>' +
+        '<div class="btnrow" style="margin-top:8px">' +
+          '<button class="btn grow" data-reia>' + Icon('sparkle', 16) + 'Relancer l\'IA</button>' +
+          '<button class="btn grow" data-rephoto>' + Icon('camera', 16) + 'Changer la photo</button>' +
+        '</div>' +
+        '<button class="btn danger block" style="margin-top:8px" data-del>' + Icon('trash', 16) + 'Supprimer ce vêtement</button>' +
+      '</div>';
+
+    const entete = () => ((g.photo || g.photoUrl) ? '<div class="mimg cover">' + Photos.img(g) + '</div>' : '');
+
+    UI.openSheet(entete() + corps(), { onMount: monter });
+
+    async function monter(sh) {
+      await Photos.hydrate(sh);
+
+      const relire = () => {
+        const el = (sel) => sh.querySelector(sel);
+        w.nom = el('[data-nom]').value.trim();
+        w.matiere = el('[data-mat]').value.trim();
+        w.marque = el('[data-marque]').value.trim();
+      };
+      const redessiner = () => {
+        relire();
+        const body = sh.querySelector('.mbody');
+        body.outerHTML = corps();
+        monter(sh);
+      };
+
+      sh.querySelectorAll('[data-slot]').forEach((b) => b.onclick = () => { w.slot = b.dataset.slot; redessiner(); });
+      sh.querySelectorAll('[data-style]').forEach((b) => b.onclick = () => { bascule(w.styles, b.dataset.style); redessiner(); });
+      sh.querySelectorAll('[data-saison]').forEach((b) => b.onclick = () => { bascule(w.saisons, b.dataset.saison); redessiner(); });
+      sh.querySelectorAll('[data-chaleur]').forEach((b) => b.onclick = () => { w.chaleur = Number(b.dataset.chaleur); redessiner(); });
+      const bp = sh.querySelector('[data-pluie]');
+      if (bp) bp.onclick = () => { w.pluie = !w.pluie; redessiner(); };
+
+      sh.querySelectorAll('[data-col]').forEach((inp) => {
+        inp.oninput = () => {
+          w.couleurs[Number(inp.dataset.col)] = inp.value;
+          inp.parentNode.style.background = inp.value;
         };
-        s.querySelector('[data-rename]').onclick = async () => {
-          const r = await UI.promptSheet('Renommer', [{ name: 'nom', label: 'Nom', value: g.nom }], 'Enregistrer');
-          if (r && r.nom) { Store.put('garments', id, { nom: r.nom }); render(); }
-        };
-      }
-    });
+      });
+      sh.querySelectorAll('[data-delcol]').forEach((b) => b.onclick = (e) => {
+        e.preventDefault(); e.stopPropagation();
+        if (w.couleurs.length <= 1) return;
+        w.couleurs.splice(Number(b.dataset.delcol), 1); redessiner();
+      });
+      const add = sh.querySelector('[data-addcol]');
+      if (add) add.onclick = () => { w.couleurs.push('#cccccc'); redessiner(); };
+
+      sh.querySelector('[data-save]').onclick = () => {
+        relire();
+        Store.put('garments', id, {
+          nom: w.nom || 'Pièce', slot: w.slot, couleurs: w.couleurs,
+          matiere: w.matiere, marque: w.marque, styles: w.styles,
+          saisons: w.saisons, chaleur: w.chaleur, pluie: w.pluie
+        });
+        UI.closeSheet(); UI.haptic('success'); UI.toast('Enregistré'); render();
+      };
+
+      sh.querySelector('[data-del]').onclick = async () => {
+        const sur = await UI.confirmSheet('Supprimer ?', 'Ce vêtement disparaît de la penderie et des tenues.', true);
+        if (!sur) { openGarment(id); return; }
+        await Photos.del(g.photo); Store.del('garments', id); UI.closeSheet(); render();
+      };
+
+      sh.querySelector('[data-rephoto]').onclick = () => {
+        Photos.pick(async (f) => {
+          if (!f) return;
+          UI.toast('Enregistrement…');
+          const petite = await AI.shrink(f, 1400, 0.85);
+          const saved = await Photos.save(petite, 'garments');
+          if (g.photo) await Photos.del(g.photo);
+          Store.put('garments', id, { photo: saved.id, photoUrl: saved.url || null });
+          render(); openGarment(id);
+        });
+      };
+
+      sh.querySelector('[data-reia]').onclick = async () => {
+        if (!AI.available()) { UI.toast('Ajoute ta clé Gemini dans Réglages'); return; }
+        const src = g.photoUrl || (g.photo ? await Photos.get(g.photo) : null);
+        if (!src) { UI.toast('Pas de photo à analyser'); return; }
+        UI.toast('Analyse…');
+        try {
+          const meta = await reconnaitre(src);
+          Object.assign(w, {
+            nom: meta.nom || w.nom, slot: meta.slot || w.slot,
+            couleurs: (meta.couleurs && meta.couleurs.length ? meta.couleurs : w.couleurs),
+            matiere: meta.matiere || w.matiere,
+            styles: meta.styles || w.styles, saisons: meta.saisons || w.saisons,
+            chaleur: meta.chaleur || w.chaleur, pluie: meta.pluie != null ? meta.pluie : w.pluie
+          });
+          redessiner();
+          UI.toast('Propositions mises à jour, vérifie et enregistre');
+        } catch (e) { UI.toast(AI.humanError(e)); }
+      };
+    }
   }
+
+  const bascule = (arr, v) => { const i = arr.indexOf(v); if (i >= 0) arr.splice(i, 1); else arr.push(v); };
+  const safeHex = (c) => /^#[0-9a-fA-F]{6}$/.test(String(c || '')) ? c : '#888888';
 
   /* ============================================================
      Composition
@@ -458,7 +648,7 @@
           '<p class="muted" style="font-size:12.5px;margin-top:8px">Image générée, a titre indicatif.</p></div>');
       } else {
         UI.openSheet('<div class="mbody"><h2 style="font-size:20px">Aperçu indisponible</h2>' +
-          '<p class="mdesc">Le modele d\'image a refusé de representer une personne reelle, ou n\'est pas disponible sur ta clé. ' +
+          '<p class="mdesc">Le modèle d\'image a refusé de représenter une personne réelle, ou n\'est pas disponible sur ta clé. ' +
           'C\'est une restriction côté Google, pas un reglage de l\'application.</p>' +
           (out ? '<div class="rwhy" style="margin-top:12px">' + UI.esc(String(out).slice(0, 400)) + '</div>' : '') + '</div>');
       }

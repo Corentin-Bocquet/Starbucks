@@ -154,10 +154,13 @@
           '<img src="icons/icon-96.png" alt="" style="width:52px;height:52px;border-radius:15px;margin:0 auto 10px">' +
           '<b style="display:block;font-size:16px">EVER</b>' +
           '<small class="muted">Version ' + UI.esc((global.EVER_CONFIG || {}).appVersion || '2.0.0') + '</small>' +
-          '<p class="muted" style="font-size:12px;margin-top:12px;line-height:1.55">' +
-          'Projet personnel. Les recettes Starbucks sont des reconstitutions non officielles, ' +
-          'les dosages cocktails suivent l\'IBA quand il existe. L\'abus d\'alcool est dangereux pour la sante. ' +
-          'Les analyses nutritionnelles et sante sont indicatives et ne remplacent pas un professionnel.</p>' +
+          /* Les mentions legales sont vraies et n'apprennent rien a
+             l'usage : elles attendent derriere le point d'interrogation. */
+          '<p class="muted" style="font-size:12px;margin-top:10px">Application personnelle' +
+            UI.hint("Les recettes Starbucks sont des reconstitutions, pas des recettes officielles.\n" +
+                    "Les doses de cocktails suivent la reference internationale des barmans quand elle existe. L'abus d'alcool est dangereux pour la sante.\n" +
+                    "Les analyses de nutrition et de forme sont des estimations : elles ne remplacent pas un medecin.",
+                    'Ce qu\'il faut savoir') + '</p>' +
         '</div>' +
       '</div>' +
       '</div>';

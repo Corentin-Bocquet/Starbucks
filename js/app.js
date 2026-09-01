@@ -6,27 +6,49 @@
 (function (global) {
   'use strict';
 
-  const TABS = [
-    { id: 'cafe',     label: 'Café',         icon: 'coffee',   accent: 'cafe',     codex: 'sb' },
-    { id: 'bar',      label: 'Bar',          icon: 'glass',    accent: 'bar',      codex: 'ck' },
-    { id: 'recettes', label: 'Recettes',     icon: 'pot',      accent: 'recettes', codex: 'mm' },
-    { id: 'food',     label: 'Alimentation', icon: 'apple',    accent: 'food' },
-    { id: 'health',   label: 'Santé',        icon: 'heart',    accent: 'health' }
+  /* ============================================================
+     Une seule liste de destinations.
+
+     `bas: true` place la destination dans la barre du bas, les
+     autres vivent dans le hub. Déplacer une entrée d'un endroit à
+     l'autre revient à changer ce booléen : les routes, les titres
+     et les icônes suivent tout seuls.
+
+     La barre du bas garde cinq entrées. Au-delà, on ne vise plus
+     rien au pouce.
+     ============================================================ */
+  const DEST = [
+    /* --- Barre du bas --- */
+    { id: 'activities', label: 'Activités',    icon: 'activity', accent: 'activites', bas: true },
+    { id: 'outfits',    label: 'Tenues',       icon: 'shirt',    accent: 'tenues',    bas: true },
+    { id: 'recettes',   label: 'Recettes',     icon: 'pot',      accent: 'recettes',  bas: true, codex: 'mm' },
+    { id: 'food',       label: 'Alimentation', icon: 'apple',    accent: 'food',      bas: true },
+    { id: 'health',     label: 'Santé',        icon: 'heart',    accent: 'health',    bas: true },
+
+    /* --- Hub ---
+       Un nom, une icône, un dégradé. Rien d'autre : le sous-titre
+       n'apprenait rien qu'on ne devine en ouvrant. */
+    { id: 'cafe',  label: 'Café',    icon: 'coffee', accent: 'cafe', codex: 'sb',
+      g1: '#0E6E4B', g2: '#31A876' },
+    { id: 'bar',   label: 'Bar',     icon: 'glass',  accent: 'bar',  codex: 'ck',
+      g1: '#6B2A4E', g2: '#AE4A80' },
+    { id: 'foods', label: 'Aliments', icon: 'fork',  accent: 'brand',
+      g1: '#C05F26', g2: '#EBA255' },
+    { id: 'gifts', label: 'Cadeaux', icon: 'gift',   accent: 'brand',
+      g1: '#A31F46', g2: '#E45C82' },
+    { id: 'media', label: 'Films',   icon: 'film',   accent: 'brand',
+      g1: '#3B3690', g2: '#7268CF' },
+    { id: 'city',  label: 'Ville',   icon: 'map',    accent: 'brand',
+      g1: '#1B6C7A', g2: '#3FA9B6' },
+    { id: 'profiles', label: 'Profils', icon: 'users', accent: 'brand',
+      g1: '#46536A', g2: '#8090A6' },
+    { id: 'stats', label: 'Paliers', icon: 'trophy', accent: 'brand',
+      g1: '#96660F', g2: '#DCA842' }
   ];
 
-  /* Modules secondaires : ils vivent dans le hub, pas dans la barre
-     basse. La barre basse reste a cinq entrées, c'est la limite
-     au-dela de laquelle on ne vise plus rien du pouce. */
-  const MODULES = [
-    { id: 'activities', title: "Qu'est-ce qu'on fait ?",   short: 'Activités',       icon: 'activity', tint: '#E6F0FA', tintink: '#2C5F8A' },
-    { id: 'foods',      title: "Qu'est-ce qu'on mange ?",  short: 'Aliments',        icon: 'fork',     tint: '#E7F5EC', tintink: '#1F7A46' },
-    { id: 'gifts',      title: "Qu'est-ce que je lui offre ?", short: 'Cadeaux',     icon: 'gift',     tint: '#FBE9EF', tintink: '#B0264F' },
-    { id: 'media',      title: "Qu'est-ce qu'on regarde ?", short: 'Cinéma & séries', icon: 'film',    tint: '#EFE9F8', tintink: '#5B3E96' },
-    { id: 'city',       title: 'Guide de ville',            short: 'Guide de ville',  icon: 'map',      tint: '#FDF0E0', tintink: '#A9713C' },
-    { id: 'outfits',    title: 'Ma penderie',               short: 'Tenues',          icon: 'shirt',    tint: '#E9F2F1', tintink: '#2F6B5A' },
-    { id: 'profiles',   title: 'Profils et partages',       short: 'Profils',         icon: 'users',    tint: '#F0EFEC', tintink: '#6B635E' },
-    { id: 'stats',      title: 'Statistiques et paliers',   short: 'Progression',     icon: 'trophy',   tint: '#FBF2DC', tintink: '#A2801F' }
-  ];
+  const TABS = DEST.filter((d) => d.bas);
+  const MODULES = DEST.filter((d) => !d.bas);
+  const dest = (id) => DEST.find((d) => d.id === id) || null;
 
   const registry = {};           /* id -> { mount(el, route) } */
   let current = null;            /* onglet actif */
@@ -101,20 +123,16 @@
   function openHub() {
     const html =
       '<div class="mbody" style="padding-top:2px">' +
-        '<h2 style="font-size:24px;margin-bottom:4px">Modules</h2>' +
-        '<p class="secdesc">Tout ce qui ne merite pas une place permanente en bas.</p>' +
+        '<h2 style="font-size:24px;margin-bottom:16px">Tout le reste</h2>' +
         '<div class="hubgrid">' +
           MODULES.map((m) =>
-            '<button class="hubtile" data-mod="' + m.id + '" style="--tint:' + m.tint + ';--tintink:' + m.tintink + '">' +
-              '<span class="ic">' + Icon(m.icon, 21) + '</span>' +
-              '<b>' + UI.esc(m.short) + '</b>' +
-              '<small>' + UI.esc(m.title) + '</small>' +
+            '<button class="hubtile" data-mod="' + m.id + '" style="--g1:' + m.g1 + ';--g2:' + m.g2 + '">' +
+              '<span class="ic">' + Icon(m.icon, 25) + '</span>' +
+              '<b>' + UI.esc(m.label) + '</b>' +
             '</button>').join('') +
-        '</div>' +
-        '<div class="list" style="margin-top:16px">' +
-          '<button class="rowitem" data-mod="settings"><span class="ic">' + Icon('settings', 17) + '</span>' +
-            '<span class="tx"><b>Réglages</b><small>Compte, IA, objectifs, données</small></span>' +
-            '<span class="rt">' + Icon('next', 15) + '</span></button>' +
+          '<button class="hubtile" data-mod="settings" style="--g1:#5B5754;--g2:#918B86">' +
+            '<span class="ic">' + Icon('settings', 25) + '</span><b>Réglages</b>' +
+          '</button>' +
         '</div>' +
       '</div>';
     UI.openSheet(html, {
@@ -132,62 +150,55 @@
     else location.hash = hash;
   }
 
+  /* Une destination se rejoint par `#/<id>` ou `#/m/<id>`, peu
+     importe où elle vit. Les anciens liens continuent donc de
+     fonctionner après le déménagement du café et du bar. */
   function parse() {
-    const h = (location.hash || '#/cafe').replace(/^#\/?/, '');
+    const defaut = TABS[0].id;
+    const h = (location.hash || '#/' + defaut).replace(/^#\/?/, '');
     const parts = h.split('/').filter(Boolean);
-    if (!parts.length) return { kind: 'tab', id: 'cafe', rest: [] };
-    if (parts[0] === 'm') return { kind: 'module', id: parts[1] || 'settings', rest: parts.slice(2) };
-    if (TABS.some((t) => t.id === parts[0])) return { kind: 'tab', id: parts[0], rest: parts.slice(1) };
-    return { kind: 'tab', id: 'cafe', rest: [] };
+    if (!parts.length) return { id: defaut, rest: [] };
+    if (parts[0] === 'm') return { id: parts[1] || 'settings', rest: parts.slice(2) };
+    if (parts[0] === 'settings') return { id: 'settings', rest: parts.slice(1) };
+    if (dest(parts[0])) return { id: parts[0], rest: parts.slice(1) };
+    return { id: defaut, rest: [] };
   }
 
   function route() {
     const r = parse();
-    const moduleView = UI.$('#viewModule');
+    const d = dest(r.id);
+    const reglages = r.id === 'settings';
 
-    if (r.kind === 'module') {
-      currentModule = r.id;
-      UI.$$('.view').forEach((v) => v.classList.remove('on'));
-      moduleView.classList.add('on');
-      document.body.dataset.accent = 'brand';
-      const mod = registry[r.id];
-      const meta = MODULES.find((m) => m.id === r.id);
-      setTitle(meta ? meta.short : (r.id === 'settings' ? 'Réglages' : 'EVER'));
-      UI.$$('#tabbar button').forEach((b) => b.classList.remove('on'));
-      if (mod && mod.mount) {
-        moduleView.innerHTML = '';
-        try { mod.mount(moduleView, r.rest); }
-        catch (e) { console.error(e); moduleView.innerHTML = UI.empty('alert', 'Ce module a un souci', String(e.message || e)); }
-      } else {
-        moduleView.innerHTML = UI.empty('info', 'Module indisponible', "Ce module n'est pas encore charge.");
-      }
+    current = d ? d.id : null;
+    currentModule = d && d.bas ? null : r.id;
+    document.body.dataset.accent = d ? d.accent : 'brand';
+    if (d && d.bas) Store.set('lastTab', d.id);
+
+    UI.$$('.view').forEach((v) => v.classList.remove('on'));
+    UI.$$('#tabbar button').forEach((b) => b.classList.toggle('on', !!d && d.bas && b.dataset.tab === d.id));
+    setTitle(reglages ? 'Réglages' : (d ? d.label : 'EVER'));
+
+    /* Café, bar et recettes partagent le même moteur de fiches. */
+    if (d && d.codex) {
+      UI.$('#viewCodex').classList.add('on');
+      Codex.show(d.codex);
       window.scrollTo({ top: 0, behavior: 'instant' });
       return;
     }
 
-    currentModule = null;
-    const tab = TABS.find((t) => t.id === r.id) || TABS[0];
-    current = tab.id;
-    document.body.dataset.accent = tab.accent;
-    Store.set('lastTab', tab.id);
+    /* Sinon : une vue dédiée si le HTML en déclare une, la vue
+       générique pour tout le reste. */
+    const propre = d ? UI.$('#view' + d.id.charAt(0).toUpperCase() + d.id.slice(1)) : null;
+    const el = propre || UI.$('#viewModule');
+    el.classList.add('on');
+    if (!propre) el.innerHTML = '';
 
-    UI.$$('.view').forEach((v) => v.classList.remove('on'));
-    UI.$$('#tabbar button').forEach((b) => b.classList.toggle('on', b.dataset.tab === tab.id));
-    setTitle(tab.label);
-
-    if (tab.codex) {
-      UI.$('#viewCodex').classList.add('on');
-      Codex.show(tab.codex);
-    } else {
-      const el = UI.$('#view' + tab.id.charAt(0).toUpperCase() + tab.id.slice(1));
-      if (el) {
-        el.classList.add('on');
-        const mod = registry[tab.id];
-        if (mod && mod.mount) {
-          try { mod.mount(el, r.rest); }
-          catch (e) { console.error(e); el.innerHTML = UI.empty('alert', 'Souci de chargement', String(e.message || e)); }
-        }
-      }
+    const mod = registry[r.id];
+    if (mod && mod.mount) {
+      try { mod.mount(el, r.rest); }
+      catch (e) { console.error(e); el.innerHTML = UI.empty('alert', 'Souci de chargement', String(e.message || e)); }
+    } else if (!propre) {
+      el.innerHTML = UI.empty('info', 'Bientôt', "Cette partie n'est pas encore prête.");
     }
     window.scrollTo({ top: 0, behavior: 'instant' });
   }
@@ -217,7 +228,10 @@
     Object.keys(registry).forEach((k) => { if (registry[k].init) registry[k].init(); });
 
     addEventListener('hashchange', route);
-    if (!location.hash) location.hash = '#/' + Store.get('lastTab', 'cafe');
+    if (!location.hash) {
+      const memo = Store.get('lastTab', TABS[0].id);
+      location.hash = '#/' + (TABS.some((t) => t.id === memo) ? memo : TABS[0].id);
+    }
     route();
 
     Store.on('auth', async (user) => {

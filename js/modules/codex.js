@@ -38,6 +38,33 @@
   const saveFav = () => Store.set('codexFav', Array.from(S.fav));
   const saveStock = (t) => Store.set('codexStock_' + (t || S.tab), Array.from(S.stock[t || S.tab]));
 
+  /* ============================================================
+     Mes creations
+
+     Chaque onglet peut fabriquer ses propres fiches avec l'IA :
+     une boisson dans Cafe, un cocktail dans Bar, un plat dans
+     Recettes. Elles sont rangees avec les autres, au meme format,
+     et se retrouvent partout : recherche, categories, favoris,
+     journal alimentaire.
+
+     Point important : l'IA ne travaille pas dans le vide. On lui
+     donne le stock coche par l'utilisateur, donc elle propose ce
+     qui est faisable ce soir, pas une recette a faire les courses.
+     ============================================================ */
+  const creations = (t) => Store.all('creations').filter((c) => c.tab === (t || S.tab));
+  const ALL = (t) => creations(t).concat(DATA[t] ? DATA[t]() : []);
+  const estCreation = (d) => !!(d && d.cree);
+
+  /* Vignette de remplacement : une creation n'a pas de photo, mais
+     une liste d'images ne doit pas avoir de trou. */
+  const TEINTE = { sb: ['#0E6E4B', '#31A876'], ck: ['#6B2A4E', '#AE4A80'], mm: ['#A8542A', '#D08A4E'] };
+  function vignetteCreation(d, tab) {
+    const g = TEINTE[tab || S.tab] || TEINTE.sb;
+    return '<div class="ph creation" style="--g1:' + g[0] + ';--g2:' + g[1] + '">' +
+      '<span>' + Icon(tab === 'ck' || S.tab === 'ck' ? 'glass' : (tab === 'mm' || S.tab === 'mm') ? 'pot' : 'coffee', 30) + '</span>' +
+      '<b>' + UI.esc(d.nom) + '</b></div>';
+  }
+
   /* ---------- Stock ---------- */
   const missing = (d, t) => (d.sk || []).filter((k) => !S.stock[t].has(k));
   const doable = (d, t) => missing(d, t).length === 0;
@@ -54,7 +81,7 @@
     return true;
   }
   function results() {
-    const all = DATA[S.tab]();
+    const all = ALL(S.tab);
     for (let depth = 3; depth >= 1; depth--) {
       const r = all.filter((d) => passes(d, depth));
       if (r.length >= 3 || depth === 1) return { list: r, depth: depth };
@@ -67,7 +94,7 @@
   }
   function searchHits() {
     const w = S.q.toLowerCase().split(' ').filter(Boolean);
-    return DATA[S.tab]().filter((d) => { const s = searchable(d).toLowerCase(); return w.every((x) => s.indexOf(x) >= 0); });
+    return ALL(S.tab).filter((d) => { const s = searchable(d).toLowerCase(); return w.every((x) => s.indexOf(x) >= 0); });
   }
 
   /* ---------- Cartes ---------- */
@@ -76,24 +103,25 @@
 
   function card(d) {
     const k = KEY(d), ms = missing(d, S.tab);
-    const stockBadge = ms.length ? '<span class="badge miss">Il manque ' + ms.length + '</span>' : '';
+    const stockBadge = estCreation(d) ? '<span class="badge sec">Ma création</span>'
+      : ms.length ? '<span class="badge miss">Il manque ' + ms.length + '</span>' : '';
     if (S.tab === 'sb') return '<div class="card" data-id="' + UI.attr(d.id) + '">' +
       (BADGE[d.statut] ? '<span class="badge ' + (BCLS[d.statut] || '') + '">' + BADGE[d.statut] + '</span>' : stockBadge) +
       favBtn(k) +
-      '<div class="ph"><img loading="lazy" src="' + IMG[d.id] + '" alt=""></div>' +
+      (estCreation(d) ? vignetteCreation(d, 'sb') : '<div class="ph"><img loading="lazy" src="' + IMG[d.id] + '" alt=""></div>') +
       '<div class="bd"><h3>' + UI.esc(d.nom) + '</h3>' +
       '<div class="tags">' + d.tag.slice(0, 2).map((t, i) => '<span class="tg ' + (i ? 'b' : '') + '">' + UI.esc(t) + '</span>').join('') + '</div>' +
       '<div class="meta"><span><b>' + d.kcal + '</b> kcal</span><span><b>' + d.caf + '</b> mg caf.</span></div></div></div>';
 
     if (S.tab === 'ck') return '<div class="card" data-id="' + UI.attr(d.id) + '">' +
       (ms.length ? stockBadge : '<span class="badge ok">Réalisable</span>') + favBtn(k) +
-      '<div class="ph"><img loading="lazy" src="' + IMG['ck-' + d.id] + '" alt=""></div>' +
+      (estCreation(d) ? vignetteCreation(d, 'ck') : '<div class="ph"><img loading="lazy" src="' + IMG['ck-' + d.id] + '" alt=""></div>') +
       '<div class="bd"><h3>' + d.ico + ' ' + UI.esc(d.nom) + '</h3>' +
       '<div class="tags">' + d.tag.slice(0, 2).map((t, i) => '<span class="tg ' + (i ? 'b' : '') + '">' + UI.esc(t) + '</span>').join('') + '</div>' +
-      '<div class="meta"><span><b>' + UI.esc(d.verre) + '</b></span><span><b>' + UI.esc(d.abv) + '</b></span></div></div></div>';
+      '<div class="meta"><span><b>' + UI.esc(d.abv) + '</b> d\'alcool</span><span><b>' + UI.esc(d.temps) + '</b></span></div></div></div>';
 
     return '<div class="card wide" data-id="' + UI.attr(d.id) + '">' + stockBadge + favBtn(k) +
-      '<div class="ph"><img loading="lazy" src="' + IMG['mm-' + (d.img || 'crepes-bocuse')] + '" alt=""></div>' +
+      (estCreation(d) ? vignetteCreation(d, 'mm') : '<div class="ph"><img loading="lazy" src="' + IMG['mm-' + (d.img || 'crepes-bocuse')] + '" alt=""></div>') +
       '<div class="bd"><h3>' + d.emoji + ' ' + UI.esc(d.nom) + '</h3>' +
       '<div class="tags">' + d.tag.slice(0, 2).map((t, i) => '<span class="tg ' + (i ? 'b' : '') + '">' + UI.esc(t) + '</span>').join('') + '</div>' +
       '<div class="meta"><span><b>' + UI.esc(d.temps) + '</b></span><span><b>' + d.ing.length + '</b> ingr.</span></div></div></div>';
@@ -157,7 +185,7 @@
   }
 
   function allView() {
-    const all = DATA[S.tab](), c = S.cat[S.tab];
+    const all = ALL(S.tab), c = S.cat[S.tab];
     const list = c === 'all' ? all : all.filter((d) => d.cat === c);
     let chips = '<button class="chip ' + (c === 'all' ? 'on' : '') + '" data-c="all">Tout <span class="n">' + all.length + '</span></button>';
     CATLIST[S.tab]().forEach((x) => {
@@ -181,7 +209,7 @@
   function countFor(idx, val) {
     const save = S.wiz[S.tab][idx];
     S.wiz[S.tab][idx] = val;
-    const n = DATA[S.tab]().filter((d) => passes(d, idx + 1)).length;
+    const n = ALL(S.tab).filter((d) => passes(d, idx + 1)).length;
     S.wiz[S.tab][idx] = save;
     return n;
   }
@@ -256,24 +284,231 @@
     }
   }
 
+  /* Deux mots de vocabulaire de bar. Personne n'a besoin de les
+     connaitre pour boire le cocktail, donc ils vivent derriere un
+     point d'interrogation et pas dans la fiche. */
+  const VERRES =
+    "Highball : le grand verre droit, celui des sodas.\n" +
+    "Old fashioned : le verre bas et large, pour boire sur un gros glaçon.\n" +
+    "Coupe et verre à martini : les verres à pied, servis sans glace.\n" +
+    "Hurricane et tiki : les grands verres galbés des cocktails exotiques.\n" +
+    "Rien de tout ça sous la main ? N'importe quel verre fait l'affaire, le goût ne change pas.";
+  const TECHS =
+    "Shaké : on secoue au shaker avec des glaçons, puis on filtre.\n" +
+    "Remué : on tourne à la cuillère, sans secouer, pour garder le liquide limpide.\n" +
+    "Construit : on verse les ingrédients directement dans le verre, dans l'ordre.\n" +
+    "Pilé : on écrase d'abord les herbes ou les fruits au fond du verre.\n" +
+    "Blendé : on passe le tout au blender avec de la glace.";
+
+  /* Le pied de page ne raconte plus rien : ces précisions sont
+     vraies mais ne changent rien à ce qu'on fait. Elles attendent
+     derrière un point d'interrogation. */
+  const FOOT = {
+    sb: ["D'où viennent ces recettes",
+      "Starbucks ne publie pas ses recettes. Les quantités viennent de baristas et de reconstitutions qui donnent toutes les mêmes chiffres.\nLes calories correspondent à un format Grande au lait entier."],
+    ck: ['À propos des cocktails',
+      "Les doses suivent la référence internationale des barmans quand elle existe. Le Coco est une invention maison.\nL'abus d'alcool est dangereux pour la santé."],
+    mm: ['À propos de ces recettes',
+      'Ce sont les recettes de famille, reprises telles quelles depuis Notion, photos comprises.']
+  };
   function renderFoot() {
-    const F = {
-      sb: '<p><b>Valeurs indicatives.</b> Starbucks ne publié aucun bareme officiel de pumps : les quantités viennent de temoignages baristas et de recettes copycat concordantes.</p>',
-      ck: "<p><b>Dosages IBA</b> quand ils existent. Le Coco est une création maison. L'abus d'alcool est dangereux pour la sante.</p>",
-      mm: '<p><b>Recettes familiales</b> importées telles quelles depuis Notion, photos comprises.</p>'
+    const f = FOOT[S.tab];
+    UI.$('#codexFoot').innerHTML = f
+      ? '<button type="button" class="footnote" data-hint="' + UI.attr(f[1]) + '" data-hint-t="' + UI.attr(f[0]) + '">' +
+          '<span class="q">?</span>' + UI.esc(f[0]) + '</button>'
+      : '';
+  }
+
+  /* ============================================================
+     Creer avec l'IA
+
+     Meme moteur pour les trois onglets, seul le schema change.
+     L'IA recoit le stock coche : elle propose donc quelque chose
+     de faisable maintenant, pas une recette a aller acheter.
+     ============================================================ */
+  const bandeauCreation = (d, tab) => {
+    const g = TEINTE[tab] || TEINTE.sb;
+    return '<div class="mimg creation" style="--g1:' + g[0] + ';--g2:' + g[1] + '">' +
+      '<div>' + Icon(tab === 'ck' ? 'glass' : tab === 'mm' ? 'pot' : 'coffee', 40) +
+      '<b>' + UI.esc(d.nom) + '</b><small>Créé avec l\'IA</small></div></div>';
+  };
+
+  const ING = () => AI.T.arr(AI.T.obj({
+    n: AI.T.str('Nom de l ingredient'),
+    q: AI.T.str('Quantite precise, avec l unite')
+  }), 'Tous les ingredients, avec les quantites');
+
+  const SCHEMAS = {
+    sb: () => AI.T.obj({
+      nom: AI.T.str('Nom court et appetissant, en francais'),
+      desc: AI.T.str('Deux phrases simples : le gout et pour qui c est'),
+      cat: AI.T.str('Un identifiant parmi : ' + CATS.map((c) => c.id).join(', ')),
+      tag: AI.T.arr(AI.T.str(''), 'Deux mots-cles courts'),
+      kcal: AI.T.int('Calories estimees pour un format Grande'),
+      caf: AI.T.int('Milligrammes de cafeine, 0 si sans cafe'),
+      temp2: AI.T.str('chaud, glace ou mixe'),
+      ing: ING(),
+      steps: AI.T.arr(AI.T.str(''), 'Les etapes dans l ordre, une phrase chacune'),
+      eletta: AI.T.str('Comment faire avec une machine a cafe automatique'),
+      astuce: AI.T.str('Le detail qui change tout, une phrase')
+    }, ['nom', 'desc', 'cat', 'tag', 'kcal', 'ing', 'steps']),
+    ck: () => AI.T.obj({
+      nom: AI.T.str('Nom court du cocktail, en francais'),
+      desc: AI.T.str('Deux phrases simples : le gout et le moment'),
+      cat: AI.T.str('Un identifiant parmi : ' + CKCATS.map((c) => c.id).join(', ')),
+      tag: AI.T.arr(AI.T.str(''), 'Deux mots-cles courts'),
+      verre: AI.T.str('Type de verre'),
+      tech: AI.T.str('Shake, remue, construit, pile ou blende'),
+      abv: AI.T.str('Degre estime, par exemple 14 %'),
+      temps: AI.T.str('Temps de preparation, par exemple 4 min'),
+      ing: ING(),
+      steps: AI.T.arr(AI.T.str(''), 'Les etapes dans l ordre'),
+      astuce: AI.T.str('Le detail qui change tout')
+    }, ['nom', 'desc', 'cat', 'tag', 'ing', 'steps']),
+    mm: () => AI.T.obj({
+      nom: AI.T.str('Nom du plat, en francais'),
+      desc: AI.T.str('Deux phrases simples'),
+      cat: AI.T.str('Un identifiant parmi : ' + MMCATS.map((c) => c.id).join(', ')),
+      tag: AI.T.arr(AI.T.str(''), 'Deux mots-cles courts'),
+      temps: AI.T.str('Temps total, par exemple 35 min'),
+      portions: AI.T.str('Pour combien de personnes'),
+      four: AI.T.str('Temperature et duree du four, ou « sans four »'),
+      serv: AI.T.str('chaud ou froid'),
+      ing: ING(),
+      materiel: AI.T.arr(AI.T.str(''), 'Le materiel indispensable'),
+      steps: AI.T.arr(AI.T.str(''), 'Les etapes dans l ordre'),
+      astuce: AI.T.str('Le conseil qui evite de rater')
+    }, ['nom', 'desc', 'cat', 'tag', 'ing', 'steps'])
+  };
+
+  const ENVIES = {
+    sb: ['Doux et crémeux', 'Bien caféiné', 'Glacé', 'Sans café', 'Peu sucré', 'De saison'],
+    ck: ['Frais', 'Fort', 'Sans alcool', 'Sucré', 'Amer', 'Pétillant'],
+    mm: ['Rapide', 'Réconfortant', 'Léger', 'Pour recevoir', 'Sucré', "Avec ce que j'ai"]
+  };
+  const TITRE_CREER = { sb: 'Inventer une boisson', ck: 'Inventer un cocktail', mm: 'Inventer un plat' };
+
+  function createFlow() {
+    if (!AI.available()) { UI.toast('Ajoute ta clé Gemini dans Réglages'); App.go('#/m/settings/ia'); return; }
+    const tab = S.tab;
+    const envies = ENVIES[tab];
+
+    UI.openSheet(
+      '<div class="mbody" style="padding-top:6px">' +
+        '<h2 style="font-size:23px;margin-bottom:4px">' + TITRE_CREER[tab] + '</h2>' +
+        '<p class="muted" style="font-size:13.5px;margin-bottom:14px">Dis ce dont tu as envie. L\'IA n\'utilise que ce que tu as coché dans ' +
+          UI.esc(STOCKTITLE[tab].toLowerCase()) + '.</p>' +
+        '<div class="chips" style="margin-bottom:12px">' +
+          envies.map((e) => '<button class="chip" data-envie="' + UI.attr(e) + '">' + UI.esc(e) + '</button>').join('') +
+        '</div>' +
+        '<label class="field"><span>Ton envie</span>' +
+          '<input type="text" data-envietxt placeholder="' + (tab === 'mm' ? 'Un truc chaud pour ce soir' : tab === 'ck' ? 'Quelque chose de frais' : 'Un latte gourmand') + '"></label>' +
+        '<label class="rowitem" style="margin-top:10px;background:var(--surface);border-radius:var(--r-md);box-shadow:var(--sh-inset)">' +
+          '<input type="checkbox" data-stockonly checked style="width:20px;height:20px;accent-color:var(--accent)">' +
+          '<span class="tx"><b>Seulement avec ce que j\'ai</b><small>Sinon l\'IA peut proposer une course</small></span></label>' +
+        '<button class="btn primary block lg" style="margin-top:16px" data-go>' + Icon('sparkle', 18) + 'Créer' + '</button>' +
+        '<div data-out style="margin-top:14px"></div>' +
+      '</div>',
+      { onMount: (sh) => {
+          const txt = sh.querySelector('[data-envietxt]'), out = sh.querySelector('[data-out]');
+          sh.querySelectorAll('[data-envie]').forEach((b) => b.onclick = () => {
+            b.classList.toggle('on');
+            const on = Array.from(sh.querySelectorAll('[data-envie].on')).map((x) => x.dataset.envie);
+            txt.value = on.join(', ');
+          });
+          sh.querySelector('[data-go]').onclick = async () => {
+            const btn = sh.querySelector('[data-go]');
+            btn.classList.add('is-loading');
+            out.innerHTML = UI.thinking('L\'IA cherche…');
+            try {
+              const d = await creerAvecIA(tab, txt.value.trim(), sh.querySelector('[data-stockonly]').checked);
+              UI.closeSheet();
+              openIt(d.id);
+              UI.toast('Ajouté à ' + (tab === 'sb' ? 'Café' : tab === 'ck' ? 'Bar' : 'Recettes'));
+              if (global.Game) Game.award('creation', 12);
+            } catch (e) {
+              btn.classList.remove('is-loading');
+              out.innerHTML = UI.empty('alert', 'Ça n\'a pas marché', AI.humanError(e));
+            }
+          };
+        } }
+    );
+  }
+
+  async function creerAvecIA(tab, envie, seulementStock) {
+    const dispo = Array.from(S.stock[tab]).map((k) => STOCKNAME[k]).filter(Boolean);
+    const dejaLa = ALL(tab).map((d) => d.nom).slice(0, 60).join(', ');
+    const quoi = tab === 'sb' ? 'une boisson de type Starbucks, faisable a la maison'
+               : tab === 'ck' ? 'un cocktail'
+               : 'une recette de cuisine familiale';
+
+    const prompt =
+      'Invente ' + quoi + '.\n\n' +
+      (envie ? 'ENVIE : ' + envie + '\n\n' : '') +
+      'CE QUE J AI SOUS LA MAIN : ' + (dispo.length ? dispo.join(', ') : 'rien de precise') + '\n' +
+      (seulementStock
+        ? "Regle absolue : n'utilise que des ingredients de cette liste, plus l'eau, le sel, le poivre et le sucre. Si c'est impossible, fais au plus simple avec ce qui est disponible.\n"
+        : "Tu peux ajouter au maximum deux ingredients qui ne sont pas dans la liste.\n") +
+      'A NE PAS REPROPOSER : ' + dejaLa + '\n\n' +
+      "Ecris en francais simple, comme pour quelqu'un qui debute. Pas de jargon : si un terme technique est indispensable, explique-le dans la meme phrase. " +
+      'Les quantites doivent etre precises et realistes. Reponds uniquement avec les champs demandes.';
+
+    const res = await AI.json(prompt, SCHEMAS[tab](), { cache: false, temperature: 1 });
+
+    /* On range la creation exactement comme une fiche d'origine :
+       meme forme, donc elle marche partout sans cas particulier. */
+    const cats = tab === 'sb' ? CATS : tab === 'ck' ? CKCATS : MMCATS;
+    const cat = cats.some((c) => c.id === res.cat) ? res.cat : cats[0].id;
+    const base = {
+      tab: tab, cree: true, cat: cat,
+      nom: res.nom, desc: res.desc,
+      tag: (res.tag || []).slice(0, 2).concat(['Ma creation']).slice(0, 2),
+      ing: (res.ing || []).map((i) => ({ n: i.n, q: i.q, t: i.q, g: i.q, v: i.q })),
+      steps: res.steps || [],
+      astuce: res.astuce || '',
+      sk: []
     };
-    UI.$('#codexFoot').innerHTML = F[S.tab];
+    if (tab === 'sb') Object.assign(base, {
+      statut: 'secret', kcal: res.kcal || 0, caf: res.caf || 0,
+      temp2: ['chaud', 'glace', 'mixe'].indexOf(res.temp2) >= 0 ? res.temp2 : 'chaud',
+      temp: res.temp2 === 'glace' ? 'froid' : 'chaud',
+      eletta: res.eletta || 'A adapter selon ta machine.'
+    });
+    if (tab === 'ck') Object.assign(base, {
+      ico: '', verre: res.verre || 'Highball', tech: res.tech || 'Construit',
+      abv: res.abv || '—', temps: res.temps || '5 min'
+    });
+    if (tab === 'mm') Object.assign(base, {
+      emoji: '', temps: res.temps || '30 min', portions: res.portions || '4 personnes',
+      four: res.four || 'sans four', serv: res.serv === 'froid' ? 'froid' : 'chaud',
+      materiel: res.materiel || [], notion: ''
+    });
+
+    const saved = Store.add('creations', base);
+    render();
+    return saved;
+  }
+
+  function supprimerCreation(id) {
+    Store.del('creations', id);
+    UI.closeSheet();
+    UI.toast('Création supprimée');
+    render();
   }
 
   /* ---------- Fiche ---------- */
   function openIt(id) {
-    const d = DATA[S.tab]().find((x) => x.id === id);
+    const d = ALL(S.tab).find((x) => x.id === id);
     if (!d) return;
-    const body = S.tab === 'sb' ? sheetSB(d) : S.tab === 'ck' ? sheetCK(d) : sheetMM(d);
+    let body = S.tab === 'sb' ? sheetSB(d) : S.tab === 'ck' ? sheetCK(d) : sheetMM(d);
+    if (estCreation(d)) body += '<div class="mbody" style="padding-top:0">' +
+      '<button class="btn danger block" data-delcrea>' + Icon('trash', 16) + 'Supprimer ce que j\'ai créé</button></div>';
     UI.openSheet(body, {
       onMount: (s) => {
         const b = s.querySelector('[data-addfood]');
         if (b) b.onclick = () => { UI.closeSheet(); Food.quickAdd({ nom: d.nom, kcal: d.kcal || null }); };
+        const del = s.querySelector('[data-delcrea]');
+        if (del) del.onclick = () => supprimerCreation(d.id);
       }
     });
     Store.log('codex-open', { id: id, tab: S.tab, nom: d.nom });
@@ -290,7 +525,7 @@
 
   function sheetSB(d) {
     const b = BADGE[d.statut];
-    return mimg(IMG[d.id]) + '<div class="mbody">' +
+    return (estCreation(d) ? bandeauCreation(d, 'sb') : mimg(IMG[d.id])) + '<div class="mbody">' +
       '<div class="mcat">' + CATOBJ[d.cat].ico + ' ' + UI.esc(CATNAME[d.cat]) + (b ? ' · ' + b : '') + '</div><h2>' + UI.esc(d.nom) + '</h2>' + tagsOf(d) +
       '<p class="mdesc">' + UI.esc(d.desc) + '</p>' +
       '<div class="nums"><div class="num"><b>' + d.kcal + '</b><span>kcal (Grande)</span></div>' +
@@ -307,13 +542,13 @@
   }
 
   function sheetCK(d) {
-    return mimg(IMG['ck-' + d.id]) + '<div class="mbody">' +
+    return (estCreation(d) ? bandeauCreation(d, 'ck') : mimg(IMG['ck-' + d.id])) + '<div class="mbody">' +
       '<div class="mcat">' + CATOBJ[d.cat].ico + ' ' + UI.esc(CATNAME[d.cat]) + '</div><h2>' + d.ico + ' ' + UI.esc(d.nom) + '</h2>' + tagsOf(d) +
       '<p class="mdesc">' + UI.esc(d.desc) + '</p>' +
-      '<div class="nums"><div class="num"><b>' + UI.esc(d.verre) + '</b><span>verre</span></div>' +
-      '<div class="num"><b>' + UI.esc(d.tech) + '</b><span>technique</span></div>' +
-      '<div class="num"><b>' + UI.esc(d.abv) + '</b><span>degré estime</span></div>' +
-      '<div class="num"><b>' + UI.esc(d.temps) + '</b><span>préparation</span></div></div>' +
+      '<div class="nums"><div class="num"><b>' + UI.esc(d.verre) + '</b><span>à servir dans' + UI.hint(VERRES, 'Les verres') + '</span></div>' +
+      '<div class="num"><b>' + UI.esc(d.tech) + '</b><span>façon de faire' + UI.hint(TECHS, 'Les gestes') + '</span></div>' +
+      '<div class="num"><b>' + UI.esc(d.abv) + '</b><span>alcool</span></div>' +
+      '<div class="num"><b>' + UI.esc(d.temps) + '</b><span>à préparer</span></div></div>' +
       stockLine(d) +
       '<div class="blk"><h4>Composition</h4>' +
       d.ing.map((i) => {
@@ -326,7 +561,7 @@
 
   function sheetMM(d) {
     const img = IMG['mm-' + (d.img || 'crepes-bocuse')];
-    return mimg(img, true) + '<div class="mbody">' +
+    return (estCreation(d) ? bandeauCreation(d, 'mm') : mimg(img, true)) + '<div class="mbody">' +
       '<div class="mcat">' + CATOBJ[d.cat].ico + ' ' + UI.esc(CATNAME[d.cat]) + '</div><h2>' + d.emoji + ' ' + UI.esc(d.nom) + '</h2>' + tagsOf(d) +
       '<p class="mdesc">' + UI.esc(d.desc) + '</p>' +
       '<div class="nums"><div class="num"><b>' + UI.esc(d.temps) + '</b><span>durée</span></div>' +
@@ -347,7 +582,7 @@
   function renderDrawer() {
     const t = S.tab, def = STOCKDEF[t];
     const fams = Array.from(new Set(def.map((b) => b.fam)));
-    const all = DATA[t](), ok = all.filter((d) => doable(d, t)).length;
+    const all = ALL(t), ok = all.filter((d) => doable(d, t)).length;
     UI.$('#drawer').innerHTML =
       '<div class="dhead"><h3>' + UI.esc(STOCKTITLE[t]) + '</h3><button class="tbtn" data-close>' + Icon('close', 16) + '</button></div>' +
       '<p class="dsub">Tout est coche par défaut. Décoche ce que tu n\'as pas : les propositions s\'ajustent aussitot.</p>' +
@@ -394,7 +629,7 @@
     const o = { sb: [], ck: [], mm: [] };
     S.fav.forEach((k) => {
       const p = k.split(':'), t = p[0], id = p[1];
-      const d = (DATA[t] ? DATA[t]() : []).find((x) => x.id === id);
+      const d = ALL(t).find((x) => x.id === id);
       if (d) o[t].push(d.nom);
     });
     return o;
@@ -403,7 +638,7 @@
     const need = new Set();
     S.fav.forEach((k) => {
       const p = k.split(':'), t = p[0], id = p[1];
-      const d = (DATA[t] ? DATA[t]() : []).find((x) => x.id === id);
+      const d = ALL(t).find((x) => x.id === id);
       if (d) missing(d, t).forEach((m) => need.add(m));
     });
     return Array.from(need).map((k) => STOCKNAME[k]);
@@ -439,6 +674,8 @@
     loadState();
     UI.$('#codexAll').onclick = () => { S.all = !S.all; S.q = ''; UI.$('#codexQ').value = ''; render(); };
     UI.$('#codexStockBtn').onclick = openDrawer;
+    const bCreer = UI.$('#codexCreate');
+    if (bCreer) bCreer.onclick = () => { UI.haptic('light'); createFlow(); };
     UI.$('#dov').onclick = closeDrawer;
     UI.$('#codexQ').oninput = UI.debounce((e) => { S.q = e.target.value.trim(); render(); }, 140);
     UI.$$('#codexSizes button').forEach((b) => b.onclick = () => {
@@ -459,10 +696,10 @@
   function favorites() {
     return Array.from(S.fav).map((k) => {
       const p = k.split(':'), t = p[0], id = p[1];
-      const d = (DATA[t] ? DATA[t]() : []).find((x) => x.id === id);
+      const d = ALL(t).find((x) => x.id === id);
       return d ? { tab: t, id: id, nom: d.nom, kcal: d.kcal } : null;
     }).filter(Boolean);
   }
 
-  global.Codex = { init, show, favorites, openDrawer, state: S };
+  global.Codex = { init, show, favorites, openDrawer, createFlow, creations, state: S };
 })(window);

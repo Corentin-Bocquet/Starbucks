@@ -64,7 +64,7 @@
   }
 
   function gridBlock(list) {
-    if (!list.length) return '<div class="section">' + UI.empty('film', 'Liste vide', 'Ajoute un film ou une serie, ou demande des recommandations.') + '</div>';
+    if (!list.length) return '<div class="section">' + UI.empty('film', 'Liste vide', "Ajoute un film ou une série, ou demande-en à l'IA.") + '</div>';
     return '<div class="section"><div class="grid tight" style="grid-template-columns:repeat(auto-fill,minmax(120px,1fr))">' +
       list.map((m) => '<div class="card" data-m="' + UI.attr(m.id) + '">' +
         (Store.isFav('media', m.id) ? '<span class="badge sec">Favori</span>' : '') +
@@ -116,7 +116,7 @@
       '<div class="ract">' +
         '<button class="btn sm primary" data-seen>' + Icon('check', 15) + (m.status === 'vu' ? 'Déjà vu' : 'Marquer vu') + '</button>' +
         '<button class="btn sm" data-fav>' + Icon('star', 15) + (isFav ? 'Retirer' : 'Favori') + '</button>' +
-        '<button class="btn sm ghost" data-cal>' + Icon('calendar', 15) + 'Soiree cine</button>' +
+        '<button class="btn sm ghost" data-cal>' + Icon('calendar', 15) + 'Soirée ciné</button>' +
       '</div></div></div>';
   }
 
@@ -135,7 +135,7 @@
       e.currentTarget.innerHTML = Icon('star', 15) + (on ? 'Retirer' : 'Favori');
     };
     box.querySelector('[data-cal]').onclick = () => Cal.add({
-      title: 'Soiree cinema : ' + m.titre, minutes: m.type === 'serie' ? 60 : 130, kind: 'media', time: '20:30'
+      title: 'Soirée cinéma : ' + m.titre, minutes: m.type === 'serie' ? 60 : 130, kind: 'media', time: '20:30'
     });
   }
 
@@ -228,7 +228,7 @@
     UI.openSheet('<div class="mbody">' + UI.thinking('Je cherche…') + '</div>');
     try {
       const res = await AI.json(
-        "Recommande des films et series a quelqu'un dont voici les goûts.\n\n" +
+        "Recommande des films et séries à quelqu'un dont voici les goûts.\n\n" +
         (liked.length ? "A adore : " + liked.join(', ') + "\n" : '') +
         (seen.length ? "Déjà vu : " + seen.join(', ') + "\n" : '') +
         (disliked.length ? "N'a pas aime : " + disliked.join(', ') + "\n" : '') +

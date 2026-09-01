@@ -34,7 +34,7 @@
     HKQuantityTypeIdentifierAppleStandTime:         { k: 'stand',    agg: 'sum',  label: 'Debout',             icon: 'clock',  unit: 'min' },
     HKQuantityTypeIdentifierHeartRate:              { k: 'hr',       agg: 'avg',  label: 'Fréquence cardiaque', icon: 'pulse', unit: 'bpm' },
     HKQuantityTypeIdentifierRestingHeartRate:       { k: 'hrRest',   agg: 'avg',  label: 'FC au repos',        icon: 'pulse',  unit: 'bpm' },
-    HKQuantityTypeIdentifierWalkingHeartRateAverage:{ k: 'hrWalk',   agg: 'avg',  label: 'FC a la marche',     icon: 'pulse',  unit: 'bpm' },
+    HKQuantityTypeIdentifierWalkingHeartRateAverage:{ k: 'hrWalk',   agg: 'avg',  label: 'FC à la marche',     icon: 'pulse',  unit: 'bpm' },
     HKQuantityTypeIdentifierHeartRateVariabilitySDNN:{ k: 'hrv',     agg: 'avg',  label: 'Variabilite (VFC)',  icon: 'pulse',  unit: 'ms' },
     HKQuantityTypeIdentifierVO2Max:                 { k: 'vo2',      agg: 'last', label: 'VO2 max',            icon: 'activity', unit: 'ml/kg/min' },
     HKQuantityTypeIdentifierRespiratoryRate:        { k: 'resp',     agg: 'avg',  label: 'Respiration',        icon: 'water',  unit: '/min' },
@@ -107,13 +107,13 @@
         '</p>' +
         '<div class="list" style="text-align:left;margin-bottom:16px">' +
           step(1, 'Ouvre l\'app Santé sur ton iPhone') +
-          step(2, 'Touche ta photo de profil, en haut a droite') +
-          step(3, 'Descends jusqu\'a « Exporter toutes les données »') +
+          step(2, 'Touche ta photo de profil, en haut à droite') +
+          step(3, 'Descends jusqu\'à « Exporter toutes les données »') +
           step(4, 'Enregistre le fichier, puis reviens ici') +
         '</div>' +
         '<button class="btn primary block lg" data-act="import">' + Icon('upload', 18) + 'Choisir le fichier</button>' +
-        '<button class="btn ghost block" style="margin-top:8px" data-act="manual">' + Icon('plus', 16) + 'Saisir une journée a la main</button>' +
-        '<p class="muted" style="font-size:11.5px;margin-top:14px">Le fichier est lu sur l\'appareil. Rien n\'est envoye a un serveur.</p>' +
+        '<button class="btn ghost block" style="margin-top:8px" data-act="manual">' + Icon('plus', 16) + 'Saisir une journée à la main</button>' +
+        '<p class="muted" style="font-size:11.5px;margin-top:14px">Le fichier est lu sur l\'appareil. Rien n\'est envoyé à un serveur.</p>' +
       '</div></div>';
   }
   const step = (n, t) => '<div class="rowitem"><span class="ic">' + n + '</span><span class="tx"><b style="font-weight:600">' + UI.esc(t) + '</b></span></div>';
@@ -191,21 +191,69 @@
         '<span class="rt tabnum">' + (x.kcal ? UI.fmt.n(x.kcal) + ' kcal' : '') + '</span></div>').join('') + '</div></div>';
   }
 
+  /* ============================================================
+     Le bilan de forme
+
+     Il etait construit differemment de celui de l'alimentation :
+     un paragraphe, trois puces, et rien d'actionnable. Il suit
+     desormais exactement la meme structure, parce que c'est celle
+     qui marche : une note, un verdict, ce qui va, ce qui ne va
+     pas, quoi faire, quoi manger.
+     ============================================================ */
+  const TIER = (n) => n >= 8 ? 'or' : n >= 6 ? 'argent' : n >= 4 ? 'bronze' : 'lead';
+
   function insightBlock(days) {
     const cached = Store.get('healthInsight', null);
     const fresh = cached && Date.now() - cached.at < 20 * 3600e3;
-    return '<div class="section"><div class="sechead"><h2 style="font-size:16px">Lecture de la forme</h2>' +
+    return '<div class="section"><div class="sechead"><h2 style="font-size:16px">Mon bilan</h2>' +
       (fresh ? '<button data-act="insight">Refaire</button>' : '') + '</div>' +
       (fresh
-        ? '<div class="panel" style="background:var(--accent-soft)"><div class="row" style="align-items:flex-start;gap:10px">' + Icon('sparkle', 18) +
-          '<div><p style="font-size:14px;line-height:1.55">' + UI.esc(cached.data.lecture) + '</p>' +
-          (cached.data.points && cached.data.points.length ? '<ul style="padding-left:18px;margin-top:10px">' + cached.data.points.map((p) => '<li style="font-size:13.5px;margin-bottom:5px">' + UI.esc(p) + '</li>').join('') + '</ul>' : '') +
-          (cached.data.action ? '<p style="margin-top:12px;font-size:13.5px"><b>À faire aujourd\'hui : </b>' + UI.esc(cached.data.action) + '</p>' : '') +
-          '</div></div></div>'
-        : '<div class="panel" style="text-align:center"><p class="muted" style="font-size:13px;margin-bottom:12px">Sommeil, cardio, activité et alimentation croises en une lecture courte.</p>' +
-          '<button class="btn primary" data-act="insight">' + Icon('sparkle', 17) + 'Analyser</button></div>') +
+        ? insightHtml(cached.data)
+        : '<div class="panel" style="text-align:center">' +
+            '<b style="display:block;margin-bottom:6px">Analyse de ma forme</b>' +
+            '<p class="muted" style="font-size:13px;margin-bottom:12px">Une note sur 10, ce qui va, ce qui ne va pas, et quoi faire des aujourd\'hui.</p>' +
+            '<button class="btn primary" data-act="insight">' + Icon('sparkle', 17) + 'Analyser avec l\'IA</button></div>') +
       '</div>';
   }
+
+  function insightHtml(a) {
+    const bloc = (titre, items, cls, ic) => (items && items.length)
+      ? '<div class="panel" style="margin-top:10px"><h4 style="display:flex;align-items:center;gap:7px;margin-bottom:8px;color:var(--' + cls + ')">' + Icon(ic, 16) + UI.esc(titre) + '</h4>' +
+        '<ul style="padding-left:18px">' + items.map((x) => '<li style="margin-bottom:6px;font-size:13.5px">' + UI.esc(x) + '</li>').join('') + '</ul></div>'
+      : '';
+
+    const lignes = (titre, items, ic, a1, a2) => (items && items.length)
+      ? '<div class="panel" style="margin-top:10px"><h4 style="margin-bottom:8px">' + UI.esc(titre) + '</h4>' +
+        '<div class="list" style="box-shadow:none">' + items.map((x) =>
+          '<div class="rowitem" style="border-bottom:1px solid var(--hairline)">' +
+            '<span class="ic">' + Icon(ic, 16) + '</span>' +
+            '<span class="tx"><b>' + UI.esc(x[a1] || '') + '</b><small>' + UI.esc(x[a2] || '') + '</small></span>' +
+          '</div>').join('') + '</div></div>'
+      : '';
+
+    const note = a.note != null ? Math.max(0, Math.min(10, Number(a.note))) : null;
+
+    return '<div class="panel" style="background:var(--accent-soft)">' +
+        '<div class="rings" style="gap:14px">' +
+          (note != null ? UI.ring(note, 10, note + '/10', 'ma forme') : '') +
+          '<div style="flex:1;min-width:150px">' +
+            '<b style="display:block;margin-bottom:4px">Verdict</b>' +
+            '<p style="font-size:14px;line-height:1.5">' + UI.esc(a.verdict || '') + '</p>' +
+            (note != null ? '<div class="tier" data-t="' + TIER(note) + '" style="margin-top:10px">' + Icon('trophy', 14) + niveau(note) + '</div>' : '') +
+          '</div>' +
+        '</div></div>' +
+      bloc('Ce qui va', a.bien, 'ok', 'check') +
+      bloc('Ce qui ne va pas', a.moins_bien, 'warn', 'alert') +
+      lignes('Ce que je fais dès aujourd\'hui', a.actions, 'check', 'quoi', 'pourquoi') +
+      lignes('Ce que je mets dans l\'assiette', a.manger, 'apple', 'aliment', 'pourquoi') +
+      (a.objectif_semaine ? '<div class="panel" style="margin-top:10px"><h4 style="margin-bottom:6px">Mon objectif de la semaine</h4>' +
+        '<p style="font-size:14px;line-height:1.5">' + UI.esc(a.objectif_semaine) + '</p></div>' : '') +
+      '<p class="muted" style="font-size:11px;margin-top:10px;text-align:center">Estimation par IA' +
+        UI.hint("Ces chiffres viennent de ton téléphone et l'analyse est faite par une IA. C'est une lecture de tendance, pas un avis médical.", 'Estimation') +
+      '</p>';
+  }
+
+  const niveau = (n) => n >= 8 ? 'Très bonne forme' : n >= 6 ? 'Bonne forme' : n >= 4 ? 'Forme moyenne' : 'Forme basse';
 
   function sourcesBlock() {
     const meta = Store.get('healthImport', null);
@@ -226,7 +274,7 @@
           '<span class="rt">' + Icon('next', 15) + '</span></button>' : '') +
       '</div>' +
       '<p class="muted" style="font-size:11.5px;margin-top:10px;line-height:1.5">' +
-      'Apple Santé ne propose aucune connexion directe pour le web. Un export met une a deux minutes a se générer sur l\'iPhone et couvre tout l\'historique.</p>' +
+      'Apple Santé ne propose aucune connexion directe pour le web. Un export met une à deux minutes à se générer sur l\'iPhone et couvre tout l\'historique.</p>' +
       '</div>';
   }
 
@@ -463,7 +511,7 @@
     Object.keys(res).forEach((f) => { if (res[f] !== '') row[f] = Number(res[f]); });
     if (cur.id) Store.put('healthDays', cur.id, row); else Store.add('healthDays', row);
     Store.set('healthInsight', null);
-    render(); UI.toast('Enregistre');
+    render(); UI.toast('Enregistré');
   }
 
   async function editGoals() {
@@ -482,11 +530,23 @@
   /* ============================================================
      Lecture IA
      ============================================================ */
+  /* Meme structure que l'analyse de l'alimentation : une note, un
+     verdict, deux listes, puis du concret a faire et a manger. */
   const INSIGHT_SCHEMA = AI.T.obj({
-    lecture: AI.T.str('Trois phrases maximum, un constat honnete de la forme actuelle'),
-    points: AI.T.arr(AI.T.str(''), 'Trois observations concretes, chiffrees'),
-    action: AI.T.str('Une seule action pour aujourd hui, précise et réalisable')
-  });
+    note: AI.T.int('Note de 0 a 10 de la forme generale, en croisant sommeil, activite, coeur et alimentation'),
+    verdict: AI.T.str('Deux phrases maximum, en francais simple, sans jargon medical et sans flatterie'),
+    bien: AI.T.arr(AI.T.str(''), 'Deux a quatre choses qui vont bien, avec le chiffre qui le montre'),
+    moins_bien: AI.T.arr(AI.T.str(''), 'Deux a quatre choses qui ne vont pas, avec le chiffre qui le montre'),
+    actions: AI.T.arr(AI.T.obj({
+      quoi: AI.T.str('Une action precise et faisable aujourd hui, en une ligne'),
+      pourquoi: AI.T.str('Le gain attendu, en une ligne simple')
+    }), 'Deux a quatre actions concretes'),
+    manger: AI.T.arr(AI.T.obj({
+      aliment: AI.T.str('Un aliment courant en France'),
+      pourquoi: AI.T.str('Ce que ca apporte a sa forme, en une ligne simple')
+    }), 'Deux a quatre aliments a ajouter'),
+    objectif_semaine: AI.T.str('Un seul objectif pour la semaine, mesurable')
+  }, ['note', 'verdict', 'bien', 'moins_bien', 'actions', 'manger']);
 
   async function insight() {
     if (!AI.available()) { UI.toast('Ajoute ta clé Gemini dans Réglages'); App.go('#/m/settings/ia'); return; }
@@ -513,9 +573,12 @@
         (nutri ? "ALIMENTATION :\n" + nutri + "\n\n" : "") +
         (global.Mood ? "VIE SOCIALE ET ÉQUILIBRE ÉMOTIONNEL :\n" + Mood.describe() + "\n\n" : "") +
         "Objectifs : " + JSON.stringify(goals()) + "\n\n" +
-        "Croise sommeil, fréquence cardiaque au repos, variabilité et activité. Signale une tendance seulement si elle est visible dans les chiffres. " +
-        "Si plusieurs jours ont passé sans aucune activité impliquant quelqu'un d'autre, dis-le franchement : c'est un facteur de forme au même titre que le sommeil, " +
-        "et aucune activité solo ne le compense. Réponds en français.",
+        "Croise sommeil, frequence cardiaque au repos, variabilite et activite. Signale une tendance seulement si elle est visible dans les chiffres. " +
+        "Si plusieurs jours ont passe sans aucune activite impliquant quelqu'un d'autre, dis-le franchement : c'est un facteur de forme au meme titre que le sommeil, " +
+        "et aucune activite solo ne le compense.\n\n" +
+        "Ecris pour quelqu'un qui n'y connait rien : des phrases courtes, des mots de tous les jours, aucun terme technique sans traduction. " +
+        "Dis « battements du coeur au repos » plutot que « FC de repos », « recuperation » plutot que « VFC ». " +
+        "Chaque action doit etre faisable aujourd'hui, et chaque aliment doit s'acheter en supermarche. Reponds en francais.",
         INSIGHT_SCHEMA, { cache: false, temperature: 0.5 });
       Store.set('healthInsight', { at: Date.now(), data: res });
       render();

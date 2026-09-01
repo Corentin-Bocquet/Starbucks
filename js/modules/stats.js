@@ -133,7 +133,7 @@
   function historyBlock() {
     const h = Store.history(null, 40);
     const label = { activite: 'Activité', etablissement: 'Établissement', aliment: 'Aliment', cadeau: 'Cadeau',
-      media: 'Film ou serie', meal: 'Repas', tenue: 'Tenue', calendrier: 'Calendrier', 'codex-open': 'Recette' };
+      media: 'Film ou série', meal: 'Repas', tenue: 'Tenue', calendrier: 'Calendrier', 'codex-open': 'Recette' };
     if (!h.length) return UI.empty('clock', 'Rien encore', 'Utilisé l\'app un peu, tout se retrouve ici.');
     return '<div class="list">' + h.map((x) =>
       '<div class="rowitem"><span class="ic">' + Icon(iconFor(x.kind), 17) + '</span>' +

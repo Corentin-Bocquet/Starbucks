@@ -153,14 +153,39 @@
     bind();
   }
 
+  /* ============================================================
+     Le bandeau d'accueil
+
+     C'est le premier ecran de l'application : il doit se lire
+     comme une image, pas comme un formulaire. Ville, meteo du
+     moment, moment de la journee, tout d'un coup d'oeil, sur un
+     aplat colore par la saison.
+     ============================================================ */
+  const CIELS = {
+    printemps: ['#2F7FA8', '#79C0D8'],
+    ete:       ['#1E7FA6', '#57BFD6'],
+    automne:   ['#8A5A2B', '#C99050'],
+    hiver:     ['#2C4A6B', '#5C82A8']
+  };
+  const MOMENTS = { matin: 'Ce matin', midi: 'Ce midi', 'après-midi': 'Cet apres-midi', soiree: 'Ce soir', nuit: 'Cette nuit' };
+
   function headerBlock(n) {
     const wx = ctx && ctx.weather;
-    return '<div class="section" style="padding:16px 0 0">' +
-      '<button class="row-between panel" style="width:100%;text-align:left" data-place>' +
-        '<span><b style="display:block;font-size:19px;letter-spacing:-.02em">' + UI.esc(cityName(prefs().city)) + '</b>' +
-        '<small class="muted">' + n + ' activité' + (n > 1 ? 's' : '') + ' disponible' + (n > 1 ? 's' : '') + '</small></span>' +
-        (wx ? '<span class="row" style="gap:6px;color:var(--muted)">' + Icon(wx.icon, 20) +
-          '<b style="font-size:16px">' + wx.temp + '°</b></span>' : Icon('next', 18)) +
+    const saison = UI.day.season();
+    const g = CIELS[saison] || CIELS.printemps;
+    const moment = MOMENTS[UI.day.slot()] || 'Aujourd\'hui';
+
+    return '<div class="section" style="padding:14px 0 0">' +
+      '<button class="accueil" data-place style="--g1:' + g[0] + ';--g2:' + g[1] + '">' +
+        '<div class="ligne">' +
+          '<span class="quand">' + UI.esc(moment) + '</span>' +
+          (wx ? '<span class="meteo">' + Icon(wx.icon, 18) + '<b>' + wx.temp + '°</b></span>' : '') +
+        '</div>' +
+        '<b class="ville">' + UI.esc(cityName(prefs().city)) + '</b>' +
+        '<div class="ligne bas">' +
+          '<span>' + n + ' idée' + (n > 1 ? 's' : '') + ' pour ici</span>' +
+          '<span class="chg">Changer' + Icon('next', 14) + '</span>' +
+        '</div>' +
       '</button></div>';
   }
 

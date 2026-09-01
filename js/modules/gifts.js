@@ -205,7 +205,7 @@
         s.querySelector('[data-add]').onclick = () => {
           Store.add('gifts', { person: personId, nom: i.nom, cat: i.cat, note: i.pourquoi, prix: i.budget, source: 'ia' });
           Store.del('giftIdeas', id);
-          UI.closeSheet(); UI.toast('Ajoute a sa liste'); render();
+          UI.closeSheet(); UI.toast('Ajouter à sa liste'); render();
         };
         s.querySelector('[data-where]').onclick = () => whereToBuy(i.nom);
         s.querySelector('[data-cal]').onclick = () => planBuy(i.nom);

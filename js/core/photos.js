@@ -204,5 +204,47 @@
     try { return await navigator.storage.estimate(); } catch (e) { return null; }
   }
 
-  global.Photos = { put, get, del, save, upload, sync, hydrate, img, usage, pendingUploads };
+  /* ============================================================
+     Choisir une photo
+
+     Un <input type="file"> detache du document ne declenche pas
+     toujours son evenement `change` sur iOS : la premiere photo
+     partait dans le vide, il fallait recommencer pour que
+     l'analyse se lance. C'etait exactement le bug decrit.
+
+     Le correctif est simple et connu : l'input doit exister dans
+     la page au moment ou l'utilisateur valide sa photo. On l'y
+     pose, hors ecran, et on le retire une fois le fichier recu.
+
+     Tout ce qui ouvre l'appareil photo dans l'application passe
+     par ici, pour que le bug ne puisse pas revenir ailleurs.
+     ============================================================ */
+  function pick(onFile, opts) {
+    opts = opts || {};
+    const inp = document.createElement('input');
+    inp.type = 'file';
+    inp.accept = opts.accept || 'image/*';
+    if (opts.capture) inp.setAttribute('capture', opts.capture);
+    if (opts.multiple) inp.multiple = true;
+    inp.style.cssText = 'position:fixed;left:-10000px;top:0;width:1px;height:1px;opacity:0';
+    document.body.appendChild(inp);
+
+    let rendu = false;
+    const nettoyer = () => { if (inp.parentNode) inp.parentNode.removeChild(inp); };
+    const recevoir = () => {
+      if (rendu) return;
+      rendu = true;
+      const fichiers = Array.prototype.slice.call(inp.files || []);
+      setTimeout(nettoyer, 0);
+      if (fichiers.length) onFile(opts.multiple ? fichiers : fichiers[0]);
+    };
+    inp.addEventListener('change', recevoir);
+    inp.addEventListener('cancel', () => { if (!rendu) { rendu = true; setTimeout(nettoyer, 0); } });
+    /* Filet de securite : si rien n'est arrive au bout de cinq
+       minutes, on ne laisse pas l'input trainer dans la page. */
+    setTimeout(() => { if (!rendu) nettoyer(); }, 300000);
+    inp.click();
+  }
+
+  global.Photos = { put, get, del, save, upload, sync, hydrate, img, usage, pendingUploads, pick };
 })(window);
