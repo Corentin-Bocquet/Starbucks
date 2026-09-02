@@ -333,3 +333,36 @@ where c.name = 'healthDays' and coalesce((d->>'_del')::boolean, false) = false;
 --       PATCH /v1/projects/{ref}/postgrest
 --       { "db_schema": "public,graphql_public,ever" }
 -- ------------------------------------------------------------
+
+
+-- ============================================================
+-- LES LIGUES
+--
+-- Une ligue est une liste partagee ordinaire, de type « ligue ».
+-- Cette table ne porte que les scores publies par ses membres.
+--
+-- La securite est entiere : on lit les scores d'une ligue dont on
+-- est membre, on n'ecrit que sa propre ligne. Meme en trafiquant
+-- l'application, personne ne peut gonfler le score d'un autre.
+-- ============================================================
+create table if not exists ever.ligue_scores (
+  id         uuid primary key default gen_random_uuid(),
+  list_id    uuid not null references ever.shared_lists(id) on delete cascade,
+  user_id    uuid not null references auth.users(id) on delete cascade,
+  pseudo     text not null default '',
+  xp         integer not null default 0,
+  rang       text not null default 'Bois III',
+  matiere    text not null default 'bois',
+  lp         integer not null default 0,
+  seances    integer not null default 0,
+  serie      integer not null default 0,
+  updated_at timestamptz not null default now(),
+  unique (list_id, user_id)
+);
+
+alter table ever.ligue_scores enable row level security;
+
+create policy ligue_lire   on ever.ligue_scores for select using (ever.is_list_member(list_id));
+create policy ligue_ecrire on ever.ligue_scores for insert with check (user_id = auth.uid() and ever.is_list_member(list_id));
+create policy ligue_maj    on ever.ligue_scores for update using (user_id = auth.uid()) with check (user_id = auth.uid());
+create policy ligue_suppr  on ever.ligue_scores for delete using (user_id = auth.uid());

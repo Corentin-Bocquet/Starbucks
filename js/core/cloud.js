@@ -217,6 +217,60 @@
     await client.from('list_members').delete().eq('list_id', listId).eq('user_id', user().id);
   }
 
+  /* ============================================================
+     Les ligues
+
+     Une ligue est une liste partagee ordinaire, de type « ligue ».
+     On la cree, on donne son code a ses amis, ils la rejoignent.
+     Chacun publie ensuite son score dans ever.ligue_scores.
+
+     La securite est posee dans la base, pas ici : on ne lit que
+     les scores des ligues dont on est membre, et on n'ecrit que
+     sa propre ligne. Meme en trafiquant l'application, on ne peut
+     pas gonfler le score de quelqu'un d'autre.
+     ============================================================ */
+  async function creerLigue(nom) {
+    if (!ready()) throw new Error('Connecte-toi pour créer une ligue');
+    const row = { owner_id: user().id, name: nom || 'Ma ligue', kind: 'ligue', share_code: code(), default_permission: 'edit' };
+    const { data, error } = await client.from('shared_lists').insert(row).select().single();
+    if (error) throw error;
+    await client.from('list_members').upsert(
+      { list_id: data.id, user_id: user().id, permission: 'edit' }, { onConflict: 'list_id,user_id' });
+    return data;
+  }
+
+  async function rejoindreLigue(shareCode) {
+    const l = await joinSharedList(shareCode);
+    if (l.kind !== 'ligue') throw new Error("Ce code n'est pas celui d'une ligue");
+    return l;
+  }
+
+  async function mesLigues() {
+    if (!ready()) return [];
+    const { data, error } = await client.from('shared_lists').select('*').eq('kind', 'ligue');
+    if (error) { console.warn(error); return []; }
+    return data || [];
+  }
+
+  async function publierScore(listId, score) {
+    if (!ready()) return null;
+    const row = Object.assign({ list_id: listId, user_id: user().id, updated_at: new Date().toISOString() }, score);
+    const { data, error } = await client.from('ligue_scores')
+      .upsert(row, { onConflict: 'list_id,user_id' }).select().single();
+    if (error) throw error;
+    return data;
+  }
+
+  async function classement(listId) {
+    if (!ready()) return [];
+    const { data, error } = await client.from('ligue_scores')
+      .select('*').eq('list_id', listId).order('xp', { ascending: false });
+    if (error) { console.warn(error); return []; }
+    return data || [];
+  }
+
+  async function quitterLigue(listId) { return leaveList(listId); }
+
   /* ---------- Fichiers (photos de vêtements, repas) ---------- */
   /* Les compartiments sont préfixés : le projet héberge aussi WALLET. */
   const bucketName = (b) => (b.indexOf('ever-') === 0 ? b : 'ever-' + b);
@@ -240,6 +294,7 @@
     signUp, signIn, signInMagic, resetPassword, signOut,
     putSettings, putCollection, getAll,
     createSharedList, joinSharedList, myLists, listItems, addListItem, removeListItem, leaveList,
+    creerLigue, rejoindreLigue, mesLigues, publierScore, classement, quitterLigue,
     uploadImage, deleteImage, getProfile, updateProfile
   };
 })(window);

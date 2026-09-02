@@ -141,5 +141,105 @@
     });
   }
 
-  global.MapPick = { pick, load, reverse };
+  /* ============================================================
+     La fiche d'un lieu
+
+     On reste dans l'application : la carte s'ouvre en pop-up,
+     centree sur l'adresse, avec le nom, les infos utiles et un
+     bouton pour partir dans Plans ou Google Maps si on veut
+     vraiment y aller.
+
+     Deux cas : soit le lieu porte deja ses coordonnees, soit on
+     les demande a Nominatim a partir de son adresse. Si les deux
+     echouent, la fiche s'affiche quand meme, sans carte, avec les
+     boutons de navigation qui eux marchent toujours.
+     ============================================================ */
+  async function geocode(q) {
+    try {
+      const r = await fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&accept-language=fr&q=' + encodeURIComponent(q),
+        { headers: { 'Accept': 'application/json' } });
+      if (!r.ok) return null;
+      const j = await r.json();
+      if (!j || !j.length) return null;
+      return { lat: parseFloat(j[0].lat), lon: parseFloat(j[0].lon), label: j[0].display_name || '' };
+    } catch (e) { return null; }
+  }
+
+  const surApple = () => /iPad|iPhone|iPod|Macintosh|Mac OS X/.test(navigator.userAgent || '');
+
+  function liens(lieu) {
+    const q = encodeURIComponent([lieu.nom, lieu.adresse, lieu.ville].filter(Boolean).join(' '));
+    return {
+      apple:   'https://maps.apple.com/?q=' + q,
+      google:  'https://www.google.com/maps/search/?api=1&query=' + q,
+      itineraire: 'https://www.google.com/maps/dir/?api=1&destination=' + q
+    };
+  }
+
+  function fiche(lieu, opts) {
+    opts = opts || {};
+    if (!lieu || !lieu.nom) return;
+    const L2 = liens(lieu);
+    const apple = surApple();
+
+    const puces = [];
+    if (lieu.rating) puces.push('★ ' + String(lieu.rating).replace('.', ',') + (lieu.reviews ? ' · ' + lieu.reviews + ' avis' : ''));
+    if (lieu.price) puces.push('€'.repeat(lieu.price));
+    if (lieu.hours) puces.push(lieu.hours);
+    if (lieu.distance != null) puces.push(UI.fmt.km(lieu.distance));
+
+    UI.openSheet(
+      '<div class="fichelieu">' +
+        '<div class="carte" data-carte>' +
+          '<div class="attente">' + Icon('location', 26) + '</div>' +
+        '</div>' +
+        '<div class="voile"></div>' +
+        '<div class="infos">' +
+          (lieu.categorie ? '<div class="sur">' + UI.esc(lieu.categorie) + '</div>' : '') +
+          '<h2>' + UI.esc(lieu.nom) + '</h2>' +
+          (lieu.adresse ? '<p class="adr">' + Icon('pin', 14) + UI.esc(lieu.adresse) + '</p>' : '') +
+          (lieu.pitch ? '<p class="txt">' + UI.esc(lieu.pitch) + '</p>' : '') +
+          (puces.length ? '<div class="puces">' + puces.map((x) => '<span>' + UI.esc(x) + '</span>').join('') + '</div>' : '') +
+        '</div>' +
+      '</div>' +
+      '<div class="mbody" style="padding-top:14px">' +
+        '<a class="btn primary block lg" href="' + UI.attr(apple ? L2.apple : L2.google) + '" target="_blank" rel="noopener">' +
+          Icon('external', 18) + (apple ? 'Ouvrir dans Plans' : 'Ouvrir dans Google Maps') + '</a>' +
+        '<div class="btnrow" style="margin-top:8px">' +
+          '<a class="btn grow" href="' + UI.attr(L2.itineraire) + '" target="_blank" rel="noopener">' + Icon('map', 16) + 'Itinéraire</a>' +
+          '<a class="btn grow" href="' + UI.attr(apple ? L2.google : L2.apple) + '" target="_blank" rel="noopener">' +
+            Icon('external', 16) + (apple ? 'Google Maps' : 'Plans') + '</a>' +
+        '</div>' +
+        (opts.extra || '') +
+      '</div>',
+      { onMount: async (sh) => {
+          if (opts.onMount) opts.onMount(sh);
+          const boite = sh.querySelector('[data-carte]');
+          let lat = Number(lieu.lat), lon = Number(lieu.lon);
+          if (!isFinite(lat) || !isFinite(lon)) {
+            const g = await geocode([lieu.nom, lieu.adresse, lieu.ville].filter(Boolean).join(', '));
+            if (g) { lat = g.lat; lon = g.lon; }
+          }
+          if (!isFinite(lat) || !isFinite(lon)) {
+            boite.innerHTML = '<div class="attente">' + Icon('location', 26) + '<span>Adresse non localisée</span></div>';
+            return;
+          }
+          try {
+            const L = await load();
+            boite.innerHTML = '<div class="toile" data-toile></div>';
+            const map = L.map(boite.querySelector('[data-toile]'), {
+              zoomControl: false, attributionControl: false,
+              dragging: true, scrollWheelZoom: false, doubleClickZoom: true, tapHold: false
+            }).setView([lat, lon], 16);
+            L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+            L.marker([lat, lon]).addTo(map);
+            setTimeout(() => map.invalidateSize(), 220);
+          } catch (e) {
+            boite.innerHTML = '<div class="attente">' + Icon('location', 26) + '<span>Carte indisponible hors ligne</span></div>';
+          }
+        } }
+    );
+  }
+
+  global.MapPick = { pick, load, reverse, fiche, geocode, liens };
 })(window);

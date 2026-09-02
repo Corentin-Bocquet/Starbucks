@@ -375,6 +375,41 @@
 .seg { display: inline-flex; background: var(--surface-2); border-radius: var(--r-pill); padding: 3px; gap: 2px; box-shadow: var(--sh-inset); }
 .seg button { padding: 8px 14px; border-radius: var(--r-pill); font-size: 13px; font-weight: 650; color: var(--muted); white-space: nowrap; transition: all var(--d-fast) var(--ease); }
 .seg button.on { background: var(--surface); color: var(--ink); box-shadow: var(--sh-1); }
+/* Serree : la bulle epouse ses boutons au lieu de tirer sur toute
+   la largeur. Quatre tranches de budget n'ont pas besoin de l'ecran. */
+.seg.compact { flex: none; }
+.seg.compact button { padding: 7px 11px; font-size: 12.5px; }
+
+/* ============================================================
+   Grande ligne cliquable
+
+   Une pastille d'accent, deux lignes de texte, une fleche : tout
+   est aligne sur la meme grille. Remplace les boutons bricoles
+   qui melangeaient les classes de liste et de ligne.
+   ============================================================ */
+.bigrow {
+  width: 100%; display: flex; align-items: center; gap: 14px;
+  padding: 15px 16px; text-align: left;
+  background: var(--surface); border-radius: var(--r-lg);
+  box-shadow: var(--sh-1), var(--sh-inset);
+  transition: transform var(--d-fast) var(--spring), box-shadow var(--d-base);
+}
+.bigrow:active { transform: scale(.985); }
+.bigrow .ic {
+  flex: none; width: 46px; height: 46px; border-radius: 15px;
+  display: grid; place-items: center;
+  background: var(--accent-soft); color: var(--accent);
+}
+.bigrow .ic svg { width: 22px; height: 22px; }
+.bigrow .tx { flex: 1; min-width: 0; }
+.bigrow .tx b { display: block; font-size: 15.5px; font-weight: 700; letter-spacing: -.015em; }
+.bigrow .tx small { display: block; color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+.bigrow .go {
+  flex: none; width: 30px; height: 30px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--surface-2); color: var(--muted);
+}
+.bigrow .go svg { width: 16px; height: 16px; }
 .seg.full { display: flex; width: 100%; }
 .seg.full button { flex: 1; }
 
@@ -753,3 +788,226 @@ footer#codexFoot { padding: 22px var(--gut) 34px; display: flex; justify-content
 .accueil .bas { font-size: 12.5px; font-weight: 600; opacity: .9; }
 .accueil .chg { display: inline-flex; align-items: center; gap: 3px; }
 .accueil .chg svg { width: 14px; height: 14px; }
+
+/* ============================================================
+   17. FICHE D'UN LIEU
+
+   Reprise de la carte des maquettes : le visuel occupe le haut,
+   un degrade le fond dans le texte, le nom et les infos se posent
+   par-dessus, et l'action principale est une grosse pilule en
+   dessous. Ici le visuel est une carte vivante, pas une photo.
+   ============================================================ */
+.fichelieu { position: relative; isolation: isolate; }
+.fichelieu .carte {
+  position: relative; width: 100%; aspect-ratio: 4 / 3; max-height: 46vh;
+  background: linear-gradient(150deg, var(--surface-2), var(--surface-3));
+  overflow: hidden;
+}
+.fichelieu .carte .toile { position: absolute; inset: 0; }
+.fichelieu .carte .attente {
+  position: absolute; inset: 0; display: grid; place-items: center; gap: 8px;
+  align-content: center; color: var(--muted); font-size: 12.5px; text-align: center; padding: 20px;
+}
+.fichelieu .voile {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 62%;
+  pointer-events: none; z-index: 2;
+  background: linear-gradient(180deg, transparent, rgba(10, 8, 8, .35) 34%, rgba(10, 8, 8, .82) 78%, rgba(10, 8, 8, .92));
+}
+.fichelieu .infos {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 3;
+  padding: 18px var(--gut) 18px; color: #fff;
+}
+.fichelieu .sur {
+  font-size: 10.5px; font-weight: 750; letter-spacing: .1em; text-transform: uppercase;
+  opacity: .82; margin-bottom: 6px;
+}
+.fichelieu h2 { font-size: clamp(23px, 6.2vw, 30px); line-height: 1.05; letter-spacing: -.03em; }
+.fichelieu .adr {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 13px; opacity: .88; margin-top: 7px;
+}
+.fichelieu .adr svg { width: 14px; height: 14px; flex: none; }
+.fichelieu .txt { font-size: 13.5px; line-height: 1.45; opacity: .86; margin-top: 8px; }
+.fichelieu .puces { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 12px; }
+.fichelieu .puces span {
+  font-size: 12px; font-weight: 650; padding: 6px 12px; border-radius: var(--r-pill);
+  background: rgba(255, 255, 255, .18); backdrop-filter: blur(6px);
+  border: 1px solid rgba(255, 255, 255, .2);
+}
+.btn.grow { flex: 1 1 0; min-width: 0; }
+
+/* ============================================================
+   18. LIGNE QUI SE BALAIE
+
+   Les actions sont posees sous la ligne, la ligne glisse
+   par-dessus. Sur ordinateur, elles apparaissent au survol :
+   personne ne doit rester bloque faute de doigt.
+   ============================================================ */
+.glissable { position: relative; overflow: hidden; }
+.glissable .dessus {
+  position: relative; z-index: 2; background: var(--surface);
+  transition: transform var(--d-base) var(--spring);
+  will-change: transform;
+}
+.glissable .actions {
+  position: absolute; inset: 0 0 0 auto; z-index: 1;
+  display: flex; align-items: stretch;
+}
+.glissable .act {
+  width: 78px; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 4px;
+  background: var(--surface-3); color: var(--ink-2);
+  font-size: 11px; font-weight: 650;
+}
+.glissable .act svg { width: 19px; height: 19px; }
+.glissable .act.danger { background: var(--danger); color: #fff; }
+.glissable .act.accent { background: var(--accent); color: #fff; }
+.glissable .act:active { filter: brightness(.92); }
+
+/* Sans doigt : au survol, la ligne s'ecarte toute seule. */
+@media (pointer: fine) {
+  .glissable:hover .dessus { transform: translateX(calc(-78px * var(--nact, 1))); }
+}
+
+/* Indice de balayage : une petite fleche qui pulse la premiere
+   fois, pour que le geste ne reste pas secret. */
+.indice-geste {
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  font-size: 11.5px; font-weight: 600; color: var(--faint);
+  padding: 6px 0 2px;
+}
+.indice-geste svg { width: 15px; height: 15px; animation: glisse 2.4s ease-in-out infinite; }
+@keyframes glisse { 0%, 100% { transform: translateX(-3px); opacity: .5; } 50% { transform: translateX(3px); opacity: 1; } }
+
+/* ============================================================
+   19. SPORT
+
+   La silhouette, les series, le bilan d'une seance.
+   ============================================================ */
+:root { --silhouette: #DDD8D4; }
+:root:not([data-theme="light"]) { --silhouette: #DDD8D4; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --silhouette: #322C2C; } }
+:root[data-theme="dark"] { --silhouette: #322C2C; }
+
+.corps-duo { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.corps-duo .etiq {
+  font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--muted); text-align: center; margin-bottom: 6px;
+}
+.corps { width: 100%; height: auto; max-height: 320px; display: block; }
+.corps path { transition: fill var(--d-slow) var(--ease); }
+
+.entete-sport { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 20px 16px; }
+.entete-sport .illu { margin-bottom: 4px; }
+.entete-sport .chiffres { display: flex; gap: 26px; margin-top: 6px; }
+.entete-sport .chiffres b { display: block; font-size: 22px; font-weight: 800; letter-spacing: -.03em; }
+.entete-sport .chiffres span { font-size: 11px; color: var(--muted); font-weight: 620; }
+
+.bilan-seance {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 14px;
+  background: var(--accent-soft); border-radius: var(--r-lg); padding: 14px 10px; text-align: center;
+}
+.bilan-seance b { display: block; font-size: 20px; font-weight: 800; letter-spacing: -.03em; color: var(--accent); }
+.bilan-seance span { font-size: 11px; color: var(--muted); font-weight: 620; }
+
+.series { display: flex; flex-wrap: wrap; gap: 7px; }
+.serie {
+  display: inline-flex; align-items: center; gap: 7px;
+  background: var(--surface-2); border-radius: var(--r-pill); padding: 6px 6px 6px 10px;
+  font-size: 13px; font-weight: 650;
+}
+.serie .num {
+  width: 17px; height: 17px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--accent); color: #fff; font-size: 10px; font-weight: 800;
+}
+.serie .sup {
+  width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--surface-3); color: var(--muted);
+}
+.serie .sup svg { width: 12px; height: 12px; }
+.bloc-sport .illu { flex: none; display: grid; place-items: center; }
+
+/* ============================================================
+   20. RANGS ET LIGUE
+
+   La carte de rang est le seul endroit de l'application ou on
+   assume le vocabulaire du jeu : matiere, division, points. Elle
+   prend la couleur du palier atteint, du bois au diamant.
+   ============================================================ */
+.carte-rang {
+  border-radius: var(--r-2xl); padding: 18px 20px 20px;
+  background: linear-gradient(155deg, var(--c2), var(--c3));
+  color: #fff; box-shadow: var(--sh-3);
+  position: relative; overflow: hidden; text-align: center;
+}
+.carte-rang::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(115deg, transparent 42%, rgba(255,255,255,.16) 50%, transparent 58%);
+  pointer-events: none;
+}
+.carte-rang .haut { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.carte-rang .titre { font-size: 15px; font-weight: 800; letter-spacing: .09em; }
+.carte-rang .lp { font-size: 14px; font-weight: 750; opacity: .82; }
+.carte-rang .med {
+  margin: 4px 0 12px; position: relative;
+  display: grid; place-items: center;
+}
+/* Un halo sombre derriere le medaillon : sans lui, l'or se perd
+   sur un fond dore. */
+.carte-rang .med::before {
+  content: ''; position: absolute; width: 150px; height: 150px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(0,0,0,.30), transparent 68%);
+}
+.carte-rang .med svg { position: relative; }
+.carte-rang .jauge {
+  height: 9px; border-radius: var(--r-pill); overflow: hidden;
+  background: rgba(0, 0, 0, .28);
+}
+.carte-rang .rempli {
+  height: 100%; border-radius: var(--r-pill);
+  background: linear-gradient(90deg, #fff, var(--c1));
+  transition: width var(--d-slow) var(--spring);
+}
+.carte-rang .bas {
+  display: flex; justify-content: space-between; gap: 12px;
+  margin-top: 10px; font-size: 12px; font-weight: 620; opacity: .85;
+}
+
+.medaillier { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+.pal { text-align: center; padding: 10px 2px; border-radius: var(--r-md); background: var(--surface); box-shadow: var(--sh-inset); }
+.pal b { display: block; font-size: 10px; font-weight: 700; margin-top: 4px; color: var(--ink-2); }
+.pal.verrou { opacity: .3; filter: grayscale(1); }
+.pal.courant { background: var(--accent-soft); box-shadow: 0 0 0 2px var(--accent) inset; }
+
+.rang-ligne {
+  display: flex; align-items: center; gap: 11px;
+  padding: 10px 0; border-bottom: 1px solid var(--hairline);
+}
+.rang-ligne:last-of-type { border-bottom: none; }
+.rang-ligne .pos {
+  flex: none; width: 22px; text-align: center;
+  font-size: 14px; font-weight: 800; color: var(--muted);
+}
+.rang-ligne .med { flex: none; display: grid; place-items: center; }
+.rang-ligne .tx { flex: 1; min-width: 0; }
+.rang-ligne .tx b { display: block; font-size: 14.5px; font-weight: 700; }
+.rang-ligne .tx small { display: block; font-size: 12px; font-weight: 650; margin-top: 1px; }
+.rang-ligne .pts { font-size: 14px; font-weight: 750; font-variant-numeric: tabular-nums; }
+.rang-ligne.moi { background: var(--accent-soft); border-radius: var(--r-sm); padding-left: 8px; padding-right: 8px; }
+
+.code-ligue {
+  display: flex; align-items: center; gap: 10px; margin-top: 14px;
+  padding: 12px 14px; border-radius: var(--r-md);
+  background: var(--surface-2); color: var(--muted);
+  font-size: 12.5px; font-weight: 620;
+}
+.code-ligue b {
+  margin-left: auto; font-size: 17px; font-weight: 800;
+  letter-spacing: .16em; color: var(--ink); font-variant-numeric: tabular-nums;
+}
+.code-ligue svg { width: 15px; height: 15px; flex: none; }
+.code-ligue.gros { margin-top: 14px; padding: 16px; }
+.code-ligue.gros b { font-size: 24px; }
+/* Pastille de marque : fond neutre, le logo garde ses couleurs. */
+.list .rowitem .ic.marque { background: var(--surface-2); box-shadow: var(--sh-inset); padding: 4px; }
+.list .rowitem .ic.marque svg { width: 21px; height: 21px; }

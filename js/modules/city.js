@@ -125,7 +125,7 @@
     if (!l.length) return '';
     return '<div class="section"><div class="sechead"><h2 style="font-size:17px">À ne pas manquer</h2></div>' +
       '<div class="grid tight">' + l.map((x) =>
-        '<div class="card" data-place="' + UI.attr(x.nom) + '" style="cursor:pointer">' +
+        '<div class="card" data-place="' + UI.attr(x.nom) + '" data-pitch="' + UI.attr(x.description || '') + '" data-adresse="' + UI.attr(x.adresse || '') + '" data-cat="À ne pas manquer" style="cursor:pointer">' +
         '<div class="bd" style="padding:14px">' +
         '<h3 style="font-size:15px">' + UI.esc(x.nom) + '</h3>' +
         '<p class="muted" style="font-size:12.5px;margin-top:6px;line-height:1.45">' + UI.esc(x.description || '') + '</p>' +
@@ -140,7 +140,7 @@
     if (s.type === 'text') body = '<p style="font-size:14px;line-height:1.6;color:var(--ink-2)">' + UI.esc(v) + '</p>';
     else if (s.type === 'list') body = '<ul style="padding-left:19px">' + v.map((x) => '<li style="margin-bottom:7px;font-size:13.8px;line-height:1.5">' + UI.esc(x) + '</li>').join('') + '</ul>';
     else body = '<div class="list">' + v.map((x) =>
-      '<div class="rowitem" data-place="' + UI.attr(x.nom) + '">' +
+      '<div class="rowitem" data-place="' + UI.attr(x.nom) + '" data-pitch="' + UI.attr(x.description || '') + '" data-adresse="' + UI.attr(x.adresse || '') + '" data-cat="' + UI.attr(s.nom) + '">' +
       '<span class="ic">' + Icon(s.icon, 17) + '</span>' +
       '<span class="tx"><b>' + UI.esc(x.nom) + '</b><small>' + UI.esc(x.description || '') + '</small></span>' +
       '<button class="rt" data-savep=\'' + UI.attr(JSON.stringify({ nom: x.nom, kind: kindOf(s.k), adresse: x.adresse || '' })) + '\'>' + Icon('star', 15) + '</button>' +
@@ -249,14 +249,15 @@
                 (r.description ? '<p class="muted" style="font-size:13.5px;margin-top:6px">' + UI.esc(r.description) + '</p>' : '') +
                 (r.adresse ? '<div class="rmeta"><span>' + UI.esc(r.adresse) + '</span></div>' : '') +
                 '<div class="ract">' +
-                  '<button class="btn sm primary" data-go>' + Icon('map', 15) + 'Y aller</button>' +
+                  '<button class="btn sm primary" data-go>' + Icon('location', 15) + 'Voir sur la carte</button>' +
                   '<button class="btn sm" data-keep>' + Icon('star', 15) + 'Garder</button>' +
                 '</div></div></div>';
-              out.querySelector('[data-go]').onclick = () => {
-                const prov = Store.get('mapsProvider', 'apple');
-                const q = encodeURIComponent(r.nom + ' ' + (r.adresse || city));
-                window.open(prov === 'google' ? 'https://www.google.com/maps/search/?api=1&query=' + q : 'https://maps.apple.com/?q=' + q, '_blank', 'noopener');
-              };
+              /* On ouvre la fiche du lieu dans l'application, avec
+                 sa carte, plutot que de partir directement dehors. */
+              out.querySelector('[data-go]').onclick = () => MapPick.fiche({
+                nom: r.nom, adresse: r.adresse || '', ville: city,
+                pitch: r.description || '', categorie: r.kind || ''
+              });
               out.querySelector('[data-keep]').onclick = () => {
                 const place = Ctx.place();
                 Store.add('places', { nom: r.nom, kind: r.kind, adresse: r.adresse, city: slug(city), source: 'guide', lat: place.lat, lon: place.lon });
@@ -284,9 +285,12 @@
   function bindBody() {
     root.querySelectorAll('[data-place]').forEach((el) => el.onclick = (e) => {
       if (e.target.closest('[data-savep]')) return;
-      const prov = Store.get('mapsProvider', 'apple');
-      const q = encodeURIComponent(el.dataset.place + ' ' + city);
-      window.open(prov === 'google' ? 'https://www.google.com/maps/search/?api=1&query=' + q : 'https://maps.apple.com/?q=' + q, '_blank', 'noopener');
+      MapPick.fiche({
+        nom: el.dataset.place, ville: city,
+        adresse: el.dataset.adresse || '',
+        pitch: el.dataset.pitch || '',
+        categorie: el.dataset.cat || ''
+      });
     });
     root.querySelectorAll('[data-savep]').forEach((b) => b.onclick = (e) => {
       e.stopPropagation();

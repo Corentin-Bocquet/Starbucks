@@ -91,10 +91,53 @@
     const has = daily().length > 0;
 
     root.innerHTML = '<div class="wrap">' +
+      /* Le sport passe avant le reste : c'est la seule chose de
+         cette page qu'on vienne saisir a la main tous les jours. */
+      blocSport() +
       (has ? todayBlock(today) + rangeBar() + trendBlock(days) + workoutsBlock() + insightBlock(days) : onboarding()) +
+      (global.Sport ? Sport.carteDuCorps(7) : '') +
       sourcesBlock() +
       '</div>';
     bind();
+  }
+
+  /* ============================================================
+     Le sport du jour
+
+     Apple Sante ne sait rien d'une seance de salle : elle n'est ni
+     comptee en pas, ni en minutes d'exercice si la montre reste au
+     vestiaire. C'est donc ici qu'on la saisit, et ces calories
+     s'ajoutent a celles de la montre.
+     ============================================================ */
+  function blocSport() {
+    if (!global.Sport) return '';
+    const j = Sport.duJour();
+    const s7 = Sport.semaine(7);
+
+    return '<div class="section" style="padding-top:14px">' +
+      '<div class="panel bloc-sport">' +
+        '<div class="row" style="gap:14px;align-items:center">' +
+          '<div class="illu">' + Art('haltere', 54) + '</div>' +
+          '<div class="grow">' +
+            '<b style="font-size:16px;display:block">Mon sport</b>' +
+            '<small class="muted" style="font-size:12.5px">' +
+              (j.seances
+                ? j.seances + ' séance' + (j.seances > 1 ? 's' : '') + " aujourd'hui · " + UI.fmt.n(j.kcal) + ' kcal'
+                : (s7.seances ? s7.seances + ' séance' + (s7.seances > 1 ? 's' : '') + ' cette semaine' : 'Rien de consigné cette semaine')) +
+            '</small>' +
+          '</div>' +
+        '</div>' +
+        '<div class="grid tight two" style="margin-top:14px">' +
+          '<button class="btn primary" data-act="muscu">' + Icon('dumbbell', 17) + 'Musculation</button>' +
+          '<button class="btn" data-act="sportauto">' + Icon('activity', 17) + 'Un sport</button>' +
+        '</div>' +
+        (j.liste.length
+          ? '<div class="list" style="margin-top:12px">' + j.liste.map((x) =>
+              '<div class="rowitem"><span class="ic">' + Icon(x.type === 'muscu' ? 'dumbbell' : 'activity', 17) + '</span>' +
+              '<span class="tx"><b>' + UI.esc(x.nom) + '</b><small>' + UI.fmt.dur(x.minutes) + '</small></span>' +
+              '<span class="rt tabnum">' + UI.fmt.n(x.kcal) + ' kcal</span></div>').join('') + '</div>'
+          : '') +
+      '</div></div>';
   }
 
   function onboarding() {
@@ -120,9 +163,15 @@
 
   function todayBlock(d) {
     const g = goals();
+    /* La montre ne voit pas une seance de salle. On additionne donc
+       ce qu'elle a mesure et ce qui a ete saisi a la main. */
+    const enPlus = global.Sport ? Sport.duJour(d.day).kcal : 0;
+    d = Object.assign({}, d, { active: (d.active || 0) + enPlus });
     return '<div class="section" style="padding-top:14px">' +
+      /* Ne pas repeter « Aujourd'hui » a gauche et a droite : le
+         libelle de droite ne sert que pour un jour plus ancien. */
       '<div class="sechead"><h2 style="font-size:17px">' + UI.esc(UI.day.label(d.day || UI.day.today())) + '</h2>' +
-      '<span>' + (d.day === UI.day.today() ? 'Aujourd\'hui' : 'Dernier jour connu') + '</span></div>' +
+      (d.day === UI.day.today() ? '' : '<span>Dernier jour connu</span>') + '</div>' +
       '<div class="panel"><div class="rings">' +
         UI.ring(d.active || 0, g.active, UI.fmt.n(d.active || 0), 'kcal actives') +
         UI.ring(d.exercise || 0, g.exercise, UI.fmt.n(d.exercise || 0), 'min exercice') +
@@ -259,7 +308,7 @@
     const meta = Store.get('healthImport', null);
     return '<div class="section"><div class="sechead"><h2 style="font-size:16px">Données</h2></div>' +
       '<div class="list">' +
-        '<button class="rowitem" data-act="import"><span class="ic">' + Icon('upload', 17) + '</span>' +
+        '<button class="rowitem" data-act="import"><span class="ic marque">' + Icon.marque('sante', 21) + '</span>' +
           '<span class="tx"><b>Importer un export Apple Santé</b><small>' +
           (meta ? UI.fmt.n(meta.records) + ' mesures · ' + UI.fmt.dateShort(meta.at) : 'export.zip ou export.xml') + '</small></span>' +
           '<span class="rt">' + Icon('next', 15) + '</span></button>' +
@@ -284,6 +333,8 @@
   }
 
   const acts = {
+    muscu: () => { if (global.Sport) Sport.nouvelleSeance(); },
+    sportauto: () => { if (global.Sport) Sport.choisirSport(); },
     import: () => importFlow(),
     manual: () => manualDay(),
     goals: () => editGoals(),

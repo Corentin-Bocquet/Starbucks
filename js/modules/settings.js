@@ -61,14 +61,14 @@
       '<div class="section" data-sec="ia">' +
         '<div class="sechead"><h2 style="font-size:16px">Intelligence artificielle</h2></div>' +
         '<div class="list">' +
-          '<button class="rowitem" data-act="gemini"><span class="ic">' + Icon('sparkle', 17) + '</span>' +
+          '<button class="rowitem" data-act="gemini"><span class="ic marque">' + Icon.marque('gemini', 21) + '</span>' +
             '<span class="tx"><b>Clé Gemini</b><small>' + (Store.get('geminiKey', '') ? 'Configurée · ' + mask(Store.get('geminiKey', '')) : 'Non configurée') + '</small></span>' +
             '<span class="rt">' + Icon('next', 15) + '</span></button>' +
           '<button class="rowitem" data-act="tmdb"><span class="ic">' + Icon('film', 17) + '</span>' +
             '<span class="tx"><b>Clé TMDB</b><small>' + (Store.get('tmdbKey', '') ? 'Configurée' : 'Facultative, pour les affiches de films') + '</small></span>' +
             '<span class="rt">' + Icon('next', 15) + '</span></button>' +
-          '<button class="rowitem" data-act="google"><span class="ic">' + Icon('calendar', 17) + '</span>' +
-            '<span class="tx"><b>Google Calendar</b><small>' + (Store.get('googleClientId', '') ? 'Configuré' : 'Sans cela, les événements passent par un fichier .ics') + '</small></span>' +
+          '<button class="rowitem" data-act="google"><span class="ic marque">' + Icon.marque('gcal', 21) + '</span>' +
+            '<span class="tx"><b>Google Agenda</b><small>' + (Store.get('googleClientId', '') ? 'Configuré' : 'Sans cela, les événements passent par un fichier .ics') + '</small></span>' +
             '<span class="rt">' + Icon('next', 15) + '</span></button>' +
           '<button class="rowitem" data-act="diag"><span class="ic">' + Icon('activity', 17) + '</span>' +
             '<span class="tx"><b>Tester l\'IA</b><small>' +
@@ -277,7 +277,7 @@
       Store.set('tmdbKey', r.key.trim()); render();
     },
     google: async () => {
-      const r = await UI.promptSheet('Google Calendar', [
+      const r = await UI.promptSheet('Google Agenda', [
         { name: 'id', label: 'Identifiant client OAuth', value: Store.get('googleClientId', ''),
           placeholder: '…apps.googleusercontent.com',
           hint: 'Console Google Cloud, type « application web », avec ce domaine en origine autorisée.' }

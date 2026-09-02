@@ -101,29 +101,51 @@ h4 { font-size: var(--t-base); }
 .tbtn.on { background: var(--accent); color: #fff; box-shadow: none; }
 .tbtn .dot { position: absolute; top: 7px; right: 7px; width: 8px; height: 8px; border-radius: 50%; background: var(--brand); border: 2px solid var(--bg); }
 
-/* ---------- Barre d'onglets basse ---------- */
+/* ============================================================
+   Barre d'onglets basse
+
+   Elle ne colle plus au bord de l'ecran : c'est une pilule qui
+   flotte au-dessus du contenu, posee sur une ombre large et
+   douce. L'onglet actif prend une pastille sombre, comme sur les
+   maquettes. Le reste de l'interface respire mieux au-dessus.
+   ============================================================ */
 .tabbar {
-  position: fixed; left: 0; right: 0; bottom: 0; z-index: 80;
-  height: var(--tabbar);
-  padding-bottom: var(--safe-b);
+  position: fixed; left: 50%; z-index: 80;
+  bottom: calc(var(--safe-b) + 10px);
+  transform: translateX(-50%);
+  width: min(calc(100% - 22px), 480px);
+  height: 64px; padding: 0 5px;
   display: grid; grid-auto-flow: column; grid-auto-columns: 1fr;
-  background: color-mix(in srgb, var(--bg-elev) 86%, transparent);
-  backdrop-filter: saturate(180%) blur(24px);
-  -webkit-backdrop-filter: saturate(180%) blur(24px);
-  border-top: 1px solid var(--hairline);
+  border-radius: 27px;
+  background: color-mix(in srgb, var(--bg-elev) 84%, transparent);
+  backdrop-filter: saturate(180%) blur(26px);
+  -webkit-backdrop-filter: saturate(180%) blur(26px);
+  box-shadow: var(--sh-float), inset 0 0 0 1px var(--hairline);
 }
 .tabbar button {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 3px; color: var(--muted);
   transition: color var(--d-fast) var(--ease);
-  position: relative;
+  position: relative; min-width: 0;
 }
-.tabbar button .ic { width: 24px; height: 24px; display: grid; place-items: center; }
-.tabbar button .ic svg { width: 23px; height: 23px; }
-.tabbar button .lb { font-size: 10.5px; font-weight: 650; letter-spacing: -.01em; }
-.tabbar button.on { color: var(--accent); }
-.tabbar button:active .ic { transform: scale(.86); }
-.tabbar button .ic { transition: transform var(--d-fast) var(--spring); }
+.tabbar button .ic {
+  width: 36px; height: 32px; border-radius: 12px;
+  display: grid; place-items: center;
+  transition: background var(--d-base) var(--ease), color var(--d-base) var(--ease),
+              transform var(--d-fast) var(--spring), box-shadow var(--d-base);
+}
+.tabbar button .ic svg { width: 21px; height: 21px; }
+.tabbar button .lb {
+  font-size: 10px; font-weight: 620; letter-spacing: -.01em;
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.tabbar button.on { color: var(--ink); }
+.tabbar button.on .lb { font-weight: 750; }
+.tabbar button.on .ic {
+  background: var(--ink); color: var(--bg-elev);
+  box-shadow: 0 5px 12px -4px color-mix(in srgb, var(--ink) 55%, transparent);
+}
+.tabbar button:active .ic { transform: scale(.88); }
 
 /* ---------- Vues ---------- */
 .view { display: none; animation: viewIn var(--d-base) var(--ease); }
@@ -140,13 +162,13 @@ h4 { font-size: var(--t-base); }
   :root { --gut: 26px; }
   body { padding-bottom: 0; padding-top: 0; }
   .tabbar {
-    position: sticky; top: var(--topbar); bottom: auto;
-    max-width: var(--maxw); margin: 10px auto 0;
-    border-radius: var(--r-pill); border: 1px solid var(--hairline);
-    height: 54px; padding: 0 6px; box-shadow: var(--sh-2);
+    position: sticky; top: calc(var(--topbar) + 10px); bottom: auto;
+    max-width: var(--maxw); margin: 10px auto 0; transform: none; left: auto;
+    border-radius: var(--r-pill);
+    height: 56px; padding: 0 7px;
     width: calc(100% - 2 * var(--gut));
   }
-  .tabbar button { flex-direction: row; gap: 8px; border-radius: var(--r-pill); }
+  .tabbar button { flex-direction: row; gap: 9px; border-radius: var(--r-pill); padding: 0 6px; }
+  .tabbar button .ic { width: 32px; height: 32px; }
   .tabbar button .lb { font-size: 13px; }
-  .tabbar button.on { background: var(--accent-soft); }
 }

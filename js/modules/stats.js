@@ -8,30 +8,29 @@
 
   let root = null;
 
-  function mount(el) { root = el; render(); }
+  function mount(el) {
+    root = el;
+    render();
+    /* Le classement arrive apres coup : la page ne doit jamais
+       attendre le reseau pour s'afficher. */
+    chargerLigues();
+  }
 
   function render() {
-    const g = Game.state(), t = Game.tierOf(g.xp), nx = Game.nextTier(g.xp);
-    const pct = nx ? Math.min(100, ((g.xp - t.min) / (nx.min - t.min)) * 100) : 100;
+    const g = Game.state();
+    const r = Rang.rang(g.xp);
     const food = global.Food ? Food.summary(14) : [];
     const health = global.Health ? Health.lastDays(14) : [];
 
     root.innerHTML = '<div class="wrap">' +
-      '<div class="section" style="padding-top:16px">' +
-        '<div class="panel" style="text-align:center;padding:24px 18px">' +
-          '<div style="width:64px;height:64px;margin:0 auto 12px;border-radius:22px;display:grid;place-items:center;' +
-          'background:color-mix(in srgb, var(--tier-' + t.id + ') 18%, transparent);color:var(--tier-' + t.id + ')">' + Icon('trophy', 32) + '</div>' +
-          '<b style="font-size:22px;letter-spacing:-.02em;display:block">' + UI.esc(t.nom) + '</b>' +
-          '<small class="muted">' + UI.fmt.n(g.xp) + ' points</small>' +
-          (nx ? '<div class="bar-track" style="margin-top:14px"><div class="bar-fill" style="width:' + pct.toFixed(0) + '%;background:var(--tier-' + t.id + ')"></div></div>' +
-            '<small class="muted" style="display:block;margin-top:6px">' + UI.fmt.n(nx.min - g.xp) + ' points avant ' + nx.nom + '</small>' : '') +
-        '</div>' +
-      '</div>' +
+      carteRang(r, g) +
+      medaillier(r) +
+      ligueBlock() +
 
       '<div class="stats" style="margin-top:12px">' +
         tile('Série', (g.streak || 0) + ' j', 'flame') +
         tile('Repas notés', String(Store.all('meals').length), 'fork') +
-        tile('Roues lancées', String(Store.history('activite').length + Store.history('aliment').length), 'dice') +
+        tile('Séances', String(Store.all('seances').length), 'dumbbell') +
         tile('Favoris', String(Store.get('favs', []).length + Store.get('codexFav', []).length), 'star') +
       '</div>' +
 
@@ -60,12 +59,187 @@
       'et rien n\'est envoyé à qui que ce soit.</p></div>' +
       '</div>';
 
-    /* Le seul bouton de cette page : celui qui envoie régler le
-       manque au lieu de le contempler. */
+    /* Le bouton qui envoie regler le manque au lieu de le
+       contempler, et tout ce qui touche a la ligue. */
     root.querySelectorAll('[data-act="seul"]').forEach((b) => b.onclick = () => {
       Store.set('actPrefs', Object.assign(Store.get('actPrefs', {}), { mood: 'seul', category: 'all' }));
-      App.go('#/m/activities');
+      App.go('#/activities');
     });
+    const q = (sel) => root.querySelector(sel);
+    if (q('[data-creer]')) q('[data-creer]').onclick = creerLigue;
+    if (q('[data-rejoindre]')) q('[data-rejoindre]').onclick = rejoindreLigue;
+    if (q('[data-gerer]')) q('[data-gerer]').onclick = gererLigue;
+    if (q('[data-compte]')) q('[data-compte]').onclick = () => App.go('#/m/settings');
+    if (q('[data-copier]')) q('[data-copier]').onclick = () => {
+      const l = ligueActive || ligues[0];
+      if (l) { UI.copy(l.share_code); UI.toast('Code copié'); }
+    };
+  }
+
+  /* ============================================================
+     La carte de rang
+
+     Le medaillon en grand, la matiere en fond, les points de
+     division et la barre de progression. C'est la premiere chose
+     qu'on voit en ouvrant la page, et la seule qui donne envie
+     d'y revenir.
+     ============================================================ */
+  function carteRang(r, g) {
+    const c = Rang.couleurs(r.matiere);
+    return '<div class="section" style="padding-top:16px">' +
+      '<div class="carte-rang" style="--c1:' + c.clair + ';--c2:' + c.moyen + ';--c3:' + c.sombre + '">' +
+        '<div class="haut">' +
+          '<span class="titre">' + UI.esc(r.complet.toUpperCase()) + '</span>' +
+          '<span class="lp">' + r.lp + ' LP</span>' +
+        '</div>' +
+        '<div class="med">' + Art.medaille(r.matiere, 124) + '</div>' +
+        '<div class="jauge"><div class="rempli" style="width:' + r.lp + '%"></div></div>' +
+        '<div class="bas">' +
+          '<span>' + UI.fmt.n(g.xp) + ' points</span>' +
+          '<span>' + (r.suivant ? UI.fmt.n(r.restant) + ' avant ' + UI.esc(r.suivant) : 'Rang maximal') + '</span>' +
+        '</div>' +
+      '</div></div>';
+  }
+
+  /* Les six matieres alignees : celles atteintes sont en couleur,
+     les suivantes restent en creux. On voit d'un coup le chemin
+     parcouru et celui qui reste. */
+  function medaillier(r) {
+    return '<div class="section"><div class="sechead"><h2 style="font-size:16px">Les paliers</h2>' +
+      '<span>' + (r.index + 1) + ' sur 18</span></div>' +
+      '<div class="medaillier">' + Rang.MATIERES.map((m, i) => {
+        const atteint = i <= Math.floor(r.index / 3);
+        const courant = i === Math.floor(r.index / 3);
+        return '<div class="pal' + (atteint ? '' : ' verrou') + (courant ? ' courant' : '') + '">' +
+          Art.medaille(m, 44) +
+          '<b>' + UI.esc(Rang.NOMS[m]) + '</b>' +
+        '</div>';
+      }).join('') + '</div></div>';
+  }
+
+  /* ============================================================
+     La ligue entre amis
+
+     Un code a six lettres, comme pour les listes partagees. On
+     publie son score, on voit celui des autres. Rien d'autre :
+     pas de messages, pas de defis, pas de notifications.
+     ============================================================ */
+  let ligues = [], classementCourant = [], ligueActive = null;
+
+  function ligueBlock() {
+    if (!global.Cloud || !Cloud.ready()) {
+      return '<div class="section"><div class="panel" style="text-align:center">' +
+        '<div style="margin-bottom:8px">' + Art('coupe', 52) + '</div>' +
+        '<b style="display:block;margin-bottom:6px">Se comparer entre amis</b>' +
+        '<p class="muted" style="font-size:13px;margin-bottom:12px">Connecte-toi pour créer une ligue et suivre la progression de tes proches.</p>' +
+        '<button class="btn" data-compte>' + Icon('user', 16) + 'Mon compte</button>' +
+        '</div></div>';
+    }
+    if (!ligues.length) {
+      return '<div class="section"><div class="panel" style="text-align:center">' +
+        '<div style="margin-bottom:8px">' + Art('coupe', 52) + '</div>' +
+        '<b style="display:block;margin-bottom:6px">Ta ligue</b>' +
+        '<p class="muted" style="font-size:13px;margin-bottom:12px">Crée-la et partage le code, ou rejoins celle d\'un ami.</p>' +
+        '<div class="btnrow" style="justify-content:center">' +
+          '<button class="btn primary" data-creer>' + Icon('plus', 16) + 'Créer</button>' +
+          '<button class="btn" data-rejoindre>' + Icon('friends', 16) + 'Rejoindre</button>' +
+        '</div></div></div>';
+    }
+
+    const l = ligueActive || ligues[0];
+    const moi = Cloud.user() ? Cloud.user().id : null;
+    const lignes = classementCourant.map((x, i) => {
+      const rr = Rang.rang(x.xp);
+      const c = Rang.couleurs(rr.matiere);
+      return '<div class="rang-ligne' + (x.user_id === moi ? ' moi' : '') + '">' +
+        '<span class="pos">' + (i + 1) + '</span>' +
+        '<span class="med">' + Art.medaille(rr.matiere, 30) + '</span>' +
+        '<span class="tx"><b>' + UI.esc(x.pseudo || 'Sans nom') + '</b>' +
+          '<small style="color:' + c.moyen + '">' + UI.esc(rr.complet) + ' · ' + rr.lp + ' LP</small></span>' +
+        '<span class="pts">' + UI.fmt.n(x.xp) + '</span>' +
+      '</div>';
+    }).join('');
+
+    return '<div class="section"><div class="sechead"><h2 style="font-size:16px">' + UI.esc(l.name) + '</h2>' +
+      '<button data-gerer>Gérer</button></div>' +
+      '<div class="panel">' +
+        (lignes || '<p class="muted" style="font-size:13px">Personne n\'a encore publié de score. Le tien part tout seul.</p>') +
+        '<div class="code-ligue" data-copier>' +
+          '<span>Code de la ligue</span><b>' + UI.esc(l.share_code) + '</b>' + Icon('copy', 15) +
+        '</div>' +
+      '</div></div>';
+  }
+
+  /* Le score part a chaque ouverture de la page : c'est le seul
+     moment ou l'utilisateur regarde le classement, donc le seul
+     ou une mise a jour a une utilite. */
+  async function chargerLigues() {
+    if (!global.Cloud || !Cloud.ready()) return;
+    try {
+      ligues = await Cloud.mesLigues();
+      if (!ligues.length) { render(); return; }
+      ligueActive = ligues[0];
+      const g = Game.state(), r = Rang.rang(g.xp);
+      const u = Cloud.user();
+      const pseudo = (u.user_metadata && u.user_metadata.pseudo) || (u.email || '').split('@')[0];
+      await Cloud.publierScore(ligueActive.id, {
+        pseudo: pseudo, xp: g.xp, rang: r.complet, matiere: r.matiere, lp: r.lp,
+        seances: Store.all('seances').length, serie: g.streak || 0
+      });
+      classementCourant = await Cloud.classement(ligueActive.id);
+      render();
+    } catch (e) { console.warn('[EVER] ligue', e); }
+  }
+
+  async function creerLigue() {
+    const r = await UI.promptSheet('Créer une ligue', [
+      { name: 'nom', label: 'Nom de la ligue', value: 'Ma ligue', placeholder: 'Les copains' }
+    ], 'Créer');
+    if (!r || !r.nom) return;
+    try {
+      const l = await Cloud.creerLigue(r.nom);
+      UI.toast('Ligue créée · code ' + l.share_code);
+      await chargerLigues();
+    } catch (e) { UI.toast(e.message || 'Création impossible'); }
+  }
+
+  async function rejoindreLigue() {
+    const r = await UI.promptSheet('Rejoindre une ligue', [
+      { name: 'code', label: 'Code à six lettres', placeholder: 'ABC123' }
+    ], 'Rejoindre');
+    if (!r || !r.code) return;
+    try {
+      await Cloud.rejoindreLigue(r.code.trim());
+      UI.toast('Ligue rejointe');
+      await chargerLigues();
+    } catch (e) { UI.toast(e.message || 'Code inconnu'); }
+  }
+
+  function gererLigue() {
+    const l = ligueActive;
+    if (!l) return;
+    UI.openSheet('<div class="mbody" style="padding-top:6px">' +
+      '<h2 style="font-size:22px">' + UI.esc(l.name) + '</h2>' +
+      '<p class="muted" style="font-size:13px;margin-top:4px">Partage ce code pour inviter quelqu\'un.</p>' +
+      '<div class="code-ligue gros" data-copier2><span>Code</span><b>' + UI.esc(l.share_code) + '</b>' + Icon('copy', 16) + '</div>' +
+      '<div class="list" style="margin-top:14px">' +
+        '<button class="rowitem" data-autre><span class="ic">' + Icon('plus', 17) + '</span>' +
+        '<span class="tx"><b>Créer une autre ligue</b></span></button>' +
+        '<button class="rowitem" data-join2><span class="ic">' + Icon('friends', 17) + '</span>' +
+        '<span class="tx"><b>Rejoindre une ligue</b></span></button>' +
+      '</div>' +
+      '<button class="btn danger block" style="margin-top:14px" data-quitter>' + Icon('logout', 16) + 'Quitter cette ligue</button>' +
+      '</div>', { onMount: (sh) => {
+        sh.querySelector('[data-copier2]').onclick = () => { UI.copy(l.share_code); UI.toast('Code copié'); };
+        sh.querySelector('[data-autre]').onclick = () => { UI.closeSheet(); creerLigue(); };
+        sh.querySelector('[data-join2]').onclick = () => { UI.closeSheet(); rejoindreLigue(); };
+        sh.querySelector('[data-quitter]').onclick = async () => {
+          if (!await UI.confirmSheet('Quitter la ligue ?', 'Ton score disparaîtra du classement.', true)) return;
+          await Cloud.quitterLigue(l.id);
+          ligues = []; classementCourant = []; ligueActive = null;
+          UI.closeSheet(); render();
+        };
+      } });
   }
 
   const tile = (k, v, ic) => '<div class="stat"><div class="k">' + Icon(ic, 13) + UI.esc(k) + '</div><div class="v">' + UI.esc(v) + '</div></div>';

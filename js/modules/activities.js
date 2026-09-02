@@ -92,6 +92,9 @@
      ============================================================ */
   function mount(el) {
     root = el;
+    /* L'humeur ne survit pas a la sortie de l'onglet : on arrive
+       toujours sur une page neutre, sans sentiment pre-coche. */
+    setPrefs({ mood: null });
     ctx = {
       place: Ctx.place(), weather: null,
       season: UI.day.season(), slot: UI.day.slot(),
@@ -271,9 +274,11 @@
       row('avoidRecent', "Éviter ce qui vient d'être fait", p.avoidRecent, 'clock') +
       row('events', 'Événements du moment', p.events, 'calendar', 'Concerts, marchés, expositions, festivals') +
       '</div>' +
-      '<div class="row" style="margin-top:10px;gap:8px">' +
+      /* Quatre boutons n'ont pas besoin de toute la largeur : la
+         bulle se serre sur son contenu et se cale a droite. */
+      '<div class="row-between" style="margin-top:12px;gap:10px">' +
         '<span class="muted" style="font-size:12.5px;font-weight:650">Budget</span>' +
-        '<div class="seg grow">' + [1, 2, 3, 4].map((b) => '<button data-budget="' + b + '" class="' + (ctx && ctx.budget === b ? 'on' : '') + '">' + '€'.repeat(b) + '</button>').join('') + '</div>' +
+        '<div class="seg compact">' + [1, 2, 3, 4].map((b) => '<button data-budget="' + b + '" class="' + (ctx && ctx.budget === b ? 'on' : '') + '">' + '€'.repeat(b) + '</button>').join('') + '</div>' +
       '</div></div>';
   }
 
@@ -305,10 +310,13 @@
   }
 
   function guideTeaser() {
-    return '<div class="section"><button class="rowitem list" style="width:100%;border-radius:var(--r-md)" data-act="guide">' +
-      '<span class="ic">' + Icon('book', 17) + '</span>' +
-      '<span class="tx"><b>Guide ' + UI.esc(prep(cityName(prefs().city), 'de')) + '</b><small>Ce qu\'il faut savoir et voir ici</small></span>' +
-      '<span class="rt">' + Icon('next', 15) + '</span></button></div>';
+    return '<div class="section">' +
+      '<button class="bigrow" data-act="guide">' +
+        '<span class="ic">' + Icon('book', 22) + '</span>' +
+        '<span class="tx"><b>Guide ' + UI.esc(prep(cityName(prefs().city), 'de')) + '</b>' +
+          '<small>Ce qu\'il faut savoir et voir ici</small></span>' +
+        '<span class="go">' + Icon('next', 17) + '</span>' +
+      '</button></div>';
   }
 
   function iconFor(a) {
@@ -423,7 +431,7 @@
       (why ? '<div class="rwhy"><b>Pourquoi ? </b>' + UI.esc(why) + '</div>' : '') +
       '<div data-venue>' + (loading && !a.isEvent && needsVenue(a.kind) && AI.available() ? UI.thinking('Recherche des adresses…') : '') + '</div>' +
       '<div class="ract">' +
-        (venue || a.lieu ? '<button class="btn sm primary" data-maps>' + Icon('map', 15) + 'Y aller</button>' : '') +
+        (venue || a.lieu ? '<button class="btn sm primary" data-maps>' + Icon('location', 15) + 'Voir sur la carte</button>' : '') +
         '<button class="btn sm" data-fav>' + Icon('star', 15) + (isFav ? 'Retirer' : 'Favori') + '</button>' +
         (a.isMood && a.avecQuelquun
           ? '<button class="btn sm primary" data-who>' + Icon('users', 15) + 'Avec qui ?</button>'
@@ -527,13 +535,22 @@
     );
   }
 
+  /* On ne quitte plus l'application d'un coup : la fiche du lieu
+     s'ouvre en pop-up avec sa carte, et c'est de la qu'on decide
+     d'aller dans Plans ou dans Google Maps. */
   function openMaps(v) {
     if (!v) return;
-    const provider = Store.get('mapsProvider', 'apple');
-    const q = encodeURIComponent((v.nom || '') + ' ' + (v.adresse || cityName(prefs().city)));
-    window.open(provider === 'google'
-      ? 'https://www.google.com/maps/search/?api=1&query=' + q
-      : 'https://maps.apple.com/?q=' + q, '_blank', 'noopener');
+    if (!global.MapPick || !MapPick.fiche) {
+      const q = encodeURIComponent((v.nom || '') + ' ' + (v.adresse || cityName(prefs().city)));
+      window.open('https://maps.apple.com/?q=' + q, '_blank', 'noopener');
+      return;
+    }
+    MapPick.fiche({
+      nom: v.nom, adresse: v.adresse || '', ville: cityName(prefs().city),
+      lat: v.lat, lon: v.lon, rating: v.rating, reviews: v.reviews,
+      price: v.price, hours: v.hours, pitch: v.pitch,
+      distance: v._distance, categorie: v.categorie || v.kind || ''
+    });
   }
 
   /* ============================================================

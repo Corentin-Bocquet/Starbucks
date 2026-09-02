@@ -39,6 +39,28 @@
 
   let viewDay = UI.day.today();
   let root = null;
+  let detacheGeste = null;
+
+  function retirerRepas(id) {
+    const m = Store.find('meals', id);
+    if (!m) return;
+    Store.del('meals', id);
+    UI.haptic('warning');
+    render();
+    UI.toast(m.nom + ' retiré');
+  }
+
+  function dupliquerRepas(id) {
+    const m = Store.find('meals', id);
+    if (!m) return;
+    const copie = Object.assign({}, m);
+    delete copie.id; delete copie._up;
+    copie.day = viewDay;
+    Store.add('meals', copie);
+    UI.haptic('success');
+    render();
+    UI.toast(m.nom + ' ajouté une deuxième fois');
+  }
 
   const goals = () => Object.assign({}, SEED.NUTRI_DEFAULTS, Store.get('nutriGoals', {}));
   const entries = (d) => Store.all('meals').filter((m) => m.day === (d || viewDay));
@@ -80,11 +102,18 @@
   }
 
   function dayNav(isToday) {
-    return '<div class="row-between" style="padding:14px 0 6px">' +
+    /* L'astuce du balayage ne s'affiche que les premieres fois :
+       une fois le geste connu, la phrase devient du bruit. */
+    const vus = Store.get('astuceBalayage', 0);
+    const astuce = (vus < 4 && global.Gestes && Gestes.tactile())
+      ? '<div class="indice-geste">' + Icon('swipe', 15) + 'Balaie l\'écran pour changer de jour</div>' : '';
+    if (astuce) Store.set('astuceBalayage', vus + 1);
+
+    return '<div class="row-between" style="padding:14px 0 2px">' +
       '<button class="tbtn" data-day="-1" aria-label="Jour précédent">' + Icon('back', 18) + '</button>' +
       '<div style="text-align:center"><b style="font-size:17px;letter-spacing:-.02em">' + UI.esc(UI.day.label(viewDay)) + '</b></div>' +
       '<button class="tbtn" data-day="1" aria-label="Jour suivant" ' + (isToday ? 'style="opacity:.3"' : '') + '>' + Icon('next', 18) + '</button>' +
-      '</div>';
+      '</div>' + astuce;
   }
 
   function ringsBlock(t, g) {
@@ -175,9 +204,15 @@
       ? '<span class="thumb"><img loading="lazy" src="' + UI.attr(m.photoUrl || m.image) + '" alt=""></span>'
       : '<span class="thumb" style="background:' + (ref ? (CATTINT[ref.cat] || 'var(--accent-soft)') : 'var(--accent-soft)') + ';color:var(--ink-2)">' +
           Icon(ref ? (CATICON[ref.cat] || 'fork') : (m.src === 'ai' ? 'sparkle' : m.src === 'off' ? 'scan' : 'fork'), 19) + '</span>';
-    return '<div class="rowitem" data-meal="' + UI.attr(m.id) + '">' + vign +
+    const ligne = '<div class="rowitem" data-meal="' + UI.attr(m.id) + '">' + vign +
       '<span class="tx"><b>' + UI.esc(m.nom) + '</b><small>' + q + (m.brand ? ' · ' + UI.esc(m.brand) : '') + '</small></span>' +
       '<span class="rt tabnum">' + UI.fmt.n(m.kcal) + ' kcal</span></div>';
+    /* Tirer la ligne vers la gauche decouvre les deux actions
+       qu'on fait vraiment : dupliquer et supprimer. */
+    return global.Gestes ? Gestes.ligne(ligne, [
+      { id: 'dup:' + m.id, icon: 'copy', label: 'Copier', classe: 'accent' },
+      { id: 'del:' + m.id, icon: 'trash', label: 'Retirer', classe: 'danger' }
+    ]) : ligne;
   }
 
   function analysisBlock() {
@@ -221,12 +256,32 @@
   /* ============================================================
      Interactions
      ============================================================ */
+  /* Un seul chemin pour changer de jour : la fleche, le balayage
+     et le clavier passent tous par la. */
+  function allerJour(n) {
+    if (n > 0 && viewDay === UI.day.today()) { UI.toast("On ne consigne pas l'avenir"); return; }
+    viewDay = UI.day.add(viewDay, n);
+    render();
+  }
+
   function bind() {
-    root.querySelectorAll('[data-day]').forEach((b) => b.onclick = () => {
-      const n = +b.dataset.day;
-      if (n > 0 && viewDay === UI.day.today()) return;
-      viewDay = UI.day.add(viewDay, n); render();
-    });
+    root.querySelectorAll('[data-day]').forEach((b) => b.onclick = () => allerJour(+b.dataset.day));
+
+    /* Le pouce vers la droite recule d'un jour, comme on tourne
+       une page en arriere. Les fleches du clavier font pareil sur
+       ordinateur. */
+    if (global.Gestes) {
+      if (detacheGeste) detacheGeste();
+      detacheGeste = Gestes.page(root, {
+        onPrecedent: () => allerJour(-1),
+        onSuivant: () => allerJour(1)
+      });
+      Gestes.activer(root, (action) => {
+        const [quoi, id] = action.split(':');
+        if (quoi === 'del') retirerRepas(id);
+        if (quoi === 'dup') dupliquerRepas(id);
+      });
+    }
     root.querySelectorAll('[data-water]').forEach((b) => b.onclick = () => {
       setWater(water() + (+b.dataset.water)); UI.haptic('light'); render();
     });

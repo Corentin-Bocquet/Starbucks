@@ -175,7 +175,11 @@
     if (d && d.bas) Store.set('lastTab', d.id);
 
     UI.$$('.view').forEach((v) => v.classList.remove('on'));
-    UI.$$('#tabbar button').forEach((b) => b.classList.toggle('on', !!d && d.bas && b.dataset.tab === d.id));
+    /* Le second argument de toggle doit etre un vrai booleen :
+       avec `undefined` il bascule au lieu de forcer, et tous les
+       onglets finissaient allumes en meme temps sur une page de
+       module. */
+    UI.$$('#tabbar button').forEach((b) => b.classList.toggle('on', !!(d && d.bas && b.dataset.tab === d.id)));
     setTitle(reglages ? 'Réglages' : (d ? d.label : 'EVER'));
 
     /* Café, bar et recettes partagent le même moteur de fiches. */
