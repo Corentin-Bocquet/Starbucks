@@ -126,7 +126,7 @@
             '<span class="switch ' + (Store.get('haptics', true) ? 'on' : '') + '"></span></button>' +
           '<button class="rowitem" data-act="sound"><span class="ic">' + Icon('bell', 17) + '</span>' +
             '<span class="tx"><b>Sons</b><small>Coupés par défaut</small></span>' +
-            '<span class="switch ' + (Store.get('sound', false) ? 'on' : '') + '"></span></button>' +
+            '<span class="switch ' + (Store.get('sound', true) ? 'on' : '') + '"></span></button>' +
           '<button class="rowitem" data-act="weather"><span class="ic">' + Icon('cloud', 17) + '</span>' +
             '<span class="tx"><b>Tenir compte de la météo</b></span>' +
             '<span class="switch ' + (Store.get('useWeather', true) ? 'on' : '') + '"></span></button>' +
@@ -368,7 +368,7 @@
     weather: () => { Store.set('useWeather', !Store.get('useWeather', true)); render(); },
     haptics: () => { Store.set('haptics', !Store.get('haptics', true)); UI.haptic('toggle'); render(); },
     sound: () => {
-      const next = !Store.get('sound', false);
+      const next = !Store.get('sound', true);
       Store.set('sound', next);
       if (next && global.Feedback) { Feedback.arm(); Feedback.fire('success'); }
       render();

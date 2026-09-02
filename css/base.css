@@ -104,48 +104,42 @@ h4 { font-size: var(--t-base); }
 /* ============================================================
    Barre d'onglets basse
 
-   Elle ne colle plus au bord de l'ecran : c'est une pilule qui
-   flotte au-dessus du contenu, posee sur une ombre large et
-   douce. L'onglet actif prend une pastille sombre, comme sur les
-   maquettes. Le reste de l'interface respire mieux au-dessus.
+   Cinq bulles dans une pilule qui flotte. Pas de libelle : a cinq
+   entrees, l'icone suffit, et le texte sous chaque icone volait la
+   moitie de la hauteur pour rien.
+
+   La bulle active se remplit et grandit d'un cheveu. C'est le seul
+   repere dont on a besoin, et il se lit au coin de l'oeil.
    ============================================================ */
 .tabbar {
   position: fixed; left: 50%; z-index: 80;
-  bottom: calc(var(--safe-b) + 10px);
+  bottom: calc(var(--safe-b) + 12px);
   transform: translateX(-50%);
-  width: min(calc(100% - 22px), 480px);
-  height: 64px; padding: 0 5px;
+  width: min(calc(100% - 26px), 420px);
+  height: 64px; padding: 0 8px;
   display: grid; grid-auto-flow: column; grid-auto-columns: 1fr;
-  border-radius: 27px;
-  background: color-mix(in srgb, var(--bg-elev) 84%, transparent);
+  place-items: center;
+  border-radius: 33px;
+  background: color-mix(in srgb, var(--bg-elev) 88%, transparent);
   backdrop-filter: saturate(180%) blur(26px);
   -webkit-backdrop-filter: saturate(180%) blur(26px);
   box-shadow: var(--sh-float), inset 0 0 0 1px var(--hairline);
 }
 .tabbar button {
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 3px; color: var(--muted);
-  transition: color var(--d-fast) var(--ease);
-  position: relative; min-width: 0;
-}
-.tabbar button .ic {
-  width: 36px; height: 32px; border-radius: 12px;
+  width: 46px; height: 46px; border-radius: 50%;
   display: grid; place-items: center;
+  color: var(--muted); background: transparent;
   transition: background var(--d-base) var(--ease), color var(--d-base) var(--ease),
-              transform var(--d-fast) var(--spring), box-shadow var(--d-base);
+              transform var(--d-base) var(--spring), box-shadow var(--d-base);
 }
-.tabbar button .ic svg { width: 21px; height: 21px; }
-.tabbar button .lb {
-  font-size: 10px; font-weight: 620; letter-spacing: -.01em;
-  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.tabbar button.on { color: var(--ink); }
-.tabbar button.on .lb { font-weight: 750; }
-.tabbar button.on .ic {
+.tabbar button svg { width: 23px; height: 23px; }
+.tabbar button .lb { display: none; }
+.tabbar button.on {
   background: var(--ink); color: var(--bg-elev);
-  box-shadow: 0 5px 12px -4px color-mix(in srgb, var(--ink) 55%, transparent);
+  box-shadow: 0 5px 12px -4px color-mix(in srgb, var(--ink) 50%, transparent);
 }
-.tabbar button:active .ic { transform: scale(.88); }
+.tabbar button:active { transform: scale(.9); }
+.tabbar button.on:active { transform: scale(.92); }
 
 /* ---------- Vues ---------- */
 .view { display: none; animation: viewIn var(--d-base) var(--ease); }
@@ -161,14 +155,18 @@ h4 { font-size: var(--t-base); }
 @media (min-width: 900px) {
   :root { --gut: 26px; }
   body { padding-bottom: 0; padding-top: 0; }
+  /* Sur grand ecran il y a de la place : la bulle s'allonge et
+     reprend son libelle, puisque le pouce n'est plus le sujet. */
   .tabbar {
     position: sticky; top: calc(var(--topbar) + 10px); bottom: auto;
-    max-width: var(--maxw); margin: 10px auto 0; transform: none; left: auto;
+    max-width: 620px; margin: 10px auto 0; transform: none; left: auto;
     border-radius: var(--r-pill);
-    height: 56px; padding: 0 7px;
+    height: 58px; padding: 0 8px;
     width: calc(100% - 2 * var(--gut));
   }
-  .tabbar button { flex-direction: row; gap: 9px; border-radius: var(--r-pill); padding: 0 6px; }
-  .tabbar button .ic { width: 32px; height: 32px; }
-  .tabbar button .lb { font-size: 13px; }
+  .tabbar button {
+    width: auto; height: 44px; border-radius: var(--r-pill); padding: 0 16px;
+    display: flex; align-items: center; gap: 9px;
+  }
+  .tabbar button .lb { display: inline; font-size: 13.5px; font-weight: 700; }
 }

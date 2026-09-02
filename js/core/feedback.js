@@ -6,9 +6,9 @@
    son une fois, on le rejoue via WebAudio, et le contexte n'est créé
    qu'au premier geste utilisateur, comme l'exige Safari.
 
-   Tout est désactivable dans Réglages. Par défaut, le son est coupé
-   et l'haptique est active : une app qui fait du bruit sans qu'on
-   l'ait demandé, c'est une app qu'on désinstalle.
+   Tout est désactivable dans Réglages. Le son et l'haptique sont
+   actifs par défaut : le sélecteur à molette a besoin d'un cran
+   audible pour tenir debout. Un seul interrupteur coupe le tout.
    ============================================================ */
 (function (global) {
   'use strict';
@@ -35,7 +35,7 @@
   const pending = new Map();
 
   const prefs = () => ({
-    sound: Store.get('sound', false),
+    sound: Store.get('sound', true),
     haptics: Store.get('haptics', true)
   });
 
@@ -104,5 +104,58 @@
     play(name);
   }
 
-  global.Feedback = { fire, play, vibrate, arm, FILES: Object.keys(FILES) };
+  /* ============================================================
+     Le cran
+
+     Le selecteur a molette a besoin d'un bruit sec a chaque cran,
+     et il en produit plusieurs par seconde. Charger un fichier
+     serait inutile : le son est trop court pour meriter un aller-
+     retour reseau, et un decalage de trente millisecondes casserait
+     l'illusion mecanique.
+
+     On le synthetise donc : une impulsion de bruit tres courte,
+     filtree en haut du spectre, avec une enveloppe qui tombe en
+     dix-huit millisecondes. C'est exactement le bruit d'un cran de
+     molette, et ca ne pese rien.
+     ============================================================ */
+  let bruitBlanc = null;
+  function impulsion(c) {
+    if (bruitBlanc) return bruitBlanc;
+    const n = Math.floor(c.sampleRate * 0.02);
+    const buf = c.createBuffer(1, n, c.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / n);
+    bruitBlanc = buf;
+    return buf;
+  }
+
+  function cran(fort) {
+    vibrate('tick');
+    if (!prefs().sound) return;
+    const c = audioContext();
+    if (!c) return;
+    try {
+      if (c.state === 'suspended') c.resume();
+      const t = c.currentTime;
+
+      const src = c.createBufferSource();
+      src.buffer = impulsion(c);
+
+      /* Un passe-haut haut place : on ne garde que le claquement. */
+      const filtre = c.createBiquadFilter();
+      filtre.type = 'bandpass';
+      filtre.frequency.value = fort ? 2600 : 2000;
+      filtre.Q.value = 1.4;
+
+      const g = c.createGain();
+      g.gain.setValueAtTime(fort ? 0.16 : 0.09, t);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.018);
+
+      src.connect(filtre).connect(g).connect(c.destination);
+      src.start(t);
+      src.stop(t + 0.03);
+    } catch (e) {}
+  }
+
+  global.Feedback = { fire, play, vibrate, arm, cran, FILES: Object.keys(FILES) };
 })(window);

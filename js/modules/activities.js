@@ -395,6 +395,33 @@
   const VENUE_KINDS = new Set(['bar', 'cafe', 'restaurant', 'brunch', 'glacier', 'musee', 'galerie', 'exposition', 'cinema', 'bowling', 'karting', 'escape', 'spa', 'golf', 'shopping', 'marche', 'equitation', 'tennis']);
   const needsVenue = (k) => VENUE_KINDS.has(k);
 
+  /* Un aplat par famille d'activite : le regard associe une
+     couleur a un type avant de lire le titre. */
+  const TEINTES = {
+    _defaut:    ['#2C5F8A', '#16344B'],
+    restaurant: ['#B4622A', '#5C2C13'],
+    bar:        ['#7B2D56', '#3B1630'],
+    cafe:       ['#00643C', '#0B4A31'],
+    brunch:     ['#C07A2A', '#5E3712'],
+    glacier:    ['#C9457B', '#5E1839'],
+    apero:      ['#8A3E6B', '#3F1730'],
+    cinema:     ['#3B3690', '#1A1750'],
+    musee:      ['#5B3E96', '#251A45'],
+    galerie:    ['#5B3E96', '#251A45'],
+    exposition: ['#5B3E96', '#251A45'],
+    spa:        ['#2F8B84', '#12403C'],
+    randonnee:  ['#3B7A3E', '#173418'],
+    marche:     ['#3B7A3E', '#173418'],
+    sport:      ['#B4402E', '#511710'],
+    tennis:     ['#B4402E', '#511710'],
+    golf:       ['#3B7A3E', '#173418'],
+    bowling:    ['#1B6C7A', '#0A3038'],
+    karting:    ['#1B6C7A', '#0A3038'],
+    escape:     ['#1B6C7A', '#0A3038'],
+    shopping:   ['#A9713C', '#4B2F14'],
+    equitation: ['#8A6A3E', '#3D2D16']
+  };
+
   function resultCard(a, venue, loading, extraWhy) {
     const title = venue ? venue.nom : a.nom;
     const kicker = venue ? a.nom : (a.isEvent ? Events.label(a) : a.category);
@@ -415,9 +442,20 @@
     const why = Reco.why(venue || a, ctx, extraWhy);
     const isFav = venue ? Store.isFav('place', venue.id) : Store.isFav('activity', a.id);
 
-    return '<div class="result"><div class="rbody">' +
-      '<div class="rkick">' + UI.esc(kicker) + '</div>' +
-      '<h3>' + UI.esc(title) + '</h3>' +
+    /* La tete de carte reprend le modele des maquettes : un aplat
+       colore, le surtitre, le nom en grand et la valeur a droite.
+       Le detail continue en dessous, sur fond clair. */
+    const teinte = TEINTES[a.kind] || TEINTES._defaut;
+    const valeur = venue && venue.rating ? String(venue.rating).replace('.', ',') + ' ★'
+                 : (a.price != null ? (a.price === 0 ? 'Gratuit' : '€'.repeat(a.price)) : '');
+
+    return '<div class="result">' +
+      '<div class="rtete" style="--g1:' + teinte[0] + ';--g2:' + teinte[1] + '">' +
+        '<div class="sur">' + UI.esc(kicker) + '</div>' +
+        '<div class="titreligne"><h3>' + UI.esc(title) + '</h3>' +
+        (valeur ? '<span class="valeur">' + UI.esc(valeur) + '</span>' : '') + '</div>' +
+      '</div>' +
+      '<div class="rbody">' +
       (venue && venue.pitch ? '<p class="muted" style="font-size:13.5px;margin-top:6px">' + UI.esc(venue.pitch) + '</p>' : '') +
       (a.description ? '<p class="muted" style="font-size:13.5px;margin-top:6px">' + UI.esc(a.description) + '</p>' : '') +
       (meta.length ? '<div class="rmeta">' + meta.map((m) => '<span>' + UI.esc(m) + '</span>').join('') + '</div>' : '') +
@@ -431,13 +469,16 @@
       (why ? '<div class="rwhy"><b>Pourquoi ? </b>' + UI.esc(why) + '</div>' : '') +
       '<div data-venue>' + (loading && !a.isEvent && needsVenue(a.kind) && AI.available() ? UI.thinking('Recherche des adresses…') : '') + '</div>' +
       '<div class="ract">' +
-        (venue || a.lieu ? '<button class="btn sm primary" data-maps>' + Icon('location', 15) + 'Voir sur la carte</button>' : '') +
-        '<button class="btn sm" data-fav>' + Icon('star', 15) + (isFav ? 'Retirer' : 'Favori') + '</button>' +
-        (a.isMood && a.avecQuelquun
-          ? '<button class="btn sm primary" data-who>' + Icon('users', 15) + 'Avec qui ?</button>'
-          : '<button class="btn sm" data-cal>' + Icon('calendar', 15) + 'Planifier</button>') +
-        (venue ? '<button class="btn sm ghost" data-save>' + Icon('plus', 15) + 'Garder</button>' : '') +
+        (venue || a.lieu
+          ? '<button class="btn primary grow lg" data-maps>' + Icon('location', 17) + 'Voir sur la carte</button>'
+          : (a.isMood && a.avecQuelquun
+              ? '<button class="btn primary grow lg" data-who>' + Icon('users', 17) + 'Avec qui ?</button>'
+              : '<button class="btn primary grow lg" data-cal>' + Icon('calendar', 17) + 'Planifier</button>')) +
+        '<button class="btn lg" data-fav aria-label="Favori">' + Icon('star', 17) + '</button>' +
+        (venue ? '<button class="btn lg" data-save aria-label="Garder">' + Icon('plus', 17) + '</button>' : '') +
       '</div>' +
+      ((venue || a.lieu) && a.isMood && a.avecQuelquun
+        ? '<button class="btn block" style="margin-top:8px" data-who>' + Icon('users', 16) + 'Avec qui ?</button>' : '') +
       '<div class="row" style="gap:8px;margin-top:10px">' +
         '<button class="btn sm ghost" data-like="1">Bon choix</button>' +
         '<button class="btn sm ghost" data-like="0">Pas envie</button>' +

@@ -247,10 +247,57 @@
   }
   function hideHint() { const p = $('#hintpop'); if (p) p.classList.remove('on'); }
 
+  /* ============================================================
+     La grande carte
+
+     Le modele repris des maquettes : le visuel occupe le haut, un
+     degrade le fond dans le texte, le titre et les informations se
+     posent par-dessus, une pastille de valeur se cale a droite du
+     titre, et l'action principale est une large pilule claire en
+     bas de la carte.
+
+     Un seul composant pour tous les endroits qui montrent une
+     chose a choisir : un lieu, une boisson, un film, une tenue.
+     Ils se ressemblent parce qu'ils font la meme promesse.
+
+     opts : { image, degrade, sur, titre, valeur, texte, puces[],
+              action{label,icon}, actions[] }
+     ============================================================ */
+  function grandeCarte(o) {
+    o = o || {};
+    const visuel = o.image
+      ? '<img src="' + attr(o.image) + '" alt="" loading="lazy">'
+      : '';
+    const fond = o.degrade
+      ? ' style="--g1:' + o.degrade[0] + ';--g2:' + o.degrade[1] + '"'
+      : '';
+    const puces = (o.puces || []).filter(Boolean);
+    const actions = o.actions || (o.action ? [o.action] : []);
+
+    return '<div class="gcarte' + (o.image ? '' : ' sansphoto') + (o.compacte ? ' compacte' : '') + '"' + fond + '>' +
+      '<div class="visuel">' + visuel + '</div>' +
+      '<div class="ombre"></div>' +
+      '<div class="corps">' +
+        (o.sur ? '<div class="sur">' + esc(o.sur) + '</div>' : '') +
+        '<div class="titreligne">' +
+          '<h3>' + esc(o.titre || '') + '</h3>' +
+          (o.valeur ? '<span class="valeur">' + esc(o.valeur) + '</span>' : '') +
+        '</div>' +
+        (o.texte ? '<p>' + esc(o.texte) + '</p>' : '') +
+        (puces.length ? '<div class="puces">' + puces.map((x) => '<span>' + esc(x) + '</span>').join('') + '</div>' : '') +
+        (actions.length
+          ? '<div class="actions">' + actions.map((a, i) =>
+              '<button class="cta' + (i ? ' secondaire' : '') + '" data-cta="' + attr(a.id || String(i)) + '">' +
+                (a.icon ? Icon(a.icon, 17) : '') + esc(a.label) + '</button>').join('') + '</div>'
+          : '') +
+      '</div>' +
+    '</div>';
+  }
+
   global.UI = {
     $, $$, esc, attr, haptic, toast,
     openSheet, closeSheet, confirmSheet, promptSheet,
-    hint, showHint, hideHint,
+    hint, showHint, hideHint, grandeCarte,
     fmt, day, uid, clamp, debounce, sleep, download, copy,
     ring, sparkline, empty, thinking
   };

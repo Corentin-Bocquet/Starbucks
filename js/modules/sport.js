@@ -39,49 +39,95 @@
      cherche la lisibilité d'un pictogramme, pas une planche
      d'anatomie.
      ============================================================ */
-  /* Chaque entree vaut [muscle, trace, centre].
-     Une piece « centre » est dessinee une fois ; les autres sont
-     dessinees a gauche puis reflechies a droite, ce qui garantit
-     une silhouette parfaitement symetrique sans tracer deux fois.
-     Les traces sont volontairement doux : on veut un pictogramme
-     lisible, pas une planche d'anatomie. */
-  const CORPS = {
+  /* ============================================================
+     La carte du corps
+
+     Une silhouette dessinee en deux couches. En dessous, le corps
+     entier dans une teinte neutre : tete, buste, bras ecartes,
+     jambes, mains. Au-dessus, les groupes musculaires, poses comme
+     des plaques et colores selon ce qu'ils ont encaisse.
+
+     Tout est trace sur la moitie gauche puis reflechi : la
+     symetrie est alors parfaite par construction, et il y a
+     moitie moins de courbes a regler.
+
+     Les proportions sont celles d'un pictogramme d'anatomie :
+     epaules larges, taille marquee, bras a trente degres. On
+     cherche a reconnaitre un pectoral au premier coup d'oeil, pas
+     a passer un concours de dessin medical.
+     ============================================================ */
+
+  /* Le corps, en neutre : c'est le support, il ne se colore jamais.
+     Les bras sont ranges a part parce qu'ils sont pivotes de seize
+     degres vers l'exterieur : bras colles au corps, on ne distingue
+     plus le triceps de l'oblique. */
+  const TRONC = [
+    /* Tete, oreille, cou */
+    'M60 4c-8.6 0-15.4 7.2-15.4 17S51.4 39 60 39V4Z',
+    'M45.2 19.4c-2.8 0-4.8 2.2-4.8 5s2 5 4.8 5Z',
+    'M53 34h7v14.5h-7Z',
+    /* Buste : epaules larges, taille marquee, hanches */
+    'M60 42c-9.6.8-17.6 5-22.6 12.2-4.8 7-5.8 15.8-4.8 25.2.8 7.8 2.2 15.4 3.4 22.6 1.4 7.6 2.4 15 2.6 22H60Z',
+    /* Cuisse, genou, mollet, cheville, pied */
+    'M38.4 122c-1.8 9-2.2 19-1.6 29 .6 9.8 2 19.2 3.8 27.4H60V122Z',
+    'M41.6 178.4c-.8 4.8-.8 9 0 12.6H60v-12.6Z',
+    'M42 190.6c-.6 8.8 0 18.2 1.2 26.8 1 7 2.2 13.2 3.6 18H60v-44.8Z',
+    'M47.4 235.4c-1.6 4.8-4.8 8.6-9 11-3.4 2-4.8 4.6-4.2 7 .6 2.2 3 3.6 6.4 3.6H60v-21.6Z'
+  ];
+  const BRAS = [
+    /* Deltoide, bras, avant-bras */
+    'M36.6 51.4c-6.6 3.8-10.8 10-12.2 18.8-.6 4-.8 7.8-.6 11.2l12 1.2c.2-8.4 1.6-16 4.4-22.6Z',
+    'M23.6 81.2c-1 9.6-2.4 19-4.2 28.2-.8 4-1.6 7.6-2.4 11l11.2 2.6c1-4 2-8.2 2.8-12.8 1.6-9.2 2.6-18.6 3-27.8Z',
+    'M17 120.2c-1.6 6.8-3.2 12.8-4.6 17.6-1.2 4-2.2 7.2-2.8 9l10.4 3.2c.8-2.4 1.8-5.6 3-9.8 1.4-4.8 2.8-10.6 4.2-17.2Z',
+    /* Main et doigts */
+    'M9.6 145.4c-2.6 1.2-4.6 3.6-4.8 6.2 0 1.8.4 3.2 1.2 4.4l2.6-6.6Zm.6 3.6c-1.8 3-3 6.2-3.4 9-.4 2.8.4 5.2 2.2 6.4 2.6 1.6 6.2.6 8.2-2.2 1.6-2.4 3.2-5.6 4.4-9.4Z',
+    'M4.8 154.4c-1.4 2.6-2 5.2-1.6 7.2.4 1.8 1.6 3 3.2 2.8l1-8.6Z'
+  ];
+
+  /* Les muscles, poses par-dessus. [identifiant, trace]. */
+  const MUSCLES_TRONC = {
     avant: [
-      ['neutre', 'M55 3c7.2 0 13 6 13 13.5S62.2 31 55 31s-13-6.4-13-14.5S47.8 3 55 3Z', 1],
-      ['neutre', 'M49 30h12v8.5H49Z', 1],
-      ['trap',   'M55 34c7 0 13 2 16 5l-3.5 7C63 44 59 43 55 43Z'],
-      ['delt-a', 'M40 42c-8 1.5-13.5 7-15.5 16-.8 3.6-.8 6.6-.4 8.8l12.4-2.2C36 56 37.4 47.6 40 42Z'],
-      ['pect',   'M41.5 44.5c4.6-1.4 9.6-1.8 12.5-1.2v25.4c-6 2.4-12.2 1.4-15.4-2.6-2.2-6.6-1-15.6 2.9-21.6Z'],
-      ['abdo',   'M55 71c3.4 0 6.6.4 9 1.2v42.6c-2.4 1-5.6 1.4-9 1.4Z'],
-      ['obl',    'M38.6 68.6c2 12.4 3.4 27 4.6 41.6l-4.4-3.6c-2.6-11.6-2.6-25.6-1.6-36.6Z'],
-      ['bi',     'M25 68.4c-2.6 8-3.6 15.6-3 22.6l10.4 1.6c1-9.2 2.4-17.6 4-24.8Z'],
-      ['avb',    'M22.2 93.6c-2.6 10.4-3.6 20.6-3.4 29.4l9.2 1.2c.8-10 2.2-19.8 4-28.8Z'],
-      ['neutre', 'M18 124.5c-1 5.6-.6 9.6 1.4 11.4 2.4 2 5.6 1 7-1.6 1-1.8 1.4-5 1.4-8.6Z', 1],
-      ['flechh', 'M46 117c3 .8 6 1.2 9 1.2v9.8h-9Z'],
-      ['quad',   'M43.4 128h11.6v45.4H41.8c-1.4-15.6-1-31 1.6-45.4Z'],
-      ['add',    'M52 130h3v33h-4.4Z'],
-      ['mol',    'M42.4 176.4h12.6v38.6h-9.8c-2.4-12.8-3.2-25.8-2.8-38.6Z'],
-      ['neutre', 'M44 216.5h11v7.5H41.5c-.4-4 .4-6.6 2.5-7.5Z', 1]
+      ['trap',   'M60 42.6c-7 .6-13.2 3-18 7l4.2 9c4-3 8.6-4.6 13.8-5Z'],
+      ['pect',   'M60 56.4l-15.4 3.4c-4.2 4.2-6.2 10.8-5.6 17.8.4 4.8 1.8 8.8 4.2 11.6L60 92Z'],
+      ['abdo',   'M60 93.4l-13 1.8c-1.4 9-1.6 19.4-.6 29.8L60 126.4Z'],
+      ['obl',    'M45 95.6c-3.6 3-5.6 9-5.8 16.6-.2 5.2.4 10 1.6 13.6l5.2.6c-1-10-1-20.6.4-30.4Z'],
+      ['flechh', 'M58.4 124.4l-12.2-1c.4 3.6 1 6.8 1.8 9.4l10.4.6Z'],
+      ['quad',   'M58.4 131.6l-17.6 1.2c-1.4 9-1.6 18.8-1 28.6.4 5.8 1 11.4 1.8 16.2l16.8-.4Z'],
+      ['add',    'M58.4 132.4l-7.8.6c-.8 9-1 18.2-.4 26.8l8.2.4Z'],
+      ['mol',    'M43.6 192.6c-1 8-.8 16.8.6 25.4.6 4.2 1.4 8 2.2 11.2l12-.4v-36.8Z']
     ],
     arriere: [
-      ['neutre', 'M55 3c7.2 0 13 6 13 13.5S62.2 31 55 31s-13-6.4-13-14.5S47.8 3 55 3Z', 1],
-      ['trap',   'M55 33c7.4 0 13.6 2 17 5.4 1.4 11.6-.6 21.4-5 29L55 71Z'],
-      ['delt-p', 'M40 41c-8 1.5-13.5 7-15.5 16-.8 3.6-.8 6.6-.4 8.8l12.4-2.2C36 55 37.4 46.6 40 41Z'],
-      ['rond',   'M40.6 51.4c-2.4 6-3 10.4-2 14.6l7.4 1.6 2.4-14.6Z'],
-      ['dors',   'M38.6 60c-1.4 13.6 1 24.4 6.6 32.4l9.8 1.8V64.4Z'],
-      ['rhom',   'M46.5 48h8.5v18h-8.5Z'],
-      ['lomb',   'M46.6 93.6c2.8.6 5.6 1 8.4 1v22.4h-8.4Z'],
-      ['tri',    'M25 66.4c-2.6 8-3.6 15.6-3 22.6l10.4 1.6c1-9.2 2.4-17.6 4-24.8Z'],
-      ['avb',    'M22.2 91.6c-2.6 10.4-3.6 20.6-3.4 29.4l9.2 1.2c.8-10 2.2-19.8 4-28.8Z'],
-      ['neutre', 'M18 122.5c-1 5.6-.6 9.6 1.4 11.4 2.4 2 5.6 1 7-1.6 1-1.8 1.4-5 1.4-8.6Z', 1],
-      ['fess',   'M55 116v22.4H43c-2.6-7.6-2-15.6 1.6-22.4Z'],
-      ['fess-m', 'M39 115.6c-2.2 7.4-2.4 14-.6 20l4.2 1v-21Z'],
-      ['isch',   'M43.4 140h11.6v36.4H42.4c-1.4-12.4-1-24.6 1-36.4Z'],
-      ['mol',    'M42.6 178.4h12.4v24.6h-9.6c-2-8-2.8-16.4-2.8-24.6Z'],
-      ['sol',    'M44 204h11v12h-8.6c-1.4-4-2.2-8-2.4-12Z'],
-      ['neutre', 'M44 218.5h11v7.5H41.5c-.4-4 .4-6.6 2.5-7.5Z', 1]
+      ['trap',   'M60 42.6c-8.4.8-15.6 3.8-20.6 8.8-1 8.8.6 16.6 4.8 23.2L60 77.8Z'],
+      ['rhom',   'M60 58l-12.2 2c-.6 4.6-.4 8.8.6 12.6L60 74.4Z'],
+      ['dors',   'M60 76.6l-16.8-3c-4.2 6.8-5.6 15.2-4.2 24.6.6 4.2 1.8 7.8 3.6 10.8L60 111.6Z'],
+      ['lomb',   'M60 113.6l-14-1.8c-.6 7-.4 13.8.6 20.2l13.4.6Z'],
+      ['fess',   'M60 132.6l-18.2.6c-2.2 7-2.2 14.8 0 21.4 1 3.4 2.4 6.2 4.4 8l13.8.8Z'],
+      ['fess-m', 'M39.6 133.4c-2.4 5.2-3.2 11.6-1.8 17.4.4 2.2 1 4 1.8 5.4l2.6.2c-1.4-7.6-1.6-15.6-.4-23Z'],
+      ['isch',   'M58.4 162.6l-16.8.8c-1.4 7-1.8 15.2-1 23.2.4 4.2 1.2 8.2 2 11.6l15.8-.4Z'],
+      ['mol',    'M43.6 199.6c-1 7.4-.8 15.6.6 23.4.6 3.8 1.4 7.2 2.2 10.2l12-.4v-34.2Z'],
+      ['sol',    'M45.8 227.6c.6 3.8 1.4 7 2.2 9.4l10-.4v-9.6Z']
     ]
   };
+  const MUSCLES_BRAS = {
+    avant: [
+      ['delt-a', 'M37.4 50.6c-7 3.8-11.4 10.2-12.8 19.2-.6 4-.8 7.8-.6 11.4l12 1.2c.2-8.4 1.4-16 4.2-22.4Z'],
+      ['bi',     'M25.2 81.4c-.8 8.4-1.8 16.2-3.2 23.4l11.2 2.4c1.2-7.4 2-15.6 2.4-24.4Z'],
+      ['avb',    'M21.2 108.2c-1.4 6.8-3 13.2-4.6 19l10.4 3.2c1.6-6.2 3-12.8 4.2-19.8Z']
+    ],
+    arriere: [
+      ['delt-p', 'M37.4 50.6c-7 3.8-11.4 10.2-12.8 19.2-.6 4-.8 7.8-.6 11.4l12 1.2c.2-8.4 1.4-16 4.2-22.4Z'],
+      ['rond',   'M40 62.4c-2.4 3.4-3.8 7.6-4.2 12.4l6 1.4 2.2-11Z'],
+      ['tri',    'M25.2 81.4c-.8 8.4-1.8 16.2-3.2 23.4l11.2 2.4c1.2-7.4 2-15.6 2.4-24.4Z'],
+      ['avb',    'M21.2 108.2c-1.4 6.8-3 13.2-4.6 19l10.4 3.2c1.6-6.2 3-12.8 4.2-19.8Z']
+    ]
+  };
+
+  /* Le bras pivote autour de l'epaule, vers l'exterieur. En SVG un
+     angle positif tourne dans le sens des aiguilles, et comme le
+     bras gauche pend sous le pivot, c'est bien un angle positif qui
+     l'ecarte du corps. La zone de dessin est elargie de seize
+     unites de chaque cote pour lui laisser la place. */
+  const PIVOT = 'rotate(12 37 55)';
 
   /* Un score de 0 (jamais) à 1 (beaucoup) donne une teinte. */
   function teinte(v) {
@@ -91,15 +137,25 @@
   }
 
   function silhouette(face, scores, max) {
-    const piece = (m, d, neutre) => {
-      const v = neutre ? 0 : (scores[m] || 0) / (max || 1);
-      return '<path d="' + d + '" fill="' + (neutre ? 'var(--silhouette)' : teinte(v)) + '"/>';
-    };
-    /* La moitie gauche est tracee, la droite en est le reflet. */
-    const gauche = CORPS[face].map(([m, d, n]) => piece(m, d, n)).join('');
-    return '<svg viewBox="0 0 110 230" class="corps" aria-hidden="true">' +
-      '<g>' + gauche + '</g>' +
-      '<g transform="translate(110,0) scale(-1,1)">' + gauche + '</g>' +
+    const peindre = (paires) => paires.map(([m, d]) => {
+      const v = (scores[m] || 0) / (max || 1);
+      return '<path d="' + d + '" fill="' + teinte(v) + '"/>';
+    }).join('');
+    const neutre = (traces) => traces.map((d) => '<path d="' + d + '" fill="var(--silhouette)"/>').join('');
+
+    const moitie =
+      neutre(TRONC) +
+      '<g transform="' + PIVOT + '">' + neutre(BRAS) + '</g>' +
+      peindre(MUSCLES_TRONC[face]) +
+      '<g transform="' + PIVOT + '">' + peindre(MUSCLES_BRAS[face]) + '</g>';
+
+    /* La moitie droite est le reflet exact de la gauche. L'axe est
+       ramene a 59,7 pour que les deux moities se chevauchent d'un
+       demi-point : posees bord a bord, elles laissaient un liseré
+       de fond visible au milieu du corps. */
+    return '<svg viewBox="-16 0 152 266" class="corps" aria-hidden="true">' +
+      '<g>' + moitie + '</g>' +
+      '<g transform="translate(119.4,0) scale(-1,1)">' + moitie + '</g>' +
     '</svg>';
   }
 
@@ -378,40 +434,92 @@
     );
   }
 
-  /* Une série se saisit avec deux molettes : la charge et les
-     répétitions. Reprend la dernière série du même exercice,
-     parce qu'on refait presque toujours la même. */
-  async function ajouterSerie(exoId, premiere) {
+  /* ============================================================
+     Ajouter des séries
+
+     Deux molettes : la charge et les répétitions. On tire, ça
+     claque, on valide. C'est le geste des applications de salle,
+     et c'est le bon : on ajuste toujours de deux kilos ou d'une
+     répétition, jamais de rien du tout.
+
+     La série précédente sert de point de départ, y compris celle
+     d'il y a un mois : on refait presque toujours la même chose.
+     ============================================================ */
+  function ajouterSerie(exoId, premiere) {
     const exo = SPORT.trouver(exoId);
     if (!exo) return;
     const memes = brouillon.series.filter((s) => s.exoId === exoId);
     const derniere = memes[memes.length - 1] || dernierePartout(exoId);
     const iso = exo.mode === 'iso';
     const sansCharge = exo.mode === 'corps';
+    const p = poids();
 
-    const champs = [];
-    if (!sansCharge) champs.push({
-      name: 'charge', label: exo.mode === 'corpsplus' ? 'Lest ajouté (kg)' : 'Charge (kg)',
-      type: 'number', inputmode: 'decimal', value: derniere ? derniere.charge : (exo.mode === 'corpsplus' ? 0 : 20)
-    });
-    champs.push({
-      name: 'reps', label: iso ? 'Durée (secondes)' : 'Répétitions',
-      type: 'number', inputmode: 'numeric', value: derniere ? derniere.reps : (iso ? 45 : 10)
-    });
-    champs.push({ name: 'nb', label: 'Combien de séries', type: 'number', inputmode: 'numeric', value: premiere ? 3 : 1 });
+    const charge0 = derniere ? Number(derniere.charge) || 0 : (exo.mode === 'corpsplus' ? 0 : 20);
+    const reps0 = derniere ? Number(derniere.reps) || 1 : (iso ? 45 : 10);
 
-    const r = await UI.promptSheet(exo.nom, champs, 'Ajouter');
-    if (!r) { ecranSeance(); return; }
-    const nb = Math.max(1, Math.min(20, Number(r.nb) || 1));
-    for (let i = 0; i < nb; i++) {
-      brouillon.series.push({
-        exoId: exoId,
-        charge: sansCharge ? 0 : (Number(r.charge) || 0),
-        reps: Math.max(1, Number(r.reps) || 1)
-      });
-    }
-    UI.haptic('success');
-    ecranSeance();
+    const molCharge = sansCharge ? '' : Molette.html({
+      id: 'charge',
+      label: exo.mode === 'corpsplus' ? 'Lest ajouté' : 'Poids',
+      unite: 'kg', min: 0, max: 300, pas: 2.5, decimales: 1, valeur: charge0
+    });
+    const molReps = Molette.html({
+      id: 'reps',
+      label: iso ? 'Durée' : 'Répétitions',
+      unite: iso ? 's' : 'réps',
+      min: iso ? 5 : 1, max: iso ? 300 : 50, pas: iso ? 5 : 1, decimales: 0, valeur: reps0
+    });
+    const molNb = Molette.html({
+      id: 'nb', label: 'Nombre de séries', unite: 'séries',
+      min: 1, max: 12, pas: 1, decimales: 0, valeur: premiere ? 3 : 1
+    });
+
+    const muscles = exo.principaux.map((m) => SPORT.MUSCLES[m] ? SPORT.MUSCLES[m].nom : m);
+
+    UI.openSheet(
+      '<div class="mbody" style="padding-top:6px">' +
+        '<div class="mcat">' + UI.esc(SPORT.MATERIEL[exo.materiel]) + ' · ' + UI.esc(muscles.join(', ')) + '</div>' +
+        '<h2 style="font-size:23px">' + UI.esc(exo.nom) + '</h2>' +
+        molCharge + molReps + molNb +
+        '<div class="apercu-serie" data-apercu></div>' +
+        '<button class="btn primary block lg" style="margin-top:16px" data-ok>' + Icon('plus', 18) + 'Ajouter</button>' +
+        '<button class="btn ghost block" style="margin-top:6px" data-annuler>Annuler</button>' +
+      '</div>',
+      { onMount: (sh) => {
+          const apercu = sh.querySelector('[data-apercu]');
+          const lire = () => ({
+            charge: sansCharge ? 0 : (Molette.valeur(sh, 'charge') || 0),
+            reps: Molette.valeur(sh, 'reps') || 1,
+            nb: Molette.valeur(sh, 'nb') || 1
+          });
+          const rafraichir = () => {
+            const v = lire();
+            const essai = [];
+            for (let i = 0; i < v.nb; i++) essai.push({ exoId: exoId, charge: v.charge, reps: v.reps });
+            /* On affiche le total de la seance apres ajout, et non
+               l'ecart : le premier exercice ferait apparaitre d'un
+               coup toute la depense de base, ce qui donnerait
+               l'impression fausse qu'une serie vaut trois cents
+               calories. */
+            const c = SPORT.caloriesSeance(brouillon.series.concat(essai), brouillon.minutes, p);
+            apercu.innerHTML =
+              '<span>' + v.nb + ' × ' + (sansCharge ? '' : UI.fmt.n(v.charge) + ' kg × ') +
+                UI.fmt.n(v.reps) + (iso ? ' s' : ' réps') + '</span>' +
+              '<b>' + UI.fmt.n(c.kcal) + ' kcal en tout</b>';
+          };
+          Molette.activer(sh, rafraichir);
+          rafraichir();
+
+          sh.querySelector('[data-annuler]').onclick = () => ecranSeance();
+          sh.querySelector('[data-ok]').onclick = () => {
+            const v = lire();
+            for (let i = 0; i < v.nb; i++) {
+              brouillon.series.push({ exoId: exoId, charge: v.charge, reps: v.reps });
+            }
+            UI.haptic('success');
+            ecranSeance();
+          };
+        } }
+    );
   }
 
   /* La dernière fois qu'on a fait cet exercice, même il y a un

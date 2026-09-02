@@ -652,12 +652,42 @@
 @keyframes pop { from { opacity: 0; transform: scale(.94) translateY(10px); } to { opacity: 1; transform: none; } }
 .result .rimg { aspect-ratio: 16 / 10; background: var(--surface-2); }
 .result .rimg img { width: 100%; height: 100%; object-fit: cover; }
+/* La tete de carte : un aplat colore par famille d'activite, le
+   surtitre, le nom en grand, la valeur a droite. Meme grammaire
+   que la fiche d'un lieu et que la carte de rang. */
+.result .rtete {
+  padding: 20px 20px 22px; color: #fff;
+  background: linear-gradient(155deg, var(--g1), var(--g2));
+  position: relative; overflow: hidden;
+}
+.result .rtete::after {
+  content: ''; position: absolute; right: -50px; top: -70px;
+  width: 200px; height: 200px; border-radius: 50%;
+  background: rgba(255, 255, 255, .09);
+}
+.result .rtete .sur {
+  position: relative; z-index: 2;
+  font-size: 10.5px; font-weight: 750; letter-spacing: .11em; text-transform: uppercase;
+  opacity: .82; margin-bottom: 8px;
+}
+.result .rtete .titreligne {
+  position: relative; z-index: 2;
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+}
+.result .rtete h3 {
+  font-size: clamp(21px, 5.8vw, 27px); line-height: 1.08;
+  letter-spacing: -.03em; font-weight: 800; flex: 1; min-width: 0; color: #fff;
+}
+.result .rtete .valeur {
+  flex: none; padding: 7px 14px; border-radius: var(--r-pill);
+  background: rgba(20, 17, 15, .42); backdrop-filter: blur(8px);
+  font-size: 13px; font-weight: 750; white-space: nowrap;
+}
 .result .rbody { padding: 16px 18px 18px; }
-.result .rkick { font-size: var(--t-xs); font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); }
-.result h3 { font-size: 22px; font-weight: 900; letter-spacing: -.028em; margin-top: 4px; }
 .result .rmeta { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; font-size: 12.5px; color: var(--muted); }
 .result .rwhy { margin-top: 12px; font-size: 12.5px; color: var(--muted); background: var(--surface-2); border-radius: var(--r-sm); padding: 10px 12px; line-height: 1.5; }
-.result .ract { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+.result .ract { display: flex; gap: 8px; margin-top: 16px; }
+.result .ract .btn.lg { flex: none; width: 54px; padding: 0; }
 
 /* ============================================================
    11. SANTE : anneaux, jauges, statistiques
@@ -1011,3 +1041,153 @@ footer#codexFoot { padding: 22px var(--gut) 34px; display: flex; justify-content
 /* Pastille de marque : fond neutre, le logo garde ses couleurs. */
 .list .rowitem .ic.marque { background: var(--surface-2); box-shadow: var(--sh-inset); padding: 4px; }
 .list .rowitem .ic.marque svg { width: 21px; height: 21px; }
+
+/* ============================================================
+   21. LE SELECTEUR A MOLETTE
+
+   Une regle qui defile sous un trait fixe. Le defilement est
+   natif : l'inertie et l'accrochage sont ceux du systeme, donc
+   irreprochables sur iPhone et gratuits en code.
+   ============================================================ */
+.molette { margin-top: 14px; }
+.molette .tete {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+  margin-bottom: 2px;
+}
+.molette .lib {
+  font-size: 11px; font-weight: 750; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--muted);
+}
+.molette .chiffre {
+  display: flex; align-items: baseline; gap: 4px;
+  padding: 2px 6px; border-radius: var(--r-sm);
+  transition: background var(--d-fast);
+}
+.molette .chiffre:active { background: var(--surface-2); }
+.molette .chiffre b {
+  font-size: 34px; font-weight: 800; letter-spacing: -.04em;
+  font-variant-numeric: tabular-nums; color: var(--ink);
+}
+.molette .chiffre small { font-size: 14px; font-weight: 700; color: var(--muted); }
+
+.molette .regle { position: relative; height: 56px; }
+.molette .piste {
+  position: absolute; inset: 0;
+  display: flex; align-items: flex-end;
+  overflow-x: auto; overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none; -webkit-overflow-scrolling: touch;
+  padding-bottom: 6px;
+}
+.molette .piste::-webkit-scrollbar { display: none; }
+.molette .marge { flex: none; width: 50%; }
+.molette .tr {
+  flex: none; width: 13px; height: 16px;
+  scroll-snap-align: center;
+  position: relative;
+}
+.molette .tr::before {
+  content: ''; position: absolute; left: 50%; bottom: 0; transform: translateX(-50%);
+  width: 1.5px; height: 14px; border-radius: 1px;
+  background: var(--hairline-strong);
+}
+.molette .tr.maj { height: 34px; }
+.molette .tr.maj::before { height: 24px; background: var(--faint); }
+.molette .tr.maj i {
+  position: absolute; left: 50%; top: 0; transform: translateX(-50%);
+  font-style: normal; font-size: 10.5px; font-weight: 700;
+  color: var(--faint); font-variant-numeric: tabular-nums;
+}
+/* Le trait fixe : c'est lui qui designe la valeur. */
+.molette .curseur {
+  position: absolute; left: 50%; bottom: 4px; transform: translateX(-50%);
+  width: 3px; height: 40px; border-radius: 2px;
+  background: var(--accent); pointer-events: none;
+  box-shadow: 0 0 10px -2px var(--accent);
+}
+/* Les bords s'effacent : la regle n'a pas de fin visible. */
+.molette .voile {
+  position: absolute; top: 0; bottom: 0; width: 46px; pointer-events: none;
+}
+.molette .voile.g { left: 0; background: linear-gradient(90deg, var(--bg-elev), transparent); }
+.molette .voile.d { right: 0; background: linear-gradient(270deg, var(--bg-elev), transparent); }
+.mbody .molette .voile.g { background: linear-gradient(90deg, var(--bg-elev), transparent); }
+.apercu-serie {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin-top: 18px; padding: 13px 16px; border-radius: var(--r-md);
+  background: var(--accent-soft); color: var(--accent);
+  font-size: 14px; font-weight: 650;
+}
+.apercu-serie b { font-size: 16px; font-weight: 800; }
+
+/* ============================================================
+   22. LA GRANDE CARTE
+
+   Le modele des maquettes : photo en haut, degrade qui la fond
+   dans le texte, titre et pastille de valeur, description, puces,
+   et une large pilule claire pour l'action. Tout ce qui se choisit
+   dans l'application porte cette forme.
+   ============================================================ */
+.gcarte {
+  position: relative; isolation: isolate; overflow: hidden;
+  border-radius: var(--r-2xl);
+  background: linear-gradient(160deg, var(--g1, var(--accent-2)), var(--g2, var(--accent-deep)));
+  box-shadow: var(--sh-3);
+  color: #fff;
+  min-height: 300px;
+  display: flex; flex-direction: column; justify-content: flex-end;
+}
+.gcarte .visuel { position: absolute; inset: 0; z-index: 0; }
+.gcarte .visuel img { width: 100%; height: 100%; object-fit: cover; }
+/* Le degrade fait le lien entre la photo et le texte : sans lui,
+   un titre blanc sur un ciel clair devient illisible. */
+.gcarte .ombre {
+  position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background: linear-gradient(180deg,
+    rgba(12, 10, 9, .10) 0%,
+    rgba(12, 10, 9, .32) 42%,
+    rgba(12, 10, 9, .76) 74%,
+    rgba(12, 10, 9, .90) 100%);
+}
+.gcarte.sansphoto .ombre {
+  background: linear-gradient(180deg, transparent 30%, rgba(12, 10, 9, .34) 100%);
+}
+.gcarte .corps { position: relative; z-index: 2; padding: 20px; }
+.gcarte .sur {
+  font-size: 10.5px; font-weight: 750; letter-spacing: .11em; text-transform: uppercase;
+  opacity: .8; margin-bottom: 7px;
+}
+.gcarte .titreligne { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.gcarte h3 {
+  font-size: clamp(21px, 5.6vw, 27px); line-height: 1.08; letter-spacing: -.03em;
+  font-weight: 800; flex: 1; min-width: 0;
+}
+.gcarte .valeur {
+  flex: none; padding: 7px 14px; border-radius: var(--r-pill);
+  background: rgba(20, 17, 15, .58); backdrop-filter: blur(8px);
+  font-size: 13px; font-weight: 750; white-space: nowrap;
+}
+.gcarte p { font-size: 13.5px; line-height: 1.5; opacity: .86; margin-top: 9px; }
+.gcarte .puces { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 13px; }
+.gcarte .puces span {
+  font-size: 12px; font-weight: 650; padding: 6px 13px; border-radius: var(--r-pill);
+  background: rgba(255, 255, 255, .17); backdrop-filter: blur(6px);
+  border: 1px solid rgba(255, 255, 255, .18);
+}
+.gcarte .actions { display: flex; gap: 8px; margin-top: 16px; }
+.gcarte .cta {
+  flex: 1; min-height: 50px; border-radius: var(--r-pill);
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  background: #fff; color: #14110F;
+  font-size: 15px; font-weight: 750; letter-spacing: -.01em;
+  box-shadow: 0 6px 18px -8px rgba(0, 0, 0, .6);
+  transition: transform var(--d-fast) var(--spring);
+}
+.gcarte .cta svg { width: 17px; height: 17px; }
+.gcarte .cta:active { transform: scale(.97); }
+.gcarte .cta.secondaire {
+  flex: none; width: 50px; padding: 0;
+  background: rgba(255, 255, 255, .18); color: #fff;
+  border: 1px solid rgba(255, 255, 255, .22); box-shadow: none;
+}
+.gcarte.compacte { min-height: 230px; }

@@ -81,11 +81,28 @@
       '</div>';
   }
 
+  /* Une couleur par ambiance de tenue. */
+  const TEINTES_MOOD = {
+    chill:    ['#2F6B5A', '#17372E'],
+    soiree:   ['#3B2A5E', '#1A1230'],
+    classe:   ['#2C4A6B', '#132435'],
+    oldmoney: ['#6B5A3E', '#332B1C'],
+    sport:    ['#B4402E', '#511710']
+  };
+
   function outfitCard(o, why) {
     const items = (o.items || []).map((id) => garments().find((g) => g.id === id)).filter(Boolean);
-    return '<div class="result" style="margin-top:14px"><div class="rbody">' +
-      '<div class="rkick">' + UI.esc(moodName(o.mood)) + '</div>' +
-      '<h3>' + UI.esc(o.nom || 'Tenue du jour') + '</h3>' +
+    /* Meme tete de carte que partout ailleurs : aplat colore,
+       surtitre, nom en grand, temperature a droite. */
+    const wx = ctx && ctx.weather;
+    const t = TEINTES_MOOD[o.mood] || TEINTES_MOOD.chill;
+    return '<div class="result" style="margin-top:14px">' +
+      '<div class="rtete" style="--g1:' + t[0] + ';--g2:' + t[1] + '">' +
+        '<div class="sur">' + UI.esc(moodName(o.mood)) + '</div>' +
+        '<div class="titreligne"><h3>' + UI.esc(o.nom || 'Tenue du jour') + '</h3>' +
+        (wx ? '<span class="valeur">' + wx.temp + '°</span>' : '') + '</div>' +
+      '</div>' +
+      '<div class="rbody">' +
       '<div class="grid tight" style="grid-template-columns:repeat(auto-fill,minmax(88px,1fr));margin-top:14px">' +
         items.map((g) => '<div style="text-align:center">' +
           '<div style="position:relative;aspect-ratio:1;border-radius:var(--r-md);overflow:hidden;background:var(--surface-2)">' +
@@ -95,9 +112,9 @@
       '</div>' +
       (why ? '<div class="rwhy"><b>Pourquoi ? </b>' + UI.esc(why) + '</div>' : '') +
       '<div class="ract">' +
-        '<button class="btn sm primary" data-act="another">' + Icon('refresh', 15) + 'Une autre</button>' +
-        '<button class="btn sm" data-act="saveOutfit">' + Icon('star', 15) + 'Garder</button>' +
-        (AI.available() ? '<button class="btn sm ghost" data-act="preview">' + Icon('sparkle', 15) + 'Voir sur moi</button>' : '') +
+        '<button class="btn primary grow lg" data-act="another">' + Icon('refresh', 17) + 'Une autre</button>' +
+        '<button class="btn lg" data-act="saveOutfit" aria-label="Garder">' + Icon('star', 17) + '</button>' +
+        (AI.available() ? '<button class="btn lg" data-act="preview" aria-label="Voir sur moi">' + Icon('sparkle', 17) + '</button>' : '') +
       '</div></div></div>';
   }
   const moodName = (id) => (SEED.MOODS.find((m) => m.id === id) || {}).nom || 'Tenue';

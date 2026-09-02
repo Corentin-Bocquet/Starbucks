@@ -111,8 +111,10 @@
   function renderTabbar() {
     const bar = UI.$('#tabbar');
     bar.innerHTML = TABS.map((t) =>
-      '<button data-tab="' + t.id + '" aria-label="' + UI.attr(t.label) + '">' +
-        '<span class="ic">' + Icon(t.icon, 23) + '</span><span class="lb">' + UI.esc(t.label) + '</span>' +
+      /* Le titre reste dans l'attribut : l'icone seule a l'ecran,
+         mais un lecteur d'ecran annonce toujours le nom. */
+      '<button data-tab="' + t.id + '" aria-label="' + UI.attr(t.label) + '" title="' + UI.attr(t.label) + '">' +
+        Icon(t.icon, 23) + '<span class="lb">' + UI.esc(t.label) + '</span>' +
       '</button>').join('');
     UI.$$('#tabbar button').forEach((b) => {
       b.onclick = () => { UI.haptic('light'); go('#/' + b.dataset.tab); };
