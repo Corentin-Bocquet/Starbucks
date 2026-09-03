@@ -125,7 +125,7 @@
       (g.prix ? '<div class="rmeta"><span>' + UI.esc(g.prix) + '</span></div>' : '') +
       '<div class="ract">' +
         '<button class="btn sm primary" data-cal>' + Icon('calendar', 15) + 'Planifier</button>' +
-        '<button class="btn sm" data-fav>' + Icon('star', 15) + (isFav ? 'Retirer' : 'Favori') + '</button>' +
+        '<button class="btn sm" data-fav><span class="etoile' + (isFav ? ' on' : '') + '">' + Icon('star', 15) + '</span>' + (isFav ? 'Retirer' : 'Favori') + '</button>' +
         '<button class="btn sm ghost" data-where>' + Icon('pin', 15) + 'Ou l\'acheter</button>' +
       '</div></div></div>';
   }
@@ -134,7 +134,7 @@
     box.querySelector('[data-cal]').onclick = () => planBuy(g.nom);
     box.querySelector('[data-fav]').onclick = (e) => {
       const on = Store.toggleFav('gift', g.id);
-      e.currentTarget.innerHTML = Icon('star', 15) + (on ? 'Retirer' : 'Favori');
+      e.currentTarget.innerHTML = '<span class="etoile' + (on ? ' on' : '') + '">' + Icon('star', 15) + '</span>' + (on ? 'Retirer' : 'Favori');
     };
     box.querySelector('[data-where]').onclick = () => whereToBuy(g.nom);
   }

@@ -606,15 +606,22 @@
   transition: transform var(--d-fast) var(--spring);
 }
 .hubtile:active { transform: scale(.9); }
+/* La tuile devient une plaque de verre claire, l'illustration
+   couleur pose dessus. On garde le relief que tu aimais, on retire
+   le trait blanc qui aplatissait tout. */
 .hubtile .ic {
-  width: 58px; height: 58px; border-radius: 18px;
-  display: grid; place-items: center; color: #fff;
-  background: linear-gradient(155deg, var(--g2, #918B86), var(--g1, #5B5754));
-  box-shadow: 0 7px 16px -7px color-mix(in srgb, var(--g1, #000) 75%, transparent),
-              inset 0 1px 0 rgba(255, 255, 255, .32),
-              inset 0 -1px 0 rgba(0, 0, 0, .14);
+  width: 60px; height: 60px; border-radius: 19px;
+  display: grid; place-items: center;
+  background: color-mix(in srgb, var(--surface) 76%, transparent);
+  backdrop-filter: blur(14px) saturate(160%);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  box-shadow:
+    0 8px 18px -8px color-mix(in srgb, var(--g1, #000) 42%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--g1, #000) 12%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, .5);
 }
-.hubtile .ic svg { width: 25px; height: 25px; }
+.hubtile .ic svg { width: 40px; height: 40px; }
+.hubtile .ic svg:not(.art) { width: 25px; height: 25px; color: var(--ink-2); }
 .hubtile b {
   font-size: 12px; font-weight: 620; letter-spacing: -.005em;
   line-height: 1.2; color: var(--ink);
@@ -687,7 +694,14 @@
 .result .rmeta { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; font-size: 12.5px; color: var(--muted); }
 .result .rwhy { margin-top: 12px; font-size: 12.5px; color: var(--muted); background: var(--surface-2); border-radius: var(--r-sm); padding: 10px 12px; line-height: 1.5; }
 .result .ract { display: flex; gap: 8px; margin-top: 16px; }
-.result .ract .btn.lg { flex: none; width: 54px; padding: 0; }
+/* Seuls les boutons sans libelle deviennent des ronds. Sans le
+   `:not(.grow)`, le bouton principal se retrouvait ecrase dans un
+   cercle de 54 px et son texte debordait de partout. */
+.result .ract .btn.lg:not(.grow) {
+  flex: none; width: 54px; height: 54px; padding: 0;
+  border-radius: 50%; overflow: hidden;
+}
+.result .ract .btn.grow { flex: 1 1 0; min-width: 0; }
 
 /* ============================================================
    11. SANTE : anneaux, jauges, statistiques
@@ -1191,3 +1205,476 @@ footer#codexFoot { padding: 22px var(--gut) 34px; display: flex; justify-content
   border: 1px solid rgba(255, 255, 255, .22); box-shadow: none;
 }
 .gcarte.compacte { min-height: 230px; }
+
+/* ============================================================
+   23. VIGNETTES D'IMAGERIE
+
+   Tant que l'image n'existe pas, la pastille degradee tient la
+   place : elle porte l'initiale du sujet, elle a la bonne forme
+   et la bonne taille. Rien ne saute quand la photo arrive.
+   ============================================================ */
+.vign {
+  display: block; position: relative; overflow: hidden;
+  background: linear-gradient(150deg, var(--v1), var(--v2));
+  border-radius: var(--r-md);
+  aspect-ratio: 1; width: 100%;
+}
+.vign b {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  color: rgba(255, 255, 255, .55);
+  /* Une taille en pourcentage se calculerait sur la police heritee,
+     pas sur la boite : l'initiale devenait minuscule. */
+  font-size: 30px; font-weight: 800; letter-spacing: -.03em;
+}
+.vign.petite b { font-size: 18px; }
+.vign.haute b { font-size: 40px; }
+.vign.large b { font-size: 34px; }
+.vign img {
+  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+  animation: apparait var(--d-slow) var(--ease);
+}
+@keyframes apparait { from { opacity: 0; transform: scale(1.04); } to { opacity: 1; transform: none; } }
+.vign.ronde { border-radius: 50%; }
+.vign.large { aspect-ratio: 16 / 10; }
+.vign.haute { aspect-ratio: 2 / 3; }
+
+
+/* ============================================================
+   24. FILMS ET SERIES
+
+   Les affiches defilent en carrousel, chacune est une carte du
+   meme modele que partout ailleurs : visuel, degrade, texte pose
+   dessus. Les badges disent en un coup d'oeil ce qui est vu et ce
+   qui est en favori.
+   ============================================================ */
+.carrousel {
+  display: flex; gap: 12px; overflow-x: auto; padding: 4px 0 10px;
+  scroll-snap-type: x proximity; scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  margin: 0 calc(-1 * var(--gut)); padding-left: var(--gut); padding-right: var(--gut);
+}
+.carrousel::-webkit-scrollbar { display: none; }
+.carrousel > * { scroll-snap-align: start; flex: none; }
+
+.affiche {
+  position: relative; width: 148px; aspect-ratio: 2 / 3;
+  border-radius: var(--r-lg); overflow: hidden;
+  background: var(--surface-2); box-shadow: var(--sh-2);
+  text-align: left; display: block;
+  transition: transform var(--d-fast) var(--spring);
+}
+.affiche:active { transform: scale(.96); }
+.affiche > img, .affiche > .vign { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 0; }
+.affiche > img { object-fit: cover; }
+.affiche .voile {
+  position: absolute; inset: 0; z-index: 2;
+  background: linear-gradient(180deg, rgba(10,8,8,.05) 40%, rgba(10,8,8,.72) 74%, rgba(10,8,8,.92));
+}
+.affiche .txt { position: absolute; left: 0; right: 0; bottom: 0; z-index: 3; padding: 10px 11px 11px; color: #fff; }
+.affiche .txt b {
+  display: block; font-size: 13.5px; font-weight: 750; line-height: 1.2; letter-spacing: -.015em;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.affiche .txt small { display: block; font-size: 11px; opacity: .78; margin-top: 3px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.affiche .jauge { height: 3px; border-radius: 2px; background: rgba(255,255,255,.28); margin-top: 7px; overflow: hidden; }
+.affiche .jauge i { display: block; height: 100%; background: #fff; border-radius: 2px; }
+
+.affiche .marque {
+  position: absolute; top: 8px; z-index: 4;
+  width: 24px; height: 24px; border-radius: 50%;
+  display: grid; place-items: center; color: #fff;
+  backdrop-filter: blur(8px); box-shadow: var(--sh-1);
+}
+.affiche .marque.vu { right: 8px; background: rgba(31, 122, 70, .92); }
+.affiche .marque.fav { left: 8px; background: rgba(224, 160, 30, .92); }
+.affiche .ajout {
+  position: absolute; top: 8px; right: 8px; z-index: 4;
+  width: 26px; height: 26px; border-radius: 50%;
+  display: grid; place-items: center; color: #14110F;
+  background: rgba(255,255,255,.92); backdrop-filter: blur(8px);
+}
+.affiche.idee { cursor: pointer; }
+
+.bandeau-media {
+  display: flex; align-items: center; gap: 14px;
+  background: var(--surface); border-radius: var(--r-lg);
+  padding: 14px 16px; box-shadow: var(--sh-1), var(--sh-inset);
+}
+.bandeau-media .illu { flex: none; }
+.bandeau-media b { display: block; font-size: 16px; letter-spacing: -.02em; }
+.bandeau-media small { display: block; color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+.bandeau-media .rond {
+  flex: none; width: 42px; height: 42px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--accent); color: #fff; box-shadow: var(--sh-2);
+  transition: transform var(--d-fast) var(--spring);
+}
+.bandeau-media .rond:active { transform: scale(.9); }
+
+/* Les saisons se cochent d'un appui. */
+.blocsaisons { margin-top: 16px; }
+.saisons { display: flex; flex-wrap: wrap; gap: 7px; }
+.saison {
+  min-width: 46px; height: 38px; padding: 0 11px; border-radius: var(--r-sm);
+  display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+  background: var(--surface-2); color: var(--ink-2);
+  font-size: 13px; font-weight: 700;
+  transition: all var(--d-fast) var(--ease);
+}
+.saison svg { width: 13px; height: 13px; }
+.saison.on { background: var(--accent); color: #fff; box-shadow: var(--sh-1); }
+.saison:active { transform: scale(.92); }
+.lien {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 12px; font-weight: 700; color: var(--accent);
+}
+.lien svg { width: 13px; height: 13px; }
+
+/* Ou le voir : une pastille par plateforme, a ses couleurs. */
+.blocplats { margin-top: 16px; }
+.plats { display: flex; flex-wrap: wrap; gap: 8px; }
+.plat {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 9px 14px; border-radius: var(--r-pill);
+  background: linear-gradient(150deg, var(--g1), var(--g2));
+  color: #fff; font-size: 13px; box-shadow: var(--sh-1);
+  transition: transform var(--d-fast) var(--spring);
+}
+.plat b { font-weight: 700; }
+.plat svg { width: 13px; height: 13px; opacity: .8; }
+.plat:active { transform: scale(.95); }
+
+.pastille-ok {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px 9px; border-radius: var(--r-pill);
+  background: var(--ok-soft); color: var(--ok);
+  font-size: 11.5px; font-weight: 700;
+}
+.pastille-ok svg { width: 13px; height: 13px; }
+.result.plein { border-radius: 0; box-shadow: none; max-width: none; }
+
+/* ============================================================
+   25. TENUES
+
+   Une carte par registre, toutes visibles d'un coup. Le visuel
+   est soit une mosaique des vetements qu'on possede, soit une
+   image generee pour les tenues inventees.
+   ============================================================ */
+.bascule {
+  display: flex; gap: 4px; padding: 4px; margin-top: 14px;
+  background: var(--surface-2); border-radius: var(--r-pill);
+  box-shadow: var(--sh-inset);
+}
+.bascule .cote {
+  flex: 1; min-height: 42px; border-radius: var(--r-pill);
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  font-size: 13.5px; font-weight: 700; color: var(--muted);
+  transition: all var(--d-base) var(--ease);
+}
+.bascule .cote svg { width: 16px; height: 16px; }
+.bascule .cote.on { background: var(--surface); color: var(--ink); box-shadow: var(--sh-1); }
+
+.meteo-jour {
+  display: flex; align-items: center; gap: 14px;
+  background: var(--surface); border-radius: var(--r-lg);
+  padding: 13px 16px; box-shadow: var(--sh-1), var(--sh-inset);
+}
+.meteo-jour .ic { color: var(--accent); flex: none; }
+.meteo-jour b { display: block; font-size: 16px; letter-spacing: -.02em; }
+.meteo-jour small { display: block; color: var(--muted); font-size: 12.5px; margin-top: 1px; }
+
+.cartestyle {
+  position: relative; width: 224px; aspect-ratio: 3 / 4;
+  border-radius: var(--r-xl); overflow: hidden;
+  background: linear-gradient(155deg, var(--g1), var(--g2));
+  box-shadow: var(--sh-2); cursor: pointer;
+  transition: transform var(--d-fast) var(--spring);
+}
+.cartestyle:active { transform: scale(.97); }
+.cartestyle .visuel { position: absolute; inset: 0; }
+.cartestyle .visuel > img { width: 100%; height: 100%; object-fit: cover; }
+.cartestyle .visuel > .vign { width: 100%; height: 100%; border-radius: 0; aspect-ratio: auto; }
+.cartestyle .mosaique {
+  position: absolute; inset: 0; display: grid;
+  grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 2px;
+}
+.cartestyle .mosaique .case {
+  display: grid; place-items: center; overflow: hidden;
+  background: rgba(255, 255, 255, .12); color: rgba(255, 255, 255, .5);
+}
+.cartestyle .voile {
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(10,8,8,.12) 32%, rgba(10,8,8,.66) 66%, rgba(10,8,8,.92));
+}
+.cartestyle .txt { position: absolute; left: 0; right: 0; bottom: 0; padding: 14px; color: #fff; }
+.cartestyle .txt .sur {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 10px; font-weight: 750; letter-spacing: .1em; text-transform: uppercase;
+  opacity: .82; margin-bottom: 5px;
+}
+.cartestyle .txt .sur svg { width: 12px; height: 12px; }
+.cartestyle .txt b { display: block; font-size: 17px; font-weight: 800; letter-spacing: -.025em; line-height: 1.15; }
+.cartestyle .txt .puces { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 9px; }
+.cartestyle .txt .puces span {
+  font-size: 10.5px; font-weight: 650; padding: 4px 9px; border-radius: var(--r-pill);
+  background: rgba(255,255,255,.18); border: 1px solid rgba(255,255,255,.16);
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.cartestyle .relance {
+  position: absolute; top: 10px; right: 10px; z-index: 3;
+  width: 32px; height: 32px; border-radius: 50%;
+  display: grid; place-items: center; color: #fff;
+  background: rgba(20,17,15,.42); backdrop-filter: blur(8px);
+}
+.cartestyle .relance:active { transform: scale(.88); }
+
+/* Une tenue enregistree, en ligne */
+.tenue-ligne {
+  width: 100%; display: flex; align-items: center; gap: 13px;
+  padding: 12px 14px; margin-bottom: 10px; text-align: left;
+  background: var(--surface); border-radius: var(--r-lg);
+  box-shadow: var(--sh-1), var(--sh-inset);
+  transition: transform var(--d-fast) var(--spring);
+}
+.tenue-ligne:active { transform: scale(.985); }
+.tenue-ligne .apercu {
+  flex: none; width: 52px; height: 52px; border-radius: 14px; overflow: hidden;
+  display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 1px;
+  background: linear-gradient(150deg, var(--g1), var(--g2));
+}
+.tenue-ligne .apercu .c { display: grid; place-items: center; overflow: hidden; color: rgba(255,255,255,.55); }
+.tenue-ligne .apercu .c.seul { grid-column: 1 / -1; grid-row: 1 / -1; }
+.tenue-ligne .tx { flex: 1; min-width: 0; }
+.tenue-ligne .tx b { display: block; font-size: 15px; font-weight: 700; }
+.tenue-ligne .tx small {
+  display: block; color: var(--muted); font-size: 12.5px; margin-top: 2px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.tenue-ligne .rt { color: var(--faint); flex: none; }
+
+/* Choisir les pieces d'une tenue */
+.choixpieces { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 9px; }
+.pc { text-align: center; }
+.pc .ph {
+  display: grid; place-items: center; aspect-ratio: 1; overflow: hidden;
+  border-radius: var(--r-md); background: var(--surface-2);
+  box-shadow: var(--sh-inset); color: var(--faint);
+  transition: box-shadow var(--d-fast);
+}
+.pc small { display: block; font-size: 10.5px; color: var(--muted); margin-top: 5px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pc.on .ph { box-shadow: 0 0 0 3px var(--accent); }
+.pc.on small { color: var(--accent); font-weight: 700; }
+
+.grillepieces { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 10px; }
+.grillepieces .piece { text-align: center; }
+.grillepieces .ph {
+  display: grid; place-items: center; aspect-ratio: 1; overflow: hidden;
+  border-radius: var(--r-md); background: var(--surface-2); color: var(--faint);
+  box-shadow: var(--sh-inset);
+}
+.grillepieces small { display: block; font-size: 11px; color: var(--muted); margin-top: 5px; }
+
+/* Pipette et nuancier */
+.pipettebox {
+  position: relative; border-radius: var(--r-lg); overflow: hidden;
+  background: var(--surface-2); box-shadow: var(--sh-inset);
+  touch-action: none;
+}
+.pipettebox canvas { display: block; width: 100%; height: auto; cursor: crosshair; }
+.pipettebox .viseur {
+  position: absolute; width: 34px; height: 34px; border-radius: 50%;
+  transform: translate(-50%, -50%); pointer-events: none;
+  border: 3px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.3), var(--sh-2);
+}
+.apercu-couleur {
+  display: flex; align-items: center; gap: 12px; margin-top: 14px;
+  padding: 12px 14px; border-radius: var(--r-md);
+  background: var(--surface-2);
+}
+.apercu-couleur .pastille {
+  width: 40px; height: 40px; border-radius: 13px; flex: none;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.16);
+}
+.apercu-couleur b { flex: 1; font-size: 15px; font-variant-numeric: tabular-nums; }
+
+.nuancier { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.teinte { text-align: center; }
+.teinte span {
+  display: block; aspect-ratio: 1; border-radius: 16px; background: var(--c);
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.14), var(--sh-1);
+  transition: transform var(--d-fast) var(--spring);
+}
+.teinte:active span { transform: scale(.9); }
+.teinte small { display: block; font-size: 10.5px; color: var(--muted); margin-top: 5px; }
+
+/* Ligne d'ingredient avec sa vignette */
+.ing.avecimg .l { gap: 11px; }
+.ing.avecimg .vign { width: 38px; height: 38px; flex: none; aspect-ratio: 1; }
+
+/* Carte d'idee de recette, dans le carrousel de generation */
+.carteidee {
+  width: 216px; border-radius: var(--r-xl); overflow: hidden;
+  background: var(--surface); box-shadow: var(--sh-2);
+  cursor: pointer; transition: transform var(--d-fast) var(--spring);
+}
+.carteidee:active { transform: scale(.97); }
+.carteidee .visuel { aspect-ratio: 4 / 3; background: var(--surface-2); }
+.carteidee .visuel .vign { width: 100%; height: 100%; border-radius: 0; aspect-ratio: auto; }
+.carteidee .corps { padding: 13px 14px 15px; }
+.carteidee b { display: block; font-size: 15px; font-weight: 750; letter-spacing: -.02em; line-height: 1.2; }
+.carteidee small {
+  display: block; font-size: 12px; color: var(--muted); margin-top: 5px; line-height: 1.4;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.carteidee .puces { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 9px; }
+.carteidee .puces span {
+  font-size: 10.5px; font-weight: 650; padding: 4px 9px; border-radius: var(--r-pill);
+  background: var(--surface-2); color: var(--muted);
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.carteidee .cta {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  margin-top: 12px; min-height: 40px; border-radius: var(--r-pill);
+  background: var(--accent); color: #fff; font-size: 13.5px; font-weight: 700;
+}
+.carteidee .cta svg { width: 15px; height: 15px; }
+.carteidee .cta .thinking { color: #fff; font-size: 12px; }
+
+/* Quand une creation a son image, elle passe devant le degrade. */
+.ph.creation .vign.fondu, .mimg.creation .vign.fondu {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  border-radius: 0; aspect-ratio: auto; z-index: 1;
+}
+.ph.creation .vign.fondu b, .mimg.creation .vign.fondu b { display: none; }
+.ph.creation .vign.fondu:not([data-remplie]) { opacity: 0; }
+.mimg.creation .vign.fondu:not([data-remplie]) { opacity: 0; }
+.ph.creation > span, .ph.creation > b { position: relative; z-index: 2; }
+.mimg.creation > div { position: relative; z-index: 2; }
+.mimg.creation .vign.fondu[data-remplie] + div { text-shadow: 0 2px 12px rgba(0,0,0,.6); }
+
+/* ============================================================
+   26. FAVORIS
+
+   Une seule etoile dans toute l'application : pleine et doree
+   quand c'est en favori, vide et grise sinon. Aucune autre forme
+   ne doit signifier « favori ».
+   ============================================================ */
+.etoile { display: grid; place-items: center; color: var(--faint); transition: color var(--d-fast), transform var(--d-fast) var(--spring); }
+.etoile svg { width: 17px; height: 17px; }
+.etoile.on { color: #E8B426; }
+.etoile.on svg { fill: #E8B426; }
+.etoilebtn {
+  flex: none; width: 38px; height: 38px; border-radius: 50%;
+  display: grid; place-items: center;
+}
+.etoilebtn:active .etoile { transform: scale(.82); }
+.villeligne { cursor: pointer; }
+/* L'etoile des cartes du Codex suit la meme regle. */
+.card .fav .etoile, .card .fav svg { transition: none; }
+.card .fav.on svg { fill: #E8B426; color: #E8B426; }
+.marque.fav .etoile.on svg { fill: #fff; color: #fff; }
+.btn .etoile svg { width: 17px; height: 17px; }
+
+/* Ce qu'il reste a manger */
+.bloc-reste { text-align: center; }
+.bloc-reste .chiffre b {
+  display: block; font-size: 38px; font-weight: 800; letter-spacing: -.04em;
+  color: var(--accent); line-height: 1;
+}
+.bloc-reste .chiffre span { font-size: 12px; font-weight: 620; color: var(--muted); }
+
+/* ============================================================
+   27. VERRE DEPOLI
+
+   Le principe : les surfaces qui flottent au-dessus du contenu
+   laissent deviner ce qu'il y a dessous. Trois ingredients a
+   chaque fois, jamais un de plus :
+
+     1. un fond translucide, jamais opaque ;
+     2. un flou d'arriere-plan avec un peu de saturation, pour que
+        les couleurs du dessous restent vivantes ;
+     3. un lisere clair en haut, qui simule la tranche du verre.
+
+   On ne le pose que sur ce qui flotte. Une carte posee dans le
+   flux reste opaque : du verre sur du verre ne veut plus rien
+   dire, et le flou coute cher a l'affichage.
+   ============================================================ */
+.verre {
+  background: color-mix(in srgb, var(--bg-elev) 72%, transparent);
+  backdrop-filter: blur(22px) saturate(170%);
+  -webkit-backdrop-filter: blur(22px) saturate(170%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .5),
+    inset 0 0 0 1px var(--hairline),
+    var(--sh-2);
+}
+
+/* La barre du haut */
+#topbar {
+  background: color-mix(in srgb, var(--bg) 68%, transparent);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+}
+#topbar.scrolled { box-shadow: 0 1px 0 var(--hairline), 0 8px 24px -14px rgba(20,17,15,.24); }
+
+/* Les boutons ronds du haut */
+.tbtn {
+  background: color-mix(in srgb, var(--surface) 62%, transparent);
+  backdrop-filter: blur(14px) saturate(160%);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  box-shadow: inset 0 0 0 1px var(--hairline), inset 0 1px 0 rgba(255,255,255,.45);
+}
+
+/* La feuille modale */
+.sheet {
+  background: color-mix(in srgb, var(--bg-elev) 88%, transparent);
+  backdrop-filter: blur(30px) saturate(180%);
+  -webkit-backdrop-filter: blur(30px) saturate(180%);
+}
+.sheet .close {
+  background: color-mix(in srgb, var(--surface) 58%, transparent);
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+
+/* Les puces de filtre */
+.chip {
+  background: color-mix(in srgb, var(--surface) 74%, transparent);
+  backdrop-filter: blur(12px) saturate(150%);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
+}
+
+/* Les segments */
+.seg {
+  background: color-mix(in srgb, var(--surface-2) 78%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* Le calque d'aide */
+#hintpop { backdrop-filter: blur(8px) saturate(140%); }
+.hintcard {
+  background: color-mix(in srgb, var(--bg-elev) 88%, transparent);
+  backdrop-filter: blur(24px) saturate(170%);
+  -webkit-backdrop-filter: blur(24px) saturate(170%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.5), inset 0 0 0 1px var(--hairline), var(--sh-4);
+}
+
+/* Le reflet qui court sur une carte coloree : c'est lui qui fait
+   la difference entre un aplat et une surface. */
+.rtete::before, .carte-rang::before, .cartestyle .txt::before {
+  content: ''; position: absolute; left: 0; right: 0; top: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.45), transparent);
+  pointer-events: none;
+}
+
+/* Sur les appareils qui ne savent pas flouter, on retombe sur des
+   fonds opaques : mieux vaut net qu'illisible. */
+@supports not (backdrop-filter: blur(2px)) {
+  .verre, #topbar, .tbtn, .sheet, .chip, .seg, .hintcard, .tabbar, .hubtile .ic {
+    background: var(--bg-elev);
+  }
+}

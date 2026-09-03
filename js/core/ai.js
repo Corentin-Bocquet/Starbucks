@@ -324,6 +324,24 @@
     return out;
   }
 
+  /* ---------- Génération d'images ----------
+     `ask` parle toujours au modele de texte et ne renvoie que du
+     texte : c'est voulu. La fabrication d'images a donc son propre
+     chemin, avec son modele, sa modalite de sortie explicite et
+     ses images en retour. */
+  async function image(prompt, opts) {
+    opts = opts || {};
+    const body = {
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature: opts.temperature == null ? 1 : opts.temperature,
+        responseModalities: ['TEXT', 'IMAGE']
+      }
+    };
+    if (opts.system) body.systemInstruction = { parts: [{ text: opts.system }] };
+    return call('image', body, Object.assign({ cache: false }, opts));
+  }
+
   /* ---------- JSON structuré ---------- */
   async function json(prompt, schema, opts) {
     opts = opts || {};
@@ -379,6 +397,12 @@
       }
     };
     if (schema) { body.generationConfig.responseMimeType = 'application/json'; body.generationConfig.responseSchema = schema; }
+    /* Les modeles d'image veulent qu'on demande explicitement une
+       sortie image ; certains ne renvoient que du texte sinon. */
+    if (opts.kind === 'image') {
+      body.generationConfig.responseModalities = ['TEXT', 'IMAGE'];
+      delete body.generationConfig.topP;
+    }
     if (opts.system) body.systemInstruction = { parts: [{ text: opts.system }] };
     const out = await call(opts.kind || 'text', body, opts);
     if (schema) return parseJson(out.text);
@@ -436,7 +460,7 @@
   }
 
   global.AI = {
-    ask, json, vision, shrink, fileToDataUrl,
+    ask, json, vision, image, shrink, fileToDataUrl,
     available, humanError, clearCache, parseJson,
     discover, modelFor, candidates, forget, selfTest,
     currentModel: () => (Store.get(MODELS_KEY, {}) || {}).text || null,

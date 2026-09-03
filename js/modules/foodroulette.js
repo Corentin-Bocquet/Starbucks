@@ -87,7 +87,7 @@
       (f.note ? '<div class="rwhy">' + UI.esc(f.note) + '</div>' : '') +
       '<div class="ract">' +
         '<button class="btn sm primary" data-log>' + Icon('plus', 15) + 'Consigner</button>' +
-        '<button class="btn sm" data-fav>' + Icon('star', 15) + (isFav ? 'Retirer' : 'Favori') + '</button>' +
+        '<button class="btn sm" data-fav><span class="etoile' + (isFav ? ' on' : '') + '">' + Icon('star', 15) + '</span>' + (isFav ? 'Retirer' : 'Favori') + '</button>' +
         '<button class="btn sm ghost" data-like="0">Pas envie</button>' +
       '</div></div></div>';
   }
@@ -96,7 +96,7 @@
     box.querySelector('[data-log]').onclick = () => logIt(f);
     box.querySelector('[data-fav]').onclick = (e) => {
       const on = Store.toggleFav('food', f.id);
-      e.currentTarget.innerHTML = Icon('star', 15) + (on ? 'Retirer' : 'Favori');
+      e.currentTarget.innerHTML = '<span class="etoile' + (on ? ' on' : '') + '">' + Icon('star', 15) + '</span>' + (on ? 'Retirer' : 'Favori');
       UI.haptic('light');
     };
     box.querySelector('[data-like]').onclick = () => { Reco.learn(f, false); UI.toast('On evitera'); };

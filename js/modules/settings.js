@@ -70,6 +70,12 @@
           '<button class="rowitem" data-act="google"><span class="ic marque">' + Icon.marque('gcal', 21) + '</span>' +
             '<span class="tx"><b>Google Agenda</b><small>' + (Store.get('googleClientId', '') ? 'Configuré' : 'Sans cela, les événements passent par un fichier .ics') + '</small></span>' +
             '<span class="rt">' + Icon('next', 15) + '</span></button>' +
+          '<button class="rowitem" data-act="images"><span class="ic marque">' + Art('pomme', 21) + '</span>' +
+            '<span class="tx"><b>Images générées</b><small>' +
+            (Imagerie.actif()
+              ? Imagerie.stats().enCache + ' en mémoire · ' + Imagerie.resteAujourdhui() + " possibles aujourd'hui"
+              : 'Coupées') + '</small></span>' +
+            '<span class="rt">' + Icon('next', 15) + '</span></button>' +
           '<button class="rowitem" data-act="diag"><span class="ic">' + Icon('activity', 17) + '</span>' +
             '<span class="tx"><b>Tester l\'IA</b><small>' +
             (AI.currentModel() ? 'Modèle actif : ' + UI.esc(AI.currentModel()) : 'Vérifie la clé et choisit le modèle') +
@@ -250,6 +256,27 @@
     },
 
     /* --- IA --- */
+    images: async () => {
+      /* Un seul reglage, et de quoi comprendre ce qu'il coupe. */
+      const st = Imagerie.stats();
+      const r = await UI.promptSheet('Images générées', [
+        { name: 'actif', label: 'Générer les images', type: 'select',
+          value: Store.get('imagesIA', true) ? 'oui' : 'non',
+          options: [{ v: 'oui', n: 'Oui' }, { v: 'non', n: 'Non' }] },
+        { name: 'plafond', label: 'Maximum par jour', type: 'number', inputmode: 'numeric',
+          value: st.plafond,
+          hint: 'Une image coûte environ quarante fois un texte. ' + st.enCache + ' sont déjà en mémoire et ne coûtent plus rien.' },
+        { name: 'vider', label: 'Vider ce qui est en mémoire', type: 'select', value: 'non',
+          options: [{ v: 'non', n: 'Non' }, { v: 'oui', n: 'Oui, tout regénérer' }] }
+      ], 'Enregistrer');
+      if (!r) return;
+      Store.set('imagesIA', r.actif === 'oui');
+      Store.set('imgPlafond', Math.max(0, Number(r.plafond) || 60));
+      if (r.vider === 'oui') Imagerie.vider();
+      UI.toast('Enregistré');
+      render();
+    },
+
     gemini: async () => {
       const r = await UI.promptSheet('Clé Gemini', [
         { name: 'key', label: 'Clé d\'API', value: Store.get('geminiKey', ''), placeholder: 'AIza…',

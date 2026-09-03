@@ -474,7 +474,7 @@
           : (a.isMood && a.avecQuelquun
               ? '<button class="btn primary grow lg" data-who>' + Icon('users', 17) + 'Avec qui ?</button>'
               : '<button class="btn primary grow lg" data-cal>' + Icon('calendar', 17) + 'Planifier</button>')) +
-        '<button class="btn lg" data-fav aria-label="Favori">' + Icon('star', 17) + '</button>' +
+        '<button class="btn lg" data-fav aria-label="Favori"><span class="etoile' + (isFav ? ' on' : '') + '">' + Icon('star', 17) + '</span></button>' +
         (venue ? '<button class="btn lg" data-save aria-label="Garder">' + Icon('plus', 17) + '</button>' : '') +
       '</div>' +
       ((venue || a.lieu) && a.isMood && a.avecQuelquun
@@ -493,7 +493,7 @@
     if (q('[data-fav]')) q('[data-fav]').onclick = (e) => {
       const on = Store.toggleFav(venue ? 'place' : 'activity', target.id);
       UI.haptic('toggle'); UI.toast(on ? 'Ajouté aux favoris' : 'Retiré');
-      e.currentTarget.innerHTML = Icon('star', 15) + (on ? 'Retirer' : 'Favori');
+      e.currentTarget.innerHTML = '<span class="etoile' + (on ? ' on' : '') + '">' + Icon('star', 17) + '</span>';
     };
     if (q('[data-cal]')) q('[data-cal]').onclick = () => {
       const slotFree = Cal.freeSlot(a.isEvent ? a.debut : UI.day.today(), Cal.durationOf(a));
@@ -744,55 +744,167 @@
     refreshEvents: () => { Events.clearCache(ctx.place.name); events = []; loadEvents(); }
   };
 
+  /* ============================================================
+     Choisir sa ville
+
+     Trois listes, dans cet ordre : les favorites, les dernières
+     visitées, puis tout le reste. Avant d'avoir tapé la moindre
+     lettre, on retrouve déjà ce qu'on cherche neuf fois sur dix.
+
+     L'étoile est la même dans toute l'application : pleine et
+     jaune quand c'est en favori, vide sinon.
+     ============================================================ */
+  const villesFav = () => Store.get('villesFav', []);
+  const estFav = (id) => villesFav().indexOf(id) >= 0;
+  function basculerFav(id, nom) {
+    const l = villesFav();
+    const i = l.indexOf(id);
+    if (i >= 0) l.splice(i, 1); else l.push(id);
+    Store.set('villesFav', l);
+    UI.haptic('toggle');
+    UI.toast(i >= 0 ? nom + ' retirée des favoris' : nom + ' en favori');
+  }
+
+  const villesRecentes = () => Store.get('villesRecentes', []);
+  function noterVisite(id, nom, place) {
+    const l = villesRecentes().filter((v) => v.id !== id);
+    l.unshift({ id: id, nom: nom, place: place || null, at: Date.now() });
+    Store.set('villesRecentes', l.slice(0, 8));
+  }
+
+  const etoile = (on) => '<span class="etoile' + (on ? ' on' : '') + '">' + Icon('star', 17) + '</span>';
+
   function placePicker() {
-    const list = cities();
-    UI.openSheet('<div class="mbody" style="padding-top:6px">' +
-      '<h2 style="font-size:22px;margin-bottom:12px">Où es-tu ?</h2>' +
-      '<div class="list">' + list.map((c) => '<button class="rowitem" data-c="' + UI.attr(c.id) + '">' +
-        '<span class="ic">' + Icon('pin', 17) + '</span><span class="tx"><b>' + UI.esc(c.nom) + '</b></span>' +
-        '<span class="rt">' + (prefs().city === c.id ? Icon('check', 16) : Icon('next', 15)) + '</span></button>').join('') + '</div>' +
-      '<label class="search" style="margin-top:14px;box-shadow:var(--sh-inset)">' + Icon('search', 17) +
-        '<input data-q placeholder="Chercher une autre ville" autocomplete="off"></label>' +
-      '<div data-res style="margin-top:10px"></div>' +
-      '<div class="btnrow" style="margin-top:12px">' +
-        '<button class="btn grow" data-map>' + Icon('map', 16) + 'Sur la carte</button>' +
-        '<button class="btn grow" data-locate>' + Icon('pin', 16) + 'Ma position</button>' +
-      '</div></div>', {
-      onMount: (s) => {
-        s.querySelectorAll('[data-c]').forEach((b) => b.onclick = async () => {
-          setPrefs({ city: b.dataset.c, category: 'all' });
-          const found = await Ctx.searchCity(cityName(b.dataset.c));
-          if (found[0]) Ctx.setPlace(found[0]);
-          UI.closeSheet(); await refreshCtx();
-        });
-        const q = s.querySelector('[data-q]'), out = s.querySelector('[data-res]');
-        q.oninput = UI.debounce(async () => {
-          if (q.value.trim().length < 2) { out.innerHTML = ''; return; }
-          out.innerHTML = UI.thinking('Recherche…');
-          const r = await Ctx.searchCity(q.value.trim());
-          out.innerHTML = r.length ? '<div class="list">' + r.map((c, i) =>
-            '<button class="rowitem" data-i="' + i + '"><span class="ic">' + Icon('pin', 17) + '</span>' +
-            '<span class="tx"><b>' + UI.esc(c.name) + '</b><small>' + UI.esc(c.label) + '</small></span></button>').join('') + '</div>'
-            : '<p class="muted" style="font-size:13px">Aucune ville trouvée.</p>';
-          out.querySelectorAll('[data-i]').forEach((b) => b.onclick = async () => {
-            const c = r[+b.dataset.i];
-            Ctx.setPlace(c); setPrefs({ city: slug(c.name), category: 'all' });
-            UI.closeSheet(); await refreshCtx();
-          });
-        }, 400);
-        s.querySelector('[data-map]').onclick = async () => {
-          UI.closeSheet();
-          const picked = await MapPick.pick(Ctx.place());
-          if (!picked) return;
-          Ctx.setPlace(picked); setPrefs({ city: slug(picked.name), category: 'all' });
-          await refreshCtx();
-        };
-        s.querySelector('[data-locate]').onclick = async () => {
-          try { const p = await Ctx.locate(); setPrefs({ city: slug(p.name), category: 'all' }); UI.closeSheet(); await refreshCtx(); }
-          catch (e) { UI.toast(e.message); }
-        };
-      }
-    });
+    const toutes = cities();
+    const favs = villesFav();
+    const recentes = villesRecentes();
+
+    const ligne = (id, nom, sous) =>
+      '<div class="rowitem villeligne" data-c="' + UI.attr(id) + '" data-nom="' + UI.attr(nom) + '">' +
+        '<span class="ic">' + Icon('location', 17) + '</span>' +
+        '<span class="tx"><b>' + UI.esc(nom) + '</b>' + (sous ? '<small>' + UI.esc(sous) + '</small>' : '') + '</span>' +
+        '<button class="etoilebtn" data-fav="' + UI.attr(id) + '" data-favnom="' + UI.attr(nom) + '" aria-label="Favori">' +
+          etoile(estFav(id)) + '</button>' +
+        (prefs().city === id ? '<span class="rt">' + Icon('check', 16) + '</span>' : '') +
+      '</div>';
+
+    const bloc = (titre, lignes) => lignes.length
+      ? '<h4 class="ftitre">' + titre + '</h4><div class="list">' + lignes.join('') + '</div>' : '';
+
+    const listeFav = toutes.filter((c) => estFav(c.id)).map((c) => ligne(c.id, c.nom));
+    const favsHorsListe = favs.filter((id) => !toutes.some((c) => c.id === id))
+      .map((id) => ligne(id, nomDepuisId(id)));
+    const listeRecentes = recentes
+      .filter((v) => !estFav(v.id))
+      .map((v) => ligne(v.id, v.nom, 'Vue ' + UI.fmt.dateShort(v.at)));
+    const listeAutres = toutes
+      .filter((c) => !estFav(c.id) && !recentes.some((v) => v.id === c.id))
+      .map((c) => ligne(c.id, c.nom));
+
+    UI.openSheet(
+      '<div class="mbody" style="padding-top:6px">' +
+        '<h2 style="font-size:22px;margin-bottom:12px">Où es-tu ?</h2>' +
+        '<label class="search" style="box-shadow:var(--sh-inset)">' + Icon('search', 17) +
+          '<input data-q placeholder="Chercher une ville" autocomplete="off"></label>' +
+        '<div data-res>' +
+          bloc('Mes favorites', listeFav.concat(favsHorsListe)) +
+          bloc('Récemment', listeRecentes) +
+          bloc('Toutes', listeAutres) +
+        '</div>' +
+        '<div class="btnrow" style="margin-top:14px">' +
+          '<button class="btn grow" data-map>' + Icon('map', 16) + 'Sur la carte</button>' +
+          '<button class="btn grow" data-locate>' + Icon('location', 16) + 'Ma position</button>' +
+        '</div>' +
+      '</div>',
+      { onMount: (sh) => {
+          const q = sh.querySelector('[data-q]'), out = sh.querySelector('[data-res]');
+
+          const brancher = (racine) => {
+            racine.querySelectorAll('[data-fav]').forEach((b) => b.onclick = (e) => {
+              e.stopPropagation();
+              basculerFav(b.dataset.fav, b.dataset.favnom);
+              b.querySelector('.etoile').classList.toggle('on');
+            });
+            racine.querySelectorAll('[data-c]').forEach((b) => b.onclick = async (e) => {
+              if (e.target.closest('[data-fav]')) return;
+              const id = b.dataset.c, nom = b.dataset.nom;
+              setPrefs({ city: id, category: 'all' });
+              const trouve = await Ctx.searchCity(nom);
+              if (trouve[0]) Ctx.setPlace(trouve[0]);
+              noterVisite(id, nom, trouve[0] || null);
+              UI.closeSheet();
+              await refreshCtx();
+            });
+          };
+          brancher(out);
+
+          q.oninput = UI.debounce(async () => {
+            const v = q.value.trim();
+            if (v.length < 2) {
+              out.innerHTML =
+                bloc('Mes favorites', listeFav.concat(favsHorsListe)) +
+                bloc('Récemment', listeRecentes) +
+                bloc('Toutes', listeAutres);
+              brancher(out);
+              return;
+            }
+            out.innerHTML = UI.thinking('Recherche…');
+            const r = await Ctx.searchCity(v);
+            if (!r.length) { out.innerHTML = '<p class="muted" style="font-size:13px">Aucune ville trouvée.</p>'; return; }
+            out.innerHTML = '<div class="list">' + r.map((c, i) => {
+              const id = slug(c.name);
+              return '<div class="rowitem villeligne" data-i="' + i + '">' +
+                '<span class="ic">' + Icon('location', 17) + '</span>' +
+                '<span class="tx"><b>' + UI.esc(c.name) + '</b><small>' + UI.esc(c.label) + '</small></span>' +
+                '<button class="etoilebtn" data-fav="' + UI.attr(id) + '" data-favnom="' + UI.attr(c.name) + '" aria-label="Favori">' +
+                  etoile(estFav(id)) + '</button>' +
+              '</div>';
+            }).join('') + '</div>';
+
+            out.querySelectorAll('[data-fav]').forEach((b) => b.onclick = (e) => {
+              e.stopPropagation();
+              basculerFav(b.dataset.fav, b.dataset.favnom);
+              b.querySelector('.etoile').classList.toggle('on');
+            });
+            out.querySelectorAll('[data-i]').forEach((b) => b.onclick = async (e) => {
+              if (e.target.closest('[data-fav]')) return;
+              const c = r[+b.dataset.i];
+              Ctx.setPlace(c);
+              setPrefs({ city: slug(c.name), category: 'all' });
+              noterVisite(slug(c.name), c.name, c);
+              UI.closeSheet();
+              await refreshCtx();
+            });
+          }, 400);
+
+          sh.querySelector('[data-map]').onclick = async () => {
+            UI.closeSheet();
+            const choisi = await MapPick.pick(Ctx.place());
+            if (!choisi) return;
+            Ctx.setPlace(choisi);
+            setPrefs({ city: slug(choisi.name), category: 'all' });
+            noterVisite(slug(choisi.name), choisi.name, choisi);
+            await refreshCtx();
+          };
+          sh.querySelector('[data-locate]').onclick = async () => {
+            try {
+              const p = await Ctx.locate();
+              setPrefs({ city: slug(p.name), category: 'all' });
+              noterVisite(slug(p.name), p.name, p);
+              UI.closeSheet();
+              await refreshCtx();
+            } catch (e) { UI.toast(e.message); }
+          };
+        } }
+    );
+  }
+
+  /* Une ville mise en favori depuis la recherche n'est pas encore
+     dans la liste des activités : on retrouve son nom ailleurs. */
+  function nomDepuisId(id) {
+    const r = villesRecentes().find((v) => v.id === id);
+    if (r) return r.nom;
+    return id.split('-').map((m) => m.charAt(0).toUpperCase() + m.slice(1)).join(' ');
   }
 
   async function refreshCtx() {

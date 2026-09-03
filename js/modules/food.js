@@ -95,10 +95,12 @@
         waterBlock(g) +
         addBlock() +
         mealsBlock(list) +
+        resteBlock(t, g, isToday) +
         analysisBlock() +
       '</div>';
 
     bind();
+    Imagerie.peupler(root, { generer: true, max: 3 });
   }
 
   function dayNav(isToday) {
@@ -215,6 +217,97 @@
     ]) : ligne;
   }
 
+  /* ============================================================
+     Ce qu'il reste à manger
+
+     L'analyse regarde en arrière : elle juge une journée finie.
+     Ce bloc-là regarde en avant, et c'est le plus utile des deux :
+     à seize heures, savoir quoi mettre dans l'assiette du soir
+     pour tomber juste vaut mieux que d'apprendre le lendemain
+     qu'on est passé à côté.
+
+     Il n'apparaît que sur la journée en cours, et seulement s'il
+     reste de la place.
+     ============================================================ */
+  function resteBlock(t, g, isToday) {
+    if (!isToday) return '';
+    const reste = Math.round(g.kcal - t.kcal);
+    if (reste < 150) return '';
+
+    const cache = Store.get('reste.' + viewDay, null);
+    const frais = cache && Math.abs(cache.reste - reste) < 120;
+
+    if (frais) {
+      return '<div class="section"><div class="sechead"><h2 style="font-size:16px">Pour finir la journée</h2>' +
+        '<button data-act="reste">Refaire</button></div>' + resteHtml(cache.data) + '</div>';
+    }
+    return '<div class="section"><div class="panel bloc-reste">' +
+      '<div class="chiffre"><b>' + UI.fmt.n(reste) + '</b><span>kcal restantes</span></div>' +
+      '<p class="muted" style="font-size:13px;margin:10px 0 12px">' +
+        'Il te reste ' + UI.fmt.n(Math.max(0, Math.round(g.prot - t.prot))) + ' g de protéines à prendre. ' +
+        'Je te dis quoi manger pour tomber juste.</p>' +
+      '<button class="btn primary block" data-act="reste">' + Icon('sparkle', 17) + 'Quoi manger ce soir</button>' +
+      '</div></div>';
+  }
+
+  const RESTE_SCHEMA = AI.T.obj({
+    resume: AI.T.str('Une phrase : ce qu il faut viser pour la fin de journee'),
+    repas: AI.T.arr(AI.T.obj({
+      moment: AI.T.str('Diner, collation, ou autre'),
+      plat: AI.T.str('Un plat precis et courant en France'),
+      quantite: AI.T.str('La portion, en grammes ou en unites'),
+      kcal: AI.T.int('Calories de cette portion'),
+      prot: AI.T.int('Proteines en grammes'),
+      pourquoi: AI.T.str('Une ligne : ce que ca comble')
+    }), 'Deux a trois propositions qui, ensemble, comblent le reste'),
+    total: AI.T.str('Ce que ca donnerait en tout sur la journee'),
+    a_eviter: AI.T.str('Une chose a ne pas faire ce soir, en une ligne')
+  }, ['resume', 'repas']);
+
+  async function quoiManger() {
+    if (!AI.available()) return needKey();
+    const g = goals(), t = totals(entries());
+    const reste = Math.round(g.kcal - t.kcal);
+
+    const cible = root.querySelector('[data-act="reste"]');
+    if (cible) cible.outerHTML = UI.thinking('Je regarde ce qui manque…');
+
+    const mange = entries().map((m) => m.nom).join(', ');
+    try {
+      const res = await AI.json(
+        "Tu es nutritionniste. Il est " + new Date().getHours() + " heures. " +
+        "Voici ce qui a déjà été mangé aujourd'hui : " + (mange || 'rien') + ".\n\n" +
+        'RESTE À PRENDRE : ' + reste + ' kcal, ' +
+        Math.max(0, Math.round(g.prot - t.prot)) + ' g de protéines, ' +
+        Math.max(0, Math.round(g.fiber - t.fiber)) + ' g de fibres.\n\n' +
+        'Propose deux à trois choses concrètes à manger pour finir la journée au bon compte. ' +
+        'Des plats courants en France, achetables ou faisables ce soir, avec les portions en grammes. ' +
+        'Pas de conseils généraux, pas de compléments alimentaires. Réponds en français simple.',
+        RESTE_SCHEMA, { cache: false, temperature: 0.6 });
+
+      Store.set('reste.' + viewDay, { reste: reste, data: res, at: Date.now() });
+      render();
+    } catch (e) {
+      UI.toast(AI.humanError(e));
+      render();
+    }
+  }
+
+  function resteHtml(r) {
+    return '<div class="panel" style="background:var(--accent-soft)">' +
+        '<div class="row" style="gap:10px;align-items:flex-start">' + Icon('sparkle', 18) +
+        '<p style="font-size:14px;line-height:1.5">' + UI.esc(r.resume || '') + '</p></div></div>' +
+      '<div class="list" style="margin-top:10px">' + (r.repas || []).map((x) =>
+        '<div class="rowitem">' +
+          Imagerie.vignette('plat', x.plat, { classe: 'petite' }) +
+          '<span class="tx"><b>' + UI.esc(x.plat) + '</b><small>' +
+            UI.esc([x.moment, x.quantite, x.pourquoi].filter(Boolean).join(' · ')) + '</small></span>' +
+          '<span class="rt tabnum">' + UI.fmt.n(x.kcal) + ' kcal</span>' +
+        '</div>').join('') + '</div>' +
+      (r.total ? '<p class="muted" style="font-size:13px;margin-top:10px">' + UI.esc(r.total) + '</p>' : '') +
+      (r.a_eviter ? '<div class="warn" style="margin-top:10px">' + UI.esc(r.a_eviter) + '</div>' : '');
+  }
+
   function analysisBlock() {
     const cached = Store.get('analysis.' + viewDay, null);
     if (cached) {
@@ -295,7 +388,8 @@
     search: (slot) => searchFlow(typeof slot === 'string' ? slot : null),
     manual: () => manualFlow(),
     fromcodex: () => codexFlow(),
-    analyse: () => analyse()
+    analyse: () => analyse(),
+    reste: () => quoiManger()
   };
 
   function guessSlot() {

@@ -217,7 +217,139 @@
       size, defs);
   }
 
-  const CATALOGUE = { haltere, eclair, flamme, coupe, pomme, goutte, coeur, cible };
+  /* ---------- Étoile ---------- */
+  function etoile(size) {
+    const a = uid(), b = uid();
+    const defs =
+      lin(a, 18, 10, 46, 52, [[0, '#FFE884'], [.45, '#F5C042'], [1, '#C98A0A']]) +
+      lin(b, 22, 12, 34, 30, [[0, '#FFFFFF', .68], [1, '#FFFFFF', 0]]);
+    const d = 'M32 5.5l8 16.4 18 2.6-13 12.7 3 17.9L32 46.6 15.9 55.1l3-17.9L6 24.5l18-2.6 8-16.4Z';
+    return wrap(
+      sol(32, 57, 15, 2.8, .16) +
+      '<path d="' + d + '" fill="#B37A08" transform="translate(1.4,1.6)"/>' +
+      '<path d="' + d + '" fill="url(#' + a + ')"/>' +
+      '<path d="M32 5.5l8 16.4-8 4Z" fill="url(#' + b + ')"/>',
+      size, defs);
+  }
+
+  /* ---------- Tasse ---------- */
+  function tasse(size) {
+    const a = uid(), b = uid();
+    const defs =
+      lin(a, 14, 20, 46, 52, [[0, '#FFFFFF'], [1, '#D6D0CB']]) +
+      lin(b, 16, 22, 30, 36, [[0, '#FFFFFF', .9], [1, '#FFFFFF', 0]]);
+    return wrap(
+      sol(32, 55, 17, 3, .16) +
+      '<path d="M46 25h4a7 7 0 0 1 0 14h-4" stroke="#C6BFBA" stroke-width="4" fill="none" stroke-linecap="round"/>' +
+      '<path d="M13 22h33v17a16 16 0 0 1-33 0V22Z" fill="#B7AFA9" transform="translate(1.2,1.6)"/>' +
+      '<path d="M13 22h33v17a16 16 0 0 1-33 0V22Z" fill="url(#' + a + ')"/>' +
+      '<ellipse cx="29.5" cy="22" rx="16.5" ry="4.4" fill="#6B4A2E"/>' +
+      '<path d="M15 23c2 6 8 9 15 9V23Z" fill="url(#' + b + ')" opacity=".5"/>' +
+      '<path d="M22 8c-2 3-2 5 0 7M30 6c-2 3-2 5 0 7M38 8c-2 3-2 5 0 7" stroke="#C6BFBA" stroke-width="2.6" stroke-linecap="round" fill="none"/>',
+      size, defs);
+  }
+
+  /* ---------- Chemise ---------- */
+  function chemise(size) {
+    const a = uid(), b = uid();
+    const defs =
+      lin(a, 12, 12, 52, 56, [[0, '#7FA9D8'], [.5, '#3E6FA8'], [1, '#22456E']]) +
+      lin(b, 16, 14, 30, 32, [[0, '#FFFFFF', .5], [1, '#FFFFFF', 0]]);
+    const d = 'M24 8 12 14 8 27l8 3v25h32V30l8-3-4-13L40 8l-8 6-8-6Z';
+    return wrap(
+      sol(32, 58, 17, 3, .16) +
+      '<path d="' + d + '" fill="#1B3654" transform="translate(1.4,1.6)"/>' +
+      '<path d="' + d + '" fill="url(#' + a + ')"/>' +
+      '<path d="M24 8 32 14 24 22 16 16Z" fill="url(#' + b + ')"/>' +
+      '<path d="M32 14v41" stroke="#1B3654" stroke-width="1.6" opacity=".5"/>',
+      size, defs);
+  }
+
+  /* ---------- Marmite ---------- */
+  function marmite(size) {
+    const a = uid(), b = uid();
+    const defs =
+      lin(a, 12, 24, 52, 54, [[0, '#B9BFC7'], [.5, '#7C848F'], [1, '#4A515B']]) +
+      lin(b, 16, 26, 30, 38, [[0, '#FFFFFF', .55], [1, '#FFFFFF', 0]]);
+    return wrap(
+      sol(32, 57, 18, 3, .18) +
+      '<path d="M22 6c-2 4-2 7 0 10M32 4c-2 4-2 7 0 10M42 6c-2 4-2 7 0 10" stroke="#CFC9C4" stroke-width="2.8" stroke-linecap="round" fill="none"/>' +
+      '<rect x="8" y="22" width="48" height="7" rx="3.5" fill="#5A626D"/>' +
+      '<path d="M12 29h40v16a10 10 0 0 1-10 10H22a10 10 0 0 1-10-10V29Z" fill="url(#' + a + ')"/>' +
+      '<path d="M4 31h6v8H4a4 4 0 0 1 0-8ZM54 31h6a4 4 0 0 1 0 8h-6Z" fill="#5A626D"/>' +
+      '<path d="M14 31c1 8 5 13 12 15V31Z" fill="url(#' + b + ')"/>',
+      size, defs);
+  }
+
+  /* ---------- Cadeau ---------- */
+  function cadeau(size) {
+    const a = uid(), b = uid();
+    const defs =
+      lin(a, 10, 22, 54, 56, [[0, '#F58BAE'], [.5, '#D63668'], [1, '#8E1039']]) +
+      lin(b, 12, 24, 30, 36, [[0, '#FFFFFF', .4], [1, '#FFFFFF', 0]]);
+    return wrap(
+      sol(32, 57, 18, 3, .16) +
+      '<path d="M32 20c-4-7-8-10-12-9a5 5 0 0 0 0 10ZM32 20c4-7 8-10 12-9a5 5 0 0 1 0 10Z" fill="#F0A93C"/>' +
+      '<rect x="8" y="20" width="48" height="11" rx="3" fill="#F0A93C"/>' +
+      '<path d="M12 31h40v18a6 6 0 0 1-6 6H18a6 6 0 0 1-6-6V31Z" fill="url(#' + a + ')"/>' +
+      '<rect x="28" y="20" width="8" height="35" fill="#F0A93C"/>' +
+      '<path d="M14 33c1 9 4 15 9 19V33Z" fill="url(#' + b + ')"/>',
+      size, defs);
+  }
+
+  /* ---------- Carte ---------- */
+  function carte(size) {
+    const a = uid(), b = uid();
+    const defs =
+      lin(a, 8, 12, 56, 54, [[0, '#8FD6A8'], [.5, '#3F9E68'], [1, '#1F5C3C']]) +
+      lin(b, 12, 14, 30, 32, [[0, '#FFFFFF', .45], [1, '#FFFFFF', 0]]);
+    return wrap(
+      sol(32, 57, 19, 3, .16) +
+      '<path d="m5 15 17-6 20 6 17-6v38l-17 6-20-6-17 6V15Z" fill="#1B4E33" transform="translate(1.2,1.6)"/>' +
+      '<path d="m5 15 17-6 20 6 17-6v38l-17 6-20-6-17 6V15Z" fill="url(#' + a + ')"/>' +
+      '<path d="M22 9v38M42 15v38" stroke="#1B4E33" stroke-width="1.6" opacity=".45"/>' +
+      '<path d="m5 15 17-6v10L5 25Z" fill="url(#' + b + ')"/>' +
+      '<circle cx="40" cy="26" r="6" fill="#E8384F"/>' +
+      '<path d="M40 44c0-6 5-10 5-15a5 5 0 0 0-10 0c0 5 5 9 5 15Z" fill="#E8384F"/>' +
+      '<circle cx="40" cy="29" r="2.6" fill="#fff"/>',
+      size, defs);
+  }
+
+  /* ---------- Verre a cocktail ---------- */
+  function verre(size) {
+    const a = uid(), b = uid();
+    const defs =
+      lin(a, 14, 12, 50, 34, [[0, '#F6A8C6'], [.5, '#D6437E'], [1, '#8E1447']]) +
+      lin(b, 16, 14, 30, 26, [[0, '#FFFFFF', .55], [1, '#FFFFFF', 0]]);
+    return wrap(
+      sol(32, 57, 15, 2.8, .16) +
+      '<path d="M9 11h46L32 37Z" fill="#7A1240" transform="translate(1.2,1.4)"/>' +
+      '<path d="M9 11h46L32 37Z" fill="url(#' + a + ')"/>' +
+      '<path d="M13 14h38l-4 4H17Z" fill="url(#' + b + ')"/>' +
+      '<rect x="29.5" y="36" width="5" height="17" rx="2" fill="#C6BFBA"/>' +
+      '<rect x="19" y="51" width="26" height="5" rx="2.5" fill="#C6BFBA"/>' +
+      '<circle cx="43" cy="16" r="5" fill="#7FBF3F"/>' +
+      '<path d="M43 11c3 0 5 2 5 5Z" fill="#A5D96A"/>',
+      size, defs);
+  }
+
+  /* ---------- Deux personnes ---------- */
+  function gens(size) {
+    const a = uid(), b = uid();
+    const defs =
+      lin(a, 8, 14, 40, 54, [[0, '#8FA9D6'], [.5, '#4A6CA8'], [1, '#28406B']]) +
+      lin(b, 26, 12, 58, 52, [[0, '#F6B48F'], [.5, '#D9713C'], [1, '#8E4218']]);
+    return wrap(
+      sol(32, 56, 19, 3, .16) +
+      '<circle cx="42" cy="21" r="9" fill="url(#' + b + ')"/>' +
+      '<path d="M42 32c8 0 14 5 14 12v8H28v-8c0-7 6-12 14-12Z" fill="url(#' + b + ')"/>' +
+      '<circle cx="23" cy="24" r="10" fill="url(#' + a + ')"/>' +
+      '<path d="M23 36c9 0 15 6 15 13v3H8v-3c0-7 6-13 15-13Z" fill="url(#' + a + ')"/>' +
+      '<circle cx="19" cy="20" r="3.4" fill="#FFFFFF" opacity=".28"/>',
+      size, defs);
+  }
+
+  const CATALOGUE = { haltere, eclair, flamme, coupe, pomme, goutte, coeur, cible, etoile, tasse, chemise, marmite, cadeau, carte, verre, gens };
 
   function art(nom, size) {
     if (nom === 'medaille') return medaille('or', size);

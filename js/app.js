@@ -28,21 +28,21 @@
     /* --- Hub ---
        Un nom, une icône, un dégradé. Rien d'autre : le sous-titre
        n'apprenait rien qu'on ne devine en ouvrant. */
-    { id: 'cafe',  label: 'Café',    icon: 'coffee', accent: 'cafe', codex: 'sb',
+    { id: 'cafe',  label: 'Café',    icon: 'coffee', art: 'tasse', accent: 'cafe', codex: 'sb',
       g1: '#0E6E4B', g2: '#31A876' },
-    { id: 'bar',   label: 'Bar',     icon: 'glass',  accent: 'bar',  codex: 'ck',
+    { id: 'bar',   label: 'Bar',     icon: 'glass', art: 'verre',  accent: 'bar',  codex: 'ck',
       g1: '#6B2A4E', g2: '#AE4A80' },
-    { id: 'foods', label: 'Aliments', icon: 'fork',  accent: 'brand',
+    { id: 'foods', label: 'Aliments', icon: 'fork', art: 'marmite',  accent: 'brand',
       g1: '#C05F26', g2: '#EBA255' },
-    { id: 'gifts', label: 'Cadeaux', icon: 'gift',   accent: 'brand',
+    { id: 'gifts', label: 'Cadeaux', icon: 'gift', art: 'cadeau',   accent: 'brand',
       g1: '#A31F46', g2: '#E45C82' },
-    { id: 'media', label: 'Films',   icon: 'film',   accent: 'brand',
+    { id: 'media', label: 'Films',   icon: 'film', art: 'etoile',   accent: 'brand',
       g1: '#3B3690', g2: '#7268CF' },
-    { id: 'city',  label: 'Ville',   icon: 'map',    accent: 'brand',
+    { id: 'city',  label: 'Ville',   icon: 'map', art: 'carte',    accent: 'brand',
       g1: '#1B6C7A', g2: '#3FA9B6' },
-    { id: 'profiles', label: 'Profils', icon: 'users', accent: 'brand',
+    { id: 'profiles', label: 'Profils', icon: 'users', art: 'gens', accent: 'brand',
       g1: '#46536A', g2: '#8090A6' },
-    { id: 'stats', label: 'Paliers', icon: 'trophy', accent: 'brand',
+    { id: 'stats', label: 'Paliers', icon: 'trophy', art: 'medaille', accent: 'brand',
       g1: '#96660F', g2: '#DCA842' }
   ];
 
@@ -129,11 +129,11 @@
         '<div class="hubgrid">' +
           MODULES.map((m) =>
             '<button class="hubtile" data-mod="' + m.id + '" style="--g1:' + m.g1 + ';--g2:' + m.g2 + '">' +
-              '<span class="ic">' + Icon(m.icon, 25) + '</span>' +
+              '<span class="ic">' + (m.art ? Art(m.art, 40) : Icon(m.icon, 25)) + '</span>' +
               '<b>' + UI.esc(m.label) + '</b>' +
             '</button>').join('') +
           '<button class="hubtile" data-mod="settings" style="--g1:#5B5754;--g2:#918B86">' +
-            '<span class="ic">' + Icon('settings', 25) + '</span><b>Réglages</b>' +
+            '<span class="ic">' + Art('cible', 40) + '</span><b>Réglages</b>' +
           '</button>' +
         '</div>' +
       '</div>';

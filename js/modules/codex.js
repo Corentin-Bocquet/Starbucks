@@ -60,7 +60,10 @@
   const TEINTE = { sb: ['#0E6E4B', '#31A876'], ck: ['#6B2A4E', '#AE4A80'], mm: ['#A8542A', '#D08A4E'] };
   function vignetteCreation(d, tab) {
     const g = TEINTE[tab || S.tab] || TEINTE.sb;
+    /* Si l'image du plat a ete fabriquee, elle prend la place du
+       degrade : une carte avec sa photo vaut mieux qu'un aplat. */
     return '<div class="ph creation" style="--g1:' + g[0] + ';--g2:' + g[1] + '">' +
+      Imagerie.vignette('plat', d.visuel || d.nom, { cle: Imagerie.cleDe('plat', d.nom), classe: 'large fondu' }) +
       '<span>' + Icon(tab === 'ck' || S.tab === 'ck' ? 'glass' : (tab === 'mm' || S.tab === 'mm') ? 'pot' : 'coffee', 30) + '</span>' +
       '<b>' + UI.esc(d.nom) + '</b></div>';
   }
@@ -175,13 +178,14 @@
     }
 
     if (S.all) {
-      app.innerHTML = allView(); bindCards(app);
+      app.innerHTML = allView(); bindCards(app); Imagerie.peupler(app, { generer: false });
       app.querySelectorAll('[data-c]').forEach((b) => b.onclick = () => { S.cat[S.tab] = b.dataset.c; render(); });
       renderFoot(); return;
     }
 
     app.innerHTML = wizView();
     bindCards(app); bindWiz(); renderFoot();
+    Imagerie.peupler(app, { generer: false });
   }
 
   function allView() {
@@ -329,6 +333,7 @@
   const bandeauCreation = (d, tab) => {
     const g = TEINTE[tab] || TEINTE.sb;
     return '<div class="mimg creation" style="--g1:' + g[0] + ';--g2:' + g[1] + '">' +
+      Imagerie.vignette('plat', d.visuel || d.nom, { cle: Imagerie.cleDe('plat', d.nom), classe: 'large fondu' }) +
       '<div>' + Icon(tab === 'ck' ? 'glass' : tab === 'mm' ? 'pot' : 'coffee', 40) +
       '<b>' + UI.esc(d.nom) + '</b><small>Créé avec l\'IA</small></div></div>';
   };
@@ -419,13 +424,11 @@
           sh.querySelector('[data-go]').onclick = async () => {
             const btn = sh.querySelector('[data-go]');
             btn.classList.add('is-loading');
-            out.innerHTML = UI.thinking('L\'IA cherche…');
+            out.innerHTML = UI.thinking('L\'IA cherche trois idées…');
             try {
-              const d = await creerAvecIA(tab, txt.value.trim(), sh.querySelector('[data-stockonly]').checked);
-              UI.closeSheet();
-              openIt(d.id);
-              UI.toast('Ajouté à ' + (tab === 'sb' ? 'Café' : tab === 'ck' ? 'Bar' : 'Recettes'));
-              if (global.Game) Game.award('creation', 12);
+              const trois = await proposerTrois(tab, txt.value.trim(), sh.querySelector('[data-stockonly]').checked);
+              btn.classList.remove('is-loading');
+              montrerPropositions(sh, out, tab, trois);
             } catch (e) {
               btn.classList.remove('is-loading');
               out.innerHTML = UI.empty('alert', 'Ça n\'a pas marché', AI.humanError(e));
@@ -435,7 +438,84 @@
     );
   }
 
-  async function creerAvecIA(tab, envie, seulementStock) {
+  /* ============================================================
+     Trois idées, en carrousel
+
+     Une seule proposition, c'est à prendre ou à laisser. Trois,
+     on choisit. Chaque carte porte son image, fabriquée à la
+     volée, et on les fait défiler du pouce.
+     ============================================================ */
+  const QUOI = { sb: 'une boisson', ck: 'un cocktail', mm: 'une recette' };
+
+  async function proposerTrois(tab, envie, seulementStock) {
+    const dispo = Array.from(S.stock[tab]).map((k) => STOCKNAME[k]).filter(Boolean);
+    const dejaLa = ALL(tab).map((d) => d.nom).slice(0, 60).join(', ');
+
+    const res = await AI.json(
+      'Propose trois idées différentes de ' + QUOI[tab] + '.\n\n' +
+      (envie ? 'ENVIE : ' + envie + '\n\n' : '') +
+      'CE QUE J AI SOUS LA MAIN : ' + (dispo.length ? dispo.join(', ') : 'rien de precise') + '\n' +
+      (seulementStock
+        ? "Regle absolue : n'utilise que des ingredients de cette liste, plus l'eau, le sel, le poivre et le sucre.\n"
+        : 'Tu peux ajouter au maximum deux ingredients absents de la liste.\n') +
+      'A NE PAS REPROPOSER : ' + dejaLa + '\n\n' +
+      'Trois idees vraiment differentes les unes des autres. Pour chacune, un nom court, ' +
+      'une phrase de description, et les ingredients principaux. Reponds en francais.',
+      AI.T.obj({ idees: AI.T.arr(AI.T.obj({
+        nom: AI.T.str('Nom court et appetissant'),
+        desc: AI.T.str('Une phrase : le gout et le moment'),
+        ingredients: AI.T.arr(AI.T.str(''), 'Quatre a six ingredients principaux'),
+        temps: AI.T.str('Temps de preparation'),
+        visuel: AI.T.str('Le plat decrit pour une photo : couleurs, texture, dressage')
+      })) }), { cache: false, temperature: 1 });
+
+    return (res.idees || []).slice(0, 3);
+  }
+
+  function montrerPropositions(sh, out, tab, idees) {
+    if (!idees.length) { out.innerHTML = UI.empty('search', 'Rien trouvé', 'Reformule ton envie.'); return; }
+
+    out.innerHTML =
+      '<h4 style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:16px 0 8px">Trois idées</h4>' +
+      '<div class="carrousel">' + idees.map((x, i) =>
+        '<div class="carteidee" data-idee="' + i + '">' +
+          '<div class="visuel">' +
+            Imagerie.vignette('plat', x.visuel || x.nom, { classe: 'large', cle: Imagerie.cleDe('plat', x.nom) }) +
+          '</div>' +
+          '<div class="corps">' +
+            '<b>' + UI.esc(x.nom) + '</b>' +
+            '<small>' + UI.esc(x.desc || '') + '</small>' +
+            '<div class="puces">' + (x.ingredients || []).slice(0, 3).map((g) =>
+              '<span>' + UI.esc(g) + '</span>').join('') + '</div>' +
+            '<span class="cta">' + Icon('check', 15) + 'Choisir</span>' +
+          '</div>' +
+        '</div>').join('') + '</div>';
+
+    Imagerie.peupler(out, { generer: true, max: 3 });
+
+    out.querySelectorAll('[data-idee]').forEach((b) => b.onclick = async () => {
+      const x = idees[+b.dataset.idee];
+      b.querySelector('.cta').innerHTML = UI.thinking('Je détaille…');
+      try {
+        const d = await detailler(tab, x);
+        UI.closeSheet();
+        openIt(d.id);
+        UI.toast('Ajouté à ' + (tab === 'sb' ? 'Café' : tab === 'ck' ? 'Bar' : 'Recettes'));
+        if (global.Game) Game.award('creation', 12);
+      } catch (e) {
+        b.querySelector('.cta').innerHTML = Icon('alert', 15) + 'Réessayer';
+        UI.toast(AI.humanError(e));
+      }
+    });
+  }
+
+  /* Une idée retenue devient une fiche complète. */
+  async function detailler(tab, idee) {
+    return creerAvecIA(tab, idee.nom + '. ' + (idee.desc || '') +
+      ' Ingredients principaux : ' + (idee.ingredients || []).join(', ') + '.', false, idee);
+  }
+
+  async function creerAvecIA(tab, envie, seulementStock, idee) {
     const dispo = Array.from(S.stock[tab]).map((k) => STOCKNAME[k]).filter(Boolean);
     const dejaLa = ALL(tab).map((d) => d.nom).slice(0, 60).join(', ');
     const quoi = tab === 'sb' ? 'une boisson de type Starbucks, faisable a la maison'
@@ -484,8 +564,13 @@
       materiel: res.materiel || [], notion: ''
     });
 
+    if (idee && idee.visuel) base.visuel = idee.visuel;
     const saved = Store.add('creations', base);
     render();
+    /* L'image du plat part en fond : la fiche s'ouvre tout de
+       suite, la photo arrive quelques secondes plus tard. */
+    Imagerie.obtenir(tab === 'ck' ? 'boisson' : tab === 'sb' ? 'boisson' : 'plat',
+      base.visuel || base.nom, { cle: Imagerie.cleDe('plat', base.nom) });
     return saved;
   }
 
@@ -505,6 +590,8 @@
       '<button class="btn danger block" data-delcrea>' + Icon('trash', 16) + 'Supprimer ce que j\'ai créé</button></div>';
     UI.openSheet(body, {
       onMount: (s) => {
+        /* Les vignettes du placard se remplissent en arriere-plan. */
+        Imagerie.peupler(s, { generer: true, max: 6 });
         const b = s.querySelector('[data-addfood]');
         if (b) b.onclick = () => { UI.closeSheet(); Food.quickAdd({ nom: d.nom, kcal: d.kcal || null }); };
         const del = s.querySelector('[data-delcrea]');
@@ -512,6 +599,24 @@
       }
     });
     Store.log('codex-open', { id: id, tab: S.tab, nom: d.nom });
+  }
+
+  /* ============================================================
+     Une ligne d'ingrédient
+
+     Chaque ingrédient porte sa vignette. Une liste de courses en
+     texte pur se lit mal ; avec les images, on repère d'un coup
+     d'œil ce qu'on a déjà dans le placard.
+     ============================================================ */
+  function ligneIngredient(nom, quantite, note, pastille) {
+    return '<div class="ing avecimg">' +
+      '<div class="l">' +
+        Imagerie.vignette('ingredient', nom, { classe: 'petite ronde' }) +
+        (pastille || '') +
+        '<div>' + UI.esc(nom) + (note ? '<small>' + UI.esc(note) + '</small>' : '') + '</div>' +
+      '</div>' +
+      '<div class="q">' + UI.esc(quantite || '') + '</div>' +
+    '</div>';
   }
 
   const mimg = (img, cover) => '<div class="mimg' + (cover ? ' cover' : '') + '"><img class="bg" src="' + img + '" alt=""><img src="' + img + '" alt=""></div>';
@@ -535,7 +640,7 @@
       stockLine(d) +
       '<button class="btn soft block" data-addfood>' + Icon('plus', 17) + 'Consigner dans Alimentation</button>' +
       '<div class="blk"><h4>Composition <span class="sz">' + SIZENAME[S.size] + '</span></h4>' +
-      d.ing.map((i) => '<div class="ing"><div class="l"><div>' + UI.esc(i.n) + (i.note ? '<small>' + UI.esc(i.note) + '</small>' : '') + '</div></div><div class="q">' + UI.esc(i[S.size]) + '</div></div>').join('') + '</div>' +
+      d.ing.map((i) => ligneIngredient(i.n, i[S.size], i.note)).join('') + '</div>' +
       '<div class="blk"><h4>Ordre d\'assemblage</h4><ol class="steps">' + d.steps.map((s) => '<li>' + UI.esc(s) + '</li>').join('') + '</ol></div>' +
       '<div class="machbox"><h4>Sur la Eletta Explore</h4><p>' + UI.esc(d.eletta) + '</p></div>' +
       '<div class="tipbox"><h4>Le détail qui change tout</h4><p>' + UI.esc(d.astuce) + '</p></div></div>';
@@ -553,7 +658,7 @@
       '<div class="blk"><h4>Composition</h4>' +
       d.ing.map((i) => {
         const st = (!i.k || i.opt) ? '' : (S.stock.ck.has(i.k) ? '<span class="pill y">OK</span>' : '<span class="pill n">manque</span>');
-        return '<div class="ing"><div class="l">' + st + '<div>' + UI.esc(i.n) + (i.opt ? '<small>optionnel</small>' : '') + '</div></div><div class="q">' + UI.esc(i.q) + '</div></div>';
+        return ligneIngredient(i.n, i.q, i.opt ? 'optionnel' : '', st);
       }).join('') + '</div>' +
       '<div class="blk"><h4>Préparation</h4><ol class="steps">' + d.steps.map((s) => '<li>' + UI.esc(s) + '</li>').join('') + '</ol></div>' +
       '<div class="tipbox"><h4>Le détail qui change tout</h4><p>' + UI.esc(d.astuce) + '</p></div></div>';
@@ -570,7 +675,7 @@
       '<div class="num"><b>' + (d.serv === 'chaud' ? 'Chaud' : 'Froid') + '</b><span>service</span></div></div>' +
       stockLine(d) +
       '<div class="blk"><h4>Ingredients</h4>' +
-      d.ing.map((i) => '<div class="ing"><div class="l"><div>' + UI.esc(i.n) + '</div></div><div class="q">' + UI.esc(i.q) + '</div></div>').join('') + '</div>' +
+      d.ing.map((i) => ligneIngredient(i.n, i.q)).join('') + '</div>' +
       (d.materiel && d.materiel.length ? '<div class="blk"><h4>Matériel</h4><ul class="mat">' + d.materiel.map((m) => '<li>' + UI.esc(m) + '</li>').join('') + '</ul></div>' : '') +
       '<div class="blk"><h4>Préparation</h4><ol class="steps">' + d.steps.map((s) => '<li>' + UI.esc(s) + '</li>').join('') + '</ol></div>' +
       (d.img2 ? '<div class="blk"><h4>En vrai</h4><img src="' + IMG['mm-' + d.img2] + '" style="border-radius:14px;width:100%"></div>' : '') +

@@ -219,6 +219,46 @@
      Tout ce qui ouvre l'appareil photo dans l'application passe
      par ici, pour que le bug ne puisse pas revenir ailleurs.
      ============================================================ */
+  /* ============================================================
+     Ramener n'importe quelle source en data:
+
+     L'API de vision de Gemini n'accepte que des images encodees
+     dans la requete. Une photo rangee sur le compte est une URL
+     https, et elle etait silencieusement ignoree : le modele
+     repondait alors sans avoir rien vu, ce qui expliquait les
+     re-analyses fantaisistes sur les vetements deja enregistres.
+     ============================================================ */
+  async function versDataUrl(src) {
+    if (!src) return null;
+    if (typeof src !== 'string') return await AI.fileToDataUrl(src);
+    if (src.indexOf('data:') === 0) return src;
+    try {
+      const r = await fetch(src, { mode: 'cors' });
+      if (!r.ok) return null;
+      const blob = await r.blob();
+      return await new Promise((ok, ko) => {
+        const fr = new FileReader();
+        fr.onload = () => ok(fr.result);
+        fr.onerror = () => ko(new Error('lecture impossible'));
+        fr.readAsDataURL(blob);
+      });
+    } catch (e) { return null; }
+  }
+
+  /* La photo d'un element, quelle que soit sa provenance, prete a
+     partir dans une requete. On prefere la copie locale : elle ne
+     coute pas de reseau et ne peut pas etre bloquee. */
+  async function pourIA(obj, champ) {
+    if (!obj) return null;
+    const id = obj[champ || 'photo'];
+    if (id) {
+      const local = await get(id);
+      if (local) return local;
+    }
+    const url = obj[(champ || 'photo') + 'Url'];
+    return url ? await versDataUrl(url) : null;
+  }
+
   function pick(onFile, opts) {
     opts = opts || {};
     const inp = document.createElement('input');
@@ -246,5 +286,5 @@
     inp.click();
   }
 
-  global.Photos = { put, get, del, save, upload, sync, hydrate, img, usage, pendingUploads, pick };
+  global.Photos = { put, get, del, save, upload, sync, hydrate, img, usage, pendingUploads, pick, versDataUrl, pourIA };
 })(window);
