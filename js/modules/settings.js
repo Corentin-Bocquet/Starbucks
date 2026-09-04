@@ -76,6 +76,18 @@
               ? Imagerie.stats().enCache + ' en mémoire · ' + Imagerie.resteAujourdhui() + " possibles aujourd'hui"
               : 'Coupées') + '</small></span>' +
             '<span class="rt">' + Icon('next', 15) + '</span></button>' +
+          /* Le portrait sert a la fonction « Me voir avec » des
+             tenues. Il se depose ici une fois pour toutes : avant,
+             l'application le redemandait a chaque essai. */
+          '<button class="rowitem" data-act="portrait">' +
+            (Store.get('portraitPhotoUrl', null)
+              ? '<span class="ic photo"><img src="' + UI.attr(Store.get('portraitPhotoUrl')) + '" alt=""></span>'
+              : '<span class="ic">' + Icon('user', 17) + '</span>') +
+            '<span class="tx"><b>Ma photo</b><small>' +
+            (Store.get('portraitPhoto', null) || Store.get('portraitPhotoUrl', null)
+              ? 'Enregistrée · sert à générer tes tenues portées'
+              : 'Pour te voir habillé avec une tenue') + '</small></span>' +
+            '<span class="rt">' + Icon('next', 15) + '</span></button>' +
           '<button class="rowitem" data-act="diag"><span class="ic">' + Icon('activity', 17) + '</span>' +
             '<span class="tx"><b>Tester l\'IA</b><small>' +
             (AI.currentModel() ? 'Modèle actif : ' + UI.esc(AI.currentModel()) : 'Vérifie la clé et choisit le modèle') +
@@ -201,6 +213,13 @@
   }
 
   const acts = {
+    /* --- Ma photo, pour « Me voir avec » --- */
+    portrait: async () => {
+      if (!global.Outfits) { UI.toast('Ouvre les tenues une fois'); return; }
+      await Outfits.definirPortrait();
+      render();
+    },
+
     /* --- Compte --- */
     login: () => authSheet('login'),
     signup: () => authSheet('signup'),

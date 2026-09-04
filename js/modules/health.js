@@ -127,10 +127,10 @@
             '</small>' +
           '</div>' +
         '</div>' +
-        '<div class="grid tight two" style="margin-top:14px">' +
-          '<button class="btn primary" data-act="muscu">' + Icon('dumbbell', 17) + 'Musculation</button>' +
-          '<button class="btn" data-act="sportauto">' + Icon('activity', 17) + 'Un sport</button>' +
-        '</div>' +
+        Portes.grille([
+          { act: 'muscu',     nom: 'Musculation', sub: 'Séries et charges', ph: 'gym weights training' },
+          { act: 'sportauto', nom: 'Un sport',    sub: 'Course, vélo, nage', ph: 'running outdoor sport' }
+        ], { classe: 'dansbloc' }) +
         (j.liste.length
           ? '<div class="list" style="margin-top:12px">' + j.liste.map((x) =>
               '<div class="rowitem"><span class="ic">' + Icon(x.type === 'muscu' ? 'dumbbell' : 'activity', 17) + '</span>' +
@@ -304,27 +304,22 @@
 
   const niveau = (n) => n >= 8 ? 'Très bonne forme' : n >= 6 ? 'Bonne forme' : n >= 4 ? 'Forme moyenne' : 'Forme basse';
 
+  /* Les quatre entrees de gestion, en tuiles photo. Avant, quatre
+     lignes grises identiques avec une petite icone de la meme
+     couleur que son fond : rien n'attirait l'oeil, rien ne se
+     distinguait. */
   function sourcesBlock() {
     const meta = Store.get('healthImport', null);
-    return '<div class="section"><div class="sechead"><h2 style="font-size:16px">Données</h2></div>' +
-      '<div class="list">' +
-        '<button class="rowitem" data-act="import"><span class="ic marque">' + Icon.marque('sante', 21) + '</span>' +
-          '<span class="tx"><b>Importer un export Apple Santé</b><small>' +
-          (meta ? UI.fmt.n(meta.records) + ' mesures · ' + UI.fmt.dateShort(meta.at) : 'export.zip ou export.xml') + '</small></span>' +
-          '<span class="rt">' + Icon('next', 15) + '</span></button>' +
-        '<button class="rowitem" data-act="manual"><span class="ic">' + Icon('edit', 17) + '</span>' +
-          '<span class="tx"><b>Saisir une journée</b><small>Entre deux exports</small></span>' +
-          '<span class="rt">' + Icon('next', 15) + '</span></button>' +
-        '<button class="rowitem" data-act="goals"><span class="ic">' + Icon('target', 17) + '</span>' +
-          '<span class="tx"><b>Mes objectifs</b><small>Pas, exercice, énergie, sommeil</small></span>' +
-          '<span class="rt">' + Icon('next', 15) + '</span></button>' +
-        (daily().length ? '<button class="rowitem" data-act="clear"><span class="ic" style="background:var(--danger-soft);color:var(--danger)">' + Icon('trash', 17) + '</span>' +
-          '<span class="tx"><b>Effacer les données santé</b><small>' + daily().length + ' journées</small></span>' +
-          '<span class="rt">' + Icon('next', 15) + '</span></button>' : '') +
-      '</div>' +
-      '<p class="muted" style="font-size:11.5px;margin-top:10px;line-height:1.5">' +
-      'Apple Santé ne propose aucune connexion directe pour le web. Un export met une à deux minutes à se générer sur l\'iPhone et couvre tout l\'historique.</p>' +
-      '</div>';
+    return Portes.section('Mes données', [
+      { act: 'import', nom: 'Apple Santé', ph: 'iphone health data',
+        sub: meta ? UI.fmt.n(meta.records) + ' mesures' : 'Importer l\'export' },
+      { act: 'manual', nom: 'Saisir un jour', sub: 'À la main', ph: 'notebook pen' },
+      { act: 'goals',  nom: 'Mes objectifs', sub: 'Pas, sommeil, énergie', ph: 'cible' },
+      daily().length ? { act: 'clear', nom: 'Tout effacer', sub: daily().length + ' journées', ph: 'empty box' } : null
+    ].filter(Boolean)) +
+    '<div class="section" style="padding-top:0"><p class="muted" style="font-size:11.5px;line-height:1.5">' +
+    'Apple Santé ne propose aucune connexion directe pour le web. L\'export met une à deux minutes ' +
+    'à se générer sur l\'iPhone et couvre tout l\'historique.</p></div>';
   }
 
   function bind() {

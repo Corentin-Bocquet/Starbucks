@@ -63,32 +63,32 @@
      davantage : au-delà, on ne choisit plus, on hésite. */
   const ETATS = [
     {
-      id: 'aplat', nom: 'À plat', sub: 'Plus de moteur, rien ne donne envie',
+      id: 'aplat', nom: 'Pas d\'énergie', sub: 'Rien ne me donne envie',
       molecule: 'dopamine', icon: 'flame',
       phrase: 'La dopamine, ça se relance par l\'action, pas par l\'attente. Le plus court chemin est physique.'
     },
     {
-      id: 'invisible', nom: 'Invisible', sub: 'Personne ne voit ce que je fais',
+      id: 'invisible', nom: 'Besoin de réussir un truc', sub: 'J\'ai l\'impression de ne rien accomplir',
       molecule: 'serotonine', icon: 'trophy',
       phrase: 'La sérotonine vient de ce qu\'on termine et de ce qui se voit. Finis un truc, montre-le.'
     },
     {
-      id: 'seul', nom: 'Seul', sub: 'Envie de rire avec des gens',
+      id: 'seul', nom: 'Envie de voir du monde', sub: 'Envie de rire avec des gens',
       molecule: 'cannabinoides', icon: 'users',
       phrase: 'Celle-là, tu ne peux pas la remplir seul. Aucune activité en solo ne la déclenche.'
     },
     {
-      id: 'avif', nom: 'À vif', sub: 'Tendu, ça fait mal quelque part',
+      id: 'avif', nom: 'Stressé', sub: 'Tendu, sur les nerfs',
       molecule: 'opioides', icon: 'heart',
       phrase: 'Le réconfort profond passe par le contact et le soin. Seul, on anesthésie, on n\'apaise pas.'
     },
     {
-      id: 'mou', nom: 'Sans cran', sub: 'Je n\'ose plus rien tenter',
+      id: 'mou', nom: 'Manque de confiance', sub: 'Je n\'ose plus rien tenter',
       molecule: 'testosterone', icon: 'dumbbell',
       phrase: 'La confiance revient en gagnant quelque chose de petit, physiquement ou face à quelqu\'un.'
     },
     {
-      id: 'tendresse', nom: 'Besoin des miens', sub: 'Envie de chaleur, pas de bruit',
+      id: 'tendresse', nom: 'Envie d\'un moment calme', sub: 'De la chaleur, pas du bruit',
       molecule: 'ocytocine', icon: 'heart',
       phrase: 'L\'ocytocine ne se fabrique qu\'à deux, dans le calme et le contact. Une seule personne suffit.'
     }

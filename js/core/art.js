@@ -349,7 +349,67 @@
       size, defs);
   }
 
-  const CATALOGUE = { haltere, eclair, flamme, coupe, pomme, goutte, coeur, cible, etoile, tasse, chemise, marmite, cadeau, carte, verre, gens };
+
+  /* ---------- Clap de cinéma ----------
+     L'ardoise et son bras articulé. Les bandes claires sont
+     découpées par un masque pour ne pas déborder des angles
+     arrondis. */
+  function clap(size) {
+    const a = uid(), b = uid(), c1 = uid(), c2 = uid();
+    const defs =
+      lin(a, 8, 26, 56, 54, [[0, '#39414F'], [.55, '#242A35'], [1, '#141920']]) +
+      lin(b, 8, 12, 56, 25, [[0, '#4A5464'], [.55, '#2E3542'], [1, '#1B212B']]) +
+      '<clipPath id="' + c1 + '"><rect x="8" y="26" width="48" height="27" rx="5"/></clipPath>' +
+      '<clipPath id="' + c2 + '"><rect x="8" y="12.5" width="48" height="11.5" rx="3"/></clipPath>';
+    const bandesCorps =
+      '<g clip-path="url(#' + c1 + ')" opacity=".13">' +
+      [0, 14, 28, 42].map((x) =>
+        '<path d="M' + (x + 10) + ' 26h7l-9 27h-7Z" fill="#FFFFFF"/>').join('') +
+      '</g>';
+    const bandesBras =
+      '<g clip-path="url(#' + c2 + ')">' +
+      [0, 12, 24, 36].map((x) =>
+        '<path d="M' + (x + 9) + ' 12.5h6.5l-4 11.5H5Z" fill="#F4F6FA" opacity=".9"/>').join('') +
+      '</g>';
+    return wrap(
+      sol(32, 56, 20, 3.2, .18) +
+      '<rect x="8" y="28.5" width="48" height="27" rx="5" fill="#0F131A"/>' +
+      '<rect x="8" y="26" width="48" height="27" rx="5" fill="url(#' + a + ')"/>' +
+      bandesCorps +
+      '<g transform="rotate(-9 11 24)">' +
+      '<rect x="8" y="14" width="48" height="11.5" rx="3" fill="#0F131A"/>' +
+      '<rect x="8" y="12.5" width="48" height="11.5" rx="3" fill="url(#' + b + ')"/>' +
+      bandesBras +
+      '</g>' +
+      '<circle cx="12.5" cy="27.5" r="2.2" fill="#FFFFFF" opacity=".3"/>',
+      size, defs);
+  }
+
+  /* ---------- Roue crantée ----------
+     Huit dents posées en couronne, un moyeu creux, et la même
+     copie sombre décalée que partout ailleurs pour l'épaisseur. */
+  function roue(size) {
+    const a = uid(), b = uid();
+    const defs =
+      lin(a, 12, 10, 52, 54, [[0, '#C8D2E0'], [.42, '#8492A6'], [1, '#4E5867']]) +
+      lin(b, 24, 24, 40, 40, [[0, '#2C3340'], [1, '#171C25']]);
+    const dents = (dy, fill) =>
+      [0, 45, 90, 135, 180, 225, 270, 315].map((r) =>
+        '<rect x="28" y="' + (5 + dy) + '" width="8" height="14" rx="3" fill="' + fill +
+        '" transform="rotate(' + r + ' 32 ' + (32 + dy) + ')"/>').join('');
+    return wrap(
+      sol(32, 57, 18, 3, .16) +
+      dents(2.5, '#3A4250') +
+      '<circle cx="32" cy="34.5" r="18" fill="#3A4250"/>' +
+      dents(0, 'url(#' + a + ')') +
+      '<circle cx="32" cy="32" r="18" fill="url(#' + a + ')"/>' +
+      '<circle cx="32" cy="32" r="8.5" fill="url(#' + b + ')"/>' +
+      '<circle cx="32" cy="32" r="8.5" fill="none" stroke="#0F131A" stroke-opacity=".35" stroke-width="1.2"/>' +
+      '<path d="M20 22a17 17 0 0 1 11-5" stroke="#FFFFFF" stroke-opacity=".45" stroke-width="2.6" stroke-linecap="round" fill="none"/>',
+      size, defs);
+  }
+
+  const CATALOGUE = { haltere, eclair, flamme, coupe, pomme, goutte, coeur, cible, etoile, tasse, chemise, marmite, cadeau, carte, verre, gens, clap, roue };
 
   function art(nom, size) {
     if (nom === 'medaille') return medaille('or', size);

@@ -143,7 +143,22 @@
 }
 .list .rowitem:last-child { border-bottom: none; }
 .list .rowitem:active { background: var(--surface-2); }
-.list .rowitem .ic { flex: none; width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); }
+/* Le carre d'icone d'une ligne. Il etait limite aux listes, donc
+   partout ailleurs l'icone flottait sans etre centree. Et l'icone
+   prenait la teinte de son propre fond : une icone rouge sur fond
+   rouge ne se voit pas. Fond en degrade sature, icone en blanc. */
+.rowitem .ic {
+  flex: none; width: 34px; height: 34px; border-radius: 11px;
+  display: grid; place-items: center; color: #fff;
+  background: linear-gradient(145deg,
+    color-mix(in srgb, var(--accent) 78%, white),
+    color-mix(in srgb, var(--accent) 100%, black 14%));
+  box-shadow: 0 4px 10px -6px var(--accent), inset 0 1px 0 rgba(255,255,255,.25);
+}
+.rowitem .ic svg { width: 18px; height: 18px; }
+.rowitem .ic.marque { background: var(--surface-2); color: var(--ink); box-shadow: inset 0 0 0 1px var(--hairline); }
+/* Tout SVG pose dans un bouton reste centre sur sa ligne de base. */
+.btn svg, .chip svg, .tbtn svg, .rondgris svg { flex: none; display: block; }
 .list .rowitem .ic svg { width: 17px; height: 17px; }
 .list .rowitem .tx { flex: 1; min-width: 0; }
 .list .rowitem .tx b { display: block; font-weight: 650; font-size: 14.5px; }
@@ -331,13 +346,18 @@
    ============================================================ */
 .searchbar {
   position: sticky; top: var(--topbar); z-index: 60;
-  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  background: color-mix(in srgb, var(--bg) 96%, transparent);
   backdrop-filter: saturate(180%) blur(18px);
   -webkit-backdrop-filter: saturate(180%) blur(18px);
   border-bottom: 1px solid var(--hairline);
   padding: 10px 0;
 }
-@media (min-width: 900px) { .searchbar { top: calc(var(--topbar) + 68px); } }
+/* La barre du bas ne vit plus en haut sur grand ecran : la barre
+   de recherche reprend donc sa place normale, juste sous l'en-tete.
+   Le fond passe aussi de 88 % a 96 % : a 88 %, les cartes qui
+   defilaient dessous restaient visibles au travers et on croyait a
+   un bug d'affichage. */
+.searchbar { background: color-mix(in srgb, var(--bg) 96%, transparent); }
 .searchrow { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .searchrow .search { flex: 1 1 100%; order: 1; }
 .searchrow .seg { order: 2; flex: 1 1 auto; }
@@ -479,10 +499,26 @@
   .sheet { border-radius: var(--r-2xl); max-height: 86vh; }
 }
 
-.mimg { position: relative; aspect-ratio: 1 / 1; max-height: 44vh; overflow: hidden; background: var(--surface-2); display: grid; place-items: center; }
-.mimg img { width: 100%; height: 100%; object-fit: contain; position: relative; z-index: 2; }
-.mimg img.bg { position: absolute; inset: 0; object-fit: cover; filter: blur(30px) saturate(1.3); opacity: .55; z-index: 1; transform: scale(1.2); }
-.mimg.cover img { object-fit: cover; }
+/* L'image d'en-tete d'une pop-up occupe TOUTE la largeur et colle
+   au bord haut. Avant, `contain` laissait deux bandes vides sur
+   les cotes et la poignee dessinait un trait blanc au-dessus. */
+.mimg {
+  position: relative; width: 100%; aspect-ratio: 16 / 11; max-height: 42vh;
+  overflow: hidden; background: var(--surface-2);
+  border-radius: var(--r-2xl) var(--r-2xl) 0 0;
+}
+.mimg img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 2; }
+.mimg img.bg { display: none; }
+.mimg::after {
+  content: ''; position: absolute; inset: auto 0 0 0; height: 46%; z-index: 3;
+  background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--bg-elev) 92%, transparent));
+  pointer-events: none;
+}
+/* Meme traitement que la banniere coloree : la poignee et la
+   croix passent par-dessus l'image au lieu de la repousser. */
+.sheet:has(> .mimg) .grabber { position: absolute; left: 0; right: 0; background: none; z-index: 8; }
+.sheet:has(> .mimg) .grabber i { background: rgba(255,255,255,.6); }
+.sheet:has(> .mimg) .close { background: rgba(0,0,0,.3); color: #fff; box-shadow: none; }
 .mbody { padding: 20px var(--gut) 34px; }
 .mcat { font-size: var(--t-xs); font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); margin-bottom: 6px; }
 .mbody h2 { font-size: 27px; font-weight: 900; letter-spacing: -.03em; }
@@ -893,24 +929,46 @@ footer#codexFoot { padding: 22px var(--gut) 34px; display: flex; justify-content
   transition: transform var(--d-base) var(--spring);
   will-change: transform;
 }
+/* Les actions sont des ronds espaces, jamais des blocs colles au
+   bord : c'est plus doux a l'oeil et plus facile a viser. */
 .glissable .actions {
   position: absolute; inset: 0 0 0 auto; z-index: 1;
-  display: flex; align-items: stretch;
+  display: flex; align-items: center; gap: 10px;
+  padding: 0 12px;
 }
 .glissable .act {
-  width: 78px; display: flex; flex-direction: column;
-  align-items: center; justify-content: center; gap: 4px;
+  width: 46px; height: 46px; border-radius: 50%; flex: none;
+  display: grid; place-items: center;
   background: var(--surface-3); color: var(--ink-2);
-  font-size: 11px; font-weight: 650;
+  box-shadow: 0 4px 12px -6px rgba(0,0,0,.45), inset 0 0 0 1px var(--hairline);
+  transition: transform var(--d-base) var(--spring), filter var(--d-base);
 }
-.glissable .act svg { width: 19px; height: 19px; }
+.glissable .act span { display: none; }
+.glissable .act svg { width: 20px; height: 20px; }
 .glissable .act.danger { background: var(--danger); color: #fff; }
 .glissable .act.accent { background: var(--accent); color: #fff; }
-.glissable .act:active { filter: brightness(.92); }
+.glissable .act:active { transform: scale(.88); }
 
-/* Sans doigt : au survol, la ligne s'ecarte toute seule. */
+/* Sans doigt : les ronds se posent PAR-DESSUS le bord droit et
+   la ligne ne bouge pas d'un pixel. Avant, elle glissait vers la
+   gauche au survol et le nom de l'aliment sortait de l'ecran. */
 @media (pointer: fine) {
-  .glissable:hover .dessus { transform: translateX(calc(-78px * var(--nact, 1))); }
+  .glissable .actions {
+    z-index: 3; pointer-events: none;
+    opacity: 0; transform: translateX(6px);
+    transition: opacity var(--d-base) var(--ease), transform var(--d-base) var(--spring);
+  }
+  .glissable .actions::before {
+    content: ''; position: absolute; inset: 0 0 0 -46px; z-index: -1;
+    background: linear-gradient(90deg, transparent, var(--surface) 42%);
+    border-radius: inherit;
+  }
+  .glissable:hover .actions, .glissable:focus-within .actions {
+    opacity: 1; transform: none; pointer-events: auto;
+  }
+  .glissable:hover .dessus { transform: none; }
+  .glissable .act { box-shadow: 0 6px 16px -8px rgba(0,0,0,.5), inset 0 0 0 1px var(--hairline); }
+  .glissable .act:hover { filter: brightness(1.06); transform: scale(1.06); }
 }
 
 /* Indice de balayage : une petite fleche qui pulse la premiere
@@ -1237,6 +1295,11 @@ footer#codexFoot { padding: 22px var(--gut) 34px; display: flex; justify-content
 .vign.ronde { border-radius: 50%; }
 .vign.large { aspect-ratio: 16 / 10; }
 .vign.haute { aspect-ratio: 2 / 3; }
+/* Une vignette DANS une ligne est une miniature, pas une
+   illustration : sans taille fixe elle prenait toute la largeur
+   disponible et ecrasait le texte contre le bord droit. */
+.vign.petite { width: 46px; height: 46px; flex: none; aspect-ratio: 1; }
+.rowitem > .vign { width: 46px; height: 46px; flex: none; aspect-ratio: 1; }
 
 
 /* ============================================================
@@ -1385,7 +1448,7 @@ footer#codexFoot { padding: 22px var(--gut) 34px; display: flex; justify-content
 .meteo-jour small { display: block; color: var(--muted); font-size: 12.5px; margin-top: 1px; }
 
 .cartestyle {
-  position: relative; width: 224px; aspect-ratio: 3 / 4;
+  position: relative; width: min(74vw, 268px); aspect-ratio: 3 / 4;
   border-radius: var(--r-xl); overflow: hidden;
   background: linear-gradient(155deg, var(--g1), var(--g2));
   box-shadow: var(--sh-2); cursor: pointer;
@@ -1403,9 +1466,11 @@ footer#codexFoot { padding: 22px var(--gut) 34px; display: flex; justify-content
   display: grid; place-items: center; overflow: hidden;
   background: rgba(255, 255, 255, .12); color: rgba(255, 255, 255, .5);
 }
+/* Le voile s'arrete bas : avant il montait a mi-carte et mangeait
+   la photo qu'il etait cense mettre en valeur. */
 .cartestyle .voile {
   position: absolute; inset: 0;
-  background: linear-gradient(180deg, rgba(10,8,8,.12) 32%, rgba(10,8,8,.66) 66%, rgba(10,8,8,.92));
+  background: linear-gradient(180deg, transparent 52%, rgba(10,8,8,.52) 76%, rgba(10,8,8,.9));
 }
 .cartestyle .txt { position: absolute; left: 0; right: 0; bottom: 0; padding: 14px; color: #fff; }
 .cartestyle .txt .sur {
@@ -1415,7 +1480,10 @@ footer#codexFoot { padding: 22px var(--gut) 34px; display: flex; justify-content
 }
 .cartestyle .txt .sur svg { width: 12px; height: 12px; }
 .cartestyle .txt b { display: block; font-size: 17px; font-weight: 800; letter-spacing: -.025em; line-height: 1.15; }
-.cartestyle .txt .puces { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 9px; }
+/* Une seule ligne de puces, jamais deux : sinon une tenue a
+   quatre pieces devient plus haute qu'une tenue a deux et la
+   grille part de travers. */
+.cartestyle .txt .puces { display: flex; flex-wrap: nowrap; gap: 5px; margin-top: 8px; overflow: hidden; }
 .cartestyle .txt .puces span {
   font-size: 10.5px; font-weight: 650; padding: 4px 9px; border-radius: var(--r-pill);
   background: rgba(255,255,255,.18); border: 1px solid rgba(255,255,255,.16);
@@ -1678,3 +1746,425 @@ footer#codexFoot { padding: 22px var(--gut) 34px; display: flex; justify-content
     background: var(--bg-elev);
   }
 }
+
+/* ============================================================
+   28. PHOTOS LIBRES, PORTES ET POP-UP
+
+   Trois idees, une seule regle : on montre plutot qu'on ecrit.
+
+   .phic   la pastille photo. Elle nait en degrade, tire du mot
+           lui-meme, et se remplit quand la photo arrive. Jamais de
+           carre gris pendant le chargement.
+   .porte  la grande tuile qui ouvre une pop-up. Photo au fond,
+           voile sombre par-dessus pour que le texte reste lisible
+           quelle que soit la photo tiree.
+   .mtete  l'en-tete coloree des pop-up. Elle demarre au tout
+           premier pixel de la feuille : plus de bande blanche
+           entre le haut de la pop-up et la banniere.
+   ============================================================ */
+.phic {
+  display: inline-block; flex: none;
+  width: 34px; height: 34px; border-radius: 11px;
+  background: linear-gradient(140deg, var(--p1), var(--p2));
+  background-size: cover; background-position: center;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.16), 0 2px 6px -2px rgba(0,0,0,.3);
+}
+.phic.gr { width: 58px; height: 58px; border-radius: 18px; }
+.phic.pleine { box-shadow: inset 0 0 0 1px var(--hairline), 0 3px 10px -4px rgba(0,0,0,.35); }
+
+/* La ligne « mot a gauche, reglage a droite ». */
+.barreligne { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.barreligne .lb { font-size: 13.5px; font-weight: 750; color: var(--muted); flex: none; }
+.barreligne .seg { flex: 1; max-width: 260px; }
+
+.secbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.secbar h2 { font-size: 17px; font-weight: 800; letter-spacing: -.01em; }
+.rondgris {
+  flex: none; width: 38px; height: 38px; border-radius: 50%;
+  display: grid; place-items: center; color: var(--muted);
+  background: color-mix(in srgb, var(--surface) 76%, transparent);
+  backdrop-filter: blur(12px) saturate(150%);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  transition: transform var(--d-base) var(--spring);
+}
+.rondgris:active { transform: scale(.9); }
+
+/* ---------- Les portes ----------
+   Toutes identiques : meme hauteur, meme taille de texte, une
+   ligne de titre et une ligne de sous-titre, jamais deux. Le fond
+   est une vraie photo ; en attendant elle arrive, on montre un
+   gris qui respire, pas un aplat colore. */
+.portes { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.porte {
+  position: relative; overflow: hidden;
+  border-radius: 22px; height: 126px;
+  display: flex; align-items: flex-end;
+  padding: 13px; text-align: left;
+  background: var(--surface-2);
+  box-shadow: 0 8px 20px -14px rgba(0,0,0,.6), inset 0 0 0 1px var(--hairline);
+  transition: transform var(--d-base) var(--spring), box-shadow var(--d-base);
+  isolation: isolate;
+}
+.porte::before {
+  content: ''; position: absolute; inset: 0; z-index: 0;
+  background: linear-gradient(100deg, var(--surface-2) 30%, var(--surface-3) 50%, var(--surface-2) 70%);
+  background-size: 260% 100%;
+  animation: attente 1.7s ease-in-out infinite;
+}
+.porte:active { transform: scale(.965); }
+@media (pointer: fine) { .porte:hover { transform: translateY(-3px); box-shadow: 0 16px 30px -16px rgba(0,0,0,.6), inset 0 0 0 1px var(--hairline-strong); } }
+.porte .phic {
+  position: absolute; inset: 0; z-index: 1;
+  width: 100%; height: 100%; border-radius: inherit;
+  background-image: none; background-color: transparent;
+  box-shadow: none; opacity: 0;
+  transition: opacity var(--d-slow) var(--ease);
+}
+.porte .phic.pleine { opacity: 1; background-size: cover; background-position: center; }
+.porte .voile {
+  position: absolute; inset: 0; z-index: 2; border-radius: inherit;
+  background: linear-gradient(180deg, rgba(10,9,12,.10) 34%, rgba(10,9,12,.58) 74%, rgba(10,9,12,.86));
+}
+.porte .tx { position: relative; z-index: 3; display: block; color: #fff; min-width: 0; width: 100%; }
+.porte .tx b, .porte .tx small {
+  display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.porte .tx b { font-size: 16px; font-weight: 820; letter-spacing: -.015em; text-shadow: 0 1px 8px rgba(0,0,0,.55); }
+.porte .tx small { font-size: 12px; opacity: .86; margin-top: 2px; text-shadow: 0 1px 6px rgba(0,0,0,.55); }
+@keyframes attente { 0% { background-position: 130% 0; } 100% { background-position: -130% 0; } }
+
+/* ---------- L'humeur ---------- */
+.moodgrille { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.moodcarte {
+  position: relative; text-align: left; padding: 14px 13px;
+  border-radius: 18px; background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  transition: transform var(--d-base) var(--spring), box-shadow var(--d-base), background var(--d-base);
+}
+.moodcarte .ic { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 13px; margin-bottom: 9px;
+  color: #fff; background: linear-gradient(145deg, color-mix(in srgb, var(--mc) 82%, white), var(--mc));
+  box-shadow: 0 6px 14px -8px var(--mc); }
+.moodcarte b { display: block; font-size: 14.5px; font-weight: 780; letter-spacing: -.01em; }
+.moodcarte small { display: block; font-size: 11.8px; color: var(--muted); margin-top: 3px; line-height: 1.35; }
+.moodcarte:active { transform: scale(.96); }
+.moodcarte.on {
+  background: color-mix(in srgb, var(--mc) 12%, var(--surface));
+  box-shadow: inset 0 0 0 2px var(--mc), 0 8px 20px -14px var(--mc);
+}
+
+/* ---------- En-tete des pop-up ----------
+   Elle colle au bord haut de la feuille. La poignee passe
+   par-dessus en blanc, sinon elle dessine une bande claire au
+   milieu de la couleur. */
+.mtete {
+  position: relative; margin: 0; padding: 30px 20px 20px;
+  border-radius: var(--r-2xl) var(--r-2xl) 0 0;
+  background: linear-gradient(150deg, var(--t1, #4B3A8C), var(--t2, #8A6FD6));
+  color: #fff; overflow: hidden;
+}
+.mtete::after {
+  content: ''; position: absolute; right: -30px; top: -50px;
+  width: 170px; height: 170px; border-radius: 50%;
+  background: rgba(255,255,255,.12);
+}
+.mtete .ill { position: relative; z-index: 2; display: block; margin-bottom: 8px; }
+.mtete h2 { position: relative; z-index: 2; font-size: 23px; font-weight: 820; letter-spacing: -.02em; color: #fff; }
+.mtete p { position: relative; z-index: 2; font-size: 13.5px; opacity: .9; margin-top: 5px; line-height: 1.45; }
+.sheet:has(.mtete) .grabber { position: absolute; left: 0; right: 0; background: none; z-index: 8; }
+.sheet:has(.mtete) .grabber i { background: rgba(255,255,255,.55); }
+.sheet:has(.mtete) .close { background: rgba(0,0,0,.28); color: #fff; box-shadow: none; }
+@media (min-width: 700px) { .mtete { border-radius: var(--r-2xl) var(--r-2xl) 0 0; } }
+
+/* ============================================================
+   29. LE FORMULAIRE VISUEL
+
+   Un champ, une question, en gros. Les choix se touchent au lieu
+   de se derouler : une tuile avec sa photo se lit d'un coup d'oeil
+   la ou un menu deroulant oblige a ouvrir, lire, choisir, fermer.
+   ============================================================ */
+.form-visuel { padding-top: 18px; }
+.champ { margin-bottom: 18px; }
+.champ .lb { display: block; font-size: 13px; font-weight: 760; color: var(--muted); margin-bottom: 8px; letter-spacing: .01em; }
+.champ input, .champ textarea, .champ select {
+  width: 100%; font-size: 16.5px; font-weight: 600; color: var(--ink);
+  padding: 15px 16px; border-radius: 16px; border: 0;
+  background: color-mix(in srgb, var(--surface) 80%, transparent);
+  backdrop-filter: blur(12px) saturate(150%);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  transition: box-shadow var(--d-base) var(--ease);
+}
+.champ input:focus, .champ textarea:focus, .champ select:focus {
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--accent), 0 6px 18px -12px var(--accent);
+}
+.champ .hint { display: block; font-size: 11.5px; color: var(--muted); margin-top: 6px; font-style: normal; }
+
+.tuiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 9px; }
+.tuile {
+  display: flex; flex-direction: column; align-items: center; gap: 7px;
+  padding: 12px 6px 10px; border-radius: 16px;
+  background: var(--surface); box-shadow: inset 0 0 0 1px var(--hairline);
+  transition: transform var(--d-base) var(--spring), box-shadow var(--d-base), background var(--d-base);
+}
+.tuile .im { display: block; }
+.tuile .phic { width: 40px; height: 40px; border-radius: 13px; }
+.tuile b { font-size: 12.3px; font-weight: 700; text-align: center; line-height: 1.25; }
+.tuile:active { transform: scale(.94); }
+.tuile.on {
+  background: color-mix(in srgb, var(--accent) 13%, var(--surface));
+  box-shadow: inset 0 0 0 2px var(--accent), 0 8px 20px -14px var(--accent);
+}
+
+.seg.large { width: 100%; }
+.seg.large button { flex: 1; height: 46px; font-size: 14.5px; font-weight: 700; }
+
+.stars { display: flex; align-items: center; gap: 4px; }
+.stars button { color: var(--hairline-strong); transition: transform var(--d-base) var(--spring), color var(--d-base); }
+.stars button.on { color: #F5B932; }
+.stars button:active { transform: scale(1.2); }
+
+@media (min-width: 700px) {
+  .portes { grid-template-columns: repeat(3, 1fr); }
+  .porte { height: 150px; }
+  .moodgrille { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* ============================================================
+   30. TENUES : GRILLE, FICHE, ROUE CHROMATIQUE
+
+   Regle de la grille : toutes les cartes ont exactement la meme
+   hauteur, la meme taille de texte, et jamais plus d'une ligne de
+   titre. Une grille dont les cartes se decalent se voit tout de
+   suite, meme sans savoir pourquoi.
+   ============================================================ */
+.grilletenues { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.cartetenue {
+  position: relative; overflow: hidden; isolation: isolate;
+  border-radius: var(--r-xl); aspect-ratio: 3 / 4;
+  display: flex; align-items: flex-end; padding: 12px;
+  text-align: left; background: var(--surface-2);
+  box-shadow: var(--sh-2);
+  transition: transform var(--d-fast) var(--spring), box-shadow var(--d-base);
+}
+.cartetenue:active { transform: scale(.965); }
+@media (pointer: fine) { .cartetenue:hover { transform: translateY(-3px); box-shadow: var(--sh-3); } }
+.cartetenue .vis { position: absolute; inset: 0; z-index: 0; }
+.cartetenue .vis img, .cartetenue .vis .vign {
+  width: 100%; height: 100%; object-fit: cover; border-radius: 0; aspect-ratio: auto;
+}
+.cartetenue .voile {
+  position: absolute; inset: 0; z-index: 1;
+  background: linear-gradient(180deg, transparent 50%, rgba(10,8,8,.5) 74%, rgba(10,8,8,.9));
+}
+.cartetenue .tag {
+  position: absolute; top: 9px; left: 9px; z-index: 3;
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 10px; font-weight: 750; letter-spacing: .04em;
+  padding: 4px 8px; border-radius: var(--r-pill); color: #14110F;
+  background: rgba(255,255,255,.92); backdrop-filter: blur(8px);
+}
+.cartetenue .tag svg { width: 12px; height: 12px; }
+.cartetenue .tx { position: relative; z-index: 2; color: #fff; width: 100%; min-width: 0; }
+.cartetenue .tx b, .cartetenue .tx small {
+  display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.cartetenue .tx b { font-size: 15px; font-weight: 800; letter-spacing: -.018em; text-shadow: 0 1px 8px rgba(0,0,0,.55); }
+.cartetenue .tx small { font-size: 11.5px; opacity: .85; margin-top: 2px; text-shadow: 0 1px 6px rgba(0,0,0,.5); }
+
+/* Le compteur dans une puce de filtre. */
+.chip .pastilleN {
+  display: inline-grid; place-items: center; min-width: 17px; height: 17px;
+  margin-left: 6px; padding: 0 4px; border-radius: 9px;
+  font-size: 10.5px; font-weight: 800; font-style: normal;
+  background: color-mix(in srgb, currentColor 16%, transparent);
+}
+
+/* ---------- Le carrousel des pieces ----------
+   Une carte par ecran sur telephone, la suivante deborde juste
+   assez pour dire qu'il y en a une. */
+.carrousel.pieces > * { scroll-snap-align: center; }
+.cartepiece {
+  position: relative; width: min(72vw, 250px); flex: none;
+  border-radius: var(--r-xl); overflow: hidden;
+  background: var(--surface); box-shadow: var(--sh-2);
+}
+.cartepiece .vis { display: block; width: 100%; aspect-ratio: 1 / 1; background: var(--surface-2); }
+.cartepiece .vis img, .cartepiece .vis .vign {
+  width: 100%; height: 100%; object-fit: cover; border-radius: 0; aspect-ratio: auto;
+}
+.cartepiece .tx { display: block; padding: 11px 13px 13px; }
+.cartepiece .tx b, .cartepiece .tx small {
+  display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.cartepiece .tx b { font-size: 14.5px; font-weight: 780; letter-spacing: -.012em; }
+.cartepiece .tx small { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+.cartepiece .pts { position: absolute; top: 10px; right: 10px; display: flex; gap: 4px; }
+.cartepiece .pts i {
+  width: 16px; height: 16px; border-radius: 50%; display: block;
+  box-shadow: inset 0 0 0 1.5px rgba(255,255,255,.85), 0 2px 6px -2px rgba(0,0,0,.5);
+}
+
+.ftitre-gros { font-size: 22px; font-weight: 820; letter-spacing: -.02em; }
+.cartestyle .txt .puces span.plus { background: rgba(255,255,255,.28); }
+
+/* ---------- La roue chromatique ----------
+   Toutes les couleurs, pas vingt-quatre. La teinte tourne autour
+   du centre, la saturation va du centre au bord, la clarte se
+   regle au curseur dessous. */
+.roue-couleur {
+  position: relative; width: min(78vw, 300px); aspect-ratio: 1 / 1;
+  margin: 4px auto 16px; border-radius: 50%;
+  box-shadow: 0 12px 30px -18px rgba(0,0,0,.6), inset 0 0 0 1px var(--hairline);
+  touch-action: none;
+}
+.roue-couleur canvas { width: 100%; height: 100%; display: block; border-radius: 50%; cursor: crosshair; }
+.roue-couleur .curseur {
+  position: absolute; width: 26px; height: 26px; border-radius: 50%;
+  transform: translate(-50%, -50%); pointer-events: none;
+  box-shadow: inset 0 0 0 3px #fff, 0 3px 10px -3px rgba(0,0,0,.7);
+}
+.jauge-lum {
+  display: block; width: 100%; height: 26px; margin-bottom: 14px;
+  -webkit-appearance: none; appearance: none; background: transparent;
+}
+.jauge-lum::-webkit-slider-runnable-track {
+  height: 12px; border-radius: 6px;
+  background: linear-gradient(90deg, #000, #808080, #fff);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+.jauge-lum::-moz-range-track {
+  height: 12px; border-radius: 6px;
+  background: linear-gradient(90deg, #000, #808080, #fff);
+}
+.jauge-lum::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 26px; height: 26px; border-radius: 50%;
+  background: #fff; margin-top: -7px;
+  box-shadow: 0 2px 8px -2px rgba(0,0,0,.6), inset 0 0 0 1px rgba(0,0,0,.12);
+}
+.jauge-lum::-moz-range-thumb {
+  width: 26px; height: 26px; border: 0; border-radius: 50%;
+  background: #fff; box-shadow: 0 2px 8px -2px rgba(0,0,0,.6);
+}
+.apercu-couleur.ouvert { display: flex; }
+
+@media (min-width: 700px) {
+  .grilletenues { grid-template-columns: repeat(4, 1fr); }
+  .cartestyle { width: 250px; }
+  .cartepiece { width: 220px; }
+}
+
+/* ============================================================
+   31. FAMILLES EN CARTES, ET LE NOMBRE SANS PETITES FLECHES
+
+   Les puces grises « Salé / Sucré / Alcoolisé » ne montraient
+   rien. Une photo dit en un dixieme de seconde ce qu'un mot met
+   une seconde a dire.
+   ============================================================ */
+.carrousel.familles { padding-top: 2px; }
+.cartefamille {
+  position: relative; flex: none;
+  width: 118px; height: 92px; border-radius: 18px;
+  overflow: hidden; isolation: isolate;
+  display: flex; align-items: flex-end; padding: 10px;
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  transition: transform var(--d-base) var(--spring), box-shadow var(--d-base);
+}
+.cartefamille .phic {
+  position: absolute; inset: 0; z-index: 0; width: 100%; height: 100%;
+  border-radius: inherit; background-image: none; background-color: transparent;
+  box-shadow: none; opacity: 0; transition: opacity var(--d-slow) var(--ease);
+}
+.cartefamille .phic.pleine { opacity: 1; background-size: cover; background-position: center; }
+.cartefamille .voile {
+  position: absolute; inset: 0; z-index: 1;
+  background: linear-gradient(180deg, rgba(10,9,12,.12) 40%, rgba(10,9,12,.72));
+}
+.cartefamille .tx {
+  position: relative; z-index: 2; color: #fff;
+  font-size: 13.5px; font-weight: 800; letter-spacing: -.012em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%;
+  text-shadow: 0 1px 8px rgba(0,0,0,.6);
+}
+.cartefamille:active { transform: scale(.95); }
+.cartefamille.on { box-shadow: inset 0 0 0 3px var(--accent), 0 8px 20px -14px var(--accent); }
+
+/* La pastille de comptage sur une tuile. */
+.porte .pastille {
+  position: absolute; top: 9px; right: 9px; z-index: 3;
+  min-width: 22px; height: 22px; padding: 0 6px; border-radius: 11px;
+  display: grid; place-items: center;
+  font-size: 11.5px; font-weight: 800; color: #14110F;
+  background: rgba(255,255,255,.94); backdrop-filter: blur(8px);
+}
+
+/* ---------- Les champs de nombre ----------
+   Les fleches natives font deux pixels de haut et changent
+   d'aspect a chaque navigateur. On les retire et on met deux vrais
+   boutons, assez gros pour le pouce. */
+.champ input[type="number"] { -moz-appearance: textfield; }
+.champ input[type="number"]::-webkit-outer-spin-button,
+.champ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.compteur { display: flex; align-items: center; gap: 10px; }
+.compteur input {
+  flex: 1; min-width: 0; text-align: center;
+  font-size: 22px; font-weight: 800; letter-spacing: -.02em;
+}
+.compteur button {
+  flex: none; width: 52px; height: 52px; border-radius: 50%;
+  display: grid; place-items: center; color: var(--ink);
+  background: color-mix(in srgb, var(--surface) 82%, transparent);
+  backdrop-filter: blur(12px) saturate(150%);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  transition: transform var(--d-base) var(--spring);
+}
+.compteur button:active { transform: scale(.88); }
+.compteur button svg { width: 20px; height: 20px; }
+
+/* ---------- Carrousels proportionnels ----------
+   Sur grand ecran, quatre cartes de 148 px laissaient la moitie
+   de la ligne vide. On fait grandir la carte avec la fenetre,
+   sans jamais la laisser devenir enorme. */
+@media (min-width: 700px) {
+  .cartefamille { width: 150px; height: 110px; }
+  .affiche { width: clamp(148px, 15vw, 205px); }
+}
+@media (min-width: 1100px) {
+  .affiche { width: clamp(170px, 13vw, 230px); }
+  .cartepiece { width: clamp(200px, 17vw, 260px); }
+  .cartestyle { width: clamp(240px, 20vw, 300px); }
+}
+
+/* Une grille de tuiles posee DANS un panneau : elle n'a pas
+   besoin de la marge d'une section. */
+.portes.dansbloc { margin-top: 14px; }
+
+/* ---------- Les ingredients en cartes ----------
+   Une grille de petites cartes carrees : la photo occupe tout le
+   haut, le nom et la quantite tiennent sur une ligne chacun. */
+.grilleing { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; margin-top: 4px; }
+.carteing {
+  position: relative; border-radius: 16px; overflow: hidden;
+  background: var(--surface); box-shadow: inset 0 0 0 1px var(--hairline);
+}
+.carteing .vis { position: relative; display: block; width: 100%; aspect-ratio: 1 / 1; }
+.carteing .vis .vign { width: 100%; height: 100%; border-radius: 0; aspect-ratio: auto; }
+.carteing .vis .pill { position: absolute; top: 6px; right: 6px; z-index: 3; }
+.carteing .tx { display: block; padding: 8px 9px 10px; }
+.carteing .tx b, .carteing .tx small {
+  display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.carteing .tx b { font-size: 12.5px; font-weight: 750; letter-spacing: -.01em; }
+.carteing .tx small { font-size: 11px; color: var(--muted); margin-top: 2px; min-height: 14px; }
+.vign.carree { aspect-ratio: 1; width: 100%; }
+.vign.carree b { font-size: 26px; }
+@media (min-width: 700px) {
+  .grilleing { grid-template-columns: repeat(auto-fill, minmax(116px, 1fr)); }
+}
+
+/* Une photo a la place de l'icone dans une ligne de reglage. */
+.rowitem .ic.photo { padding: 0; overflow: hidden; }
+.rowitem .ic.photo img { width: 100%; height: 100%; object-fit: cover; display: block; }

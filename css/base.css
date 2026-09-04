@@ -154,18 +154,21 @@ h4 { font-size: var(--t-base); }
 /* ---------- Desktop ---------- */
 @media (min-width: 900px) {
   :root { --gut: 26px; }
-  body { padding-bottom: 0; padding-top: 0; }
-  /* Sur grand ecran il y a de la place : la bulle s'allonge et
-     reprend son libelle, puisque le pouce n'est plus le sujet. */
+  /* La barre reste flottante en bas, exactement comme sur
+     telephone : c'est la seule position qui ne bouge jamais quelle
+     que soit la longueur de la page. Elle s'allonge simplement et
+     reprend ses libelles, puisque le pouce n'est plus le sujet, et
+     on lui laisse un vrai espace sous elle. */
+  body { padding-top: 0; padding-bottom: 118px; }
   .tabbar {
-    position: sticky; top: calc(var(--topbar) + 10px); bottom: auto;
-    max-width: 620px; margin: 10px auto 0; transform: none; left: auto;
+    bottom: 26px;
+    width: auto; max-width: none;
+    height: 60px; padding: 0 10px;
+    grid-auto-columns: auto; gap: 4px;
     border-radius: var(--r-pill);
-    height: 58px; padding: 0 8px;
-    width: calc(100% - 2 * var(--gut));
   }
   .tabbar button {
-    width: auto; height: 44px; border-radius: var(--r-pill); padding: 0 16px;
+    width: auto; height: 46px; border-radius: var(--r-pill); padding: 0 18px;
     display: flex; align-items: center; gap: 9px;
   }
   .tabbar button .lb { display: inline; font-size: 13.5px; font-weight: 700; }

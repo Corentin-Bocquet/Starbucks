@@ -23,45 +23,81 @@
 
   function mount(el) { root = el; render(); }
 
+  /* Les six familles, en photos. « Salé » sur une pastille grise
+     ne dit rien ; une assiette de pates, si. */
+  const PHOTO_CAT = {
+    all: 'plate of food variety', sale: 'savoury dish plate', sucre: 'dessert sweet',
+    boisson: 'fresh juice glass', alcool: 'cocktail glass bar', commander: 'takeaway delivery box'
+  };
+
   function render() {
     const p = prefs(), list = pool();
+    const cat = SEED.FOOD_CATS.find((c) => c.id === p.cat) || SEED.FOOD_CATS[0];
+
     root.innerHTML = '<div class="wrap">' +
       '<div class="section" style="padding:16px 0 0">' +
-        '<div class="row-between"><div><b style="font-size:19px;letter-spacing:-.02em">Qu\'est-ce qu\'on mange ?</b>' +
-        '<small class="muted" style="display:block">' + list.length + ' idée' + (list.length > 1 ? 's' : '') + ' dans la liste</small></div>' +
-        '<button class="tbtn" data-act="manage" aria-label="Gérer">' + Icon('list', 18) + '</button></div>' +
+        '<div class="secbar">' +
+          '<div><h2>Qu\'est-ce qu\'on mange ?</h2>' +
+          '<small class="muted" style="display:block;margin-top:2px">' + list.length +
+            ' idée' + (list.length > 1 ? 's' : '') +
+            (p.cat === 'all' ? '' : ' en ' + UI.esc(cat.nom.toLowerCase())) +
+            (p.favOnly ? ' · favoris' : '') + '</small></div>' +
+          '<button class="rondgris" data-act="manage" aria-label="Gérer la liste">' + Icon('settings', 18) + '</button>' +
+        '</div>' +
       '</div>' +
-      '<div class="chips" style="margin-top:14px">' +
-        SEED.FOOD_CATS.map((c) => '<button class="chip ' + (p.cat === c.id ? 'on' : '') + '" data-cat="' + c.id + '">' + Icon(c.icon, 15) + UI.esc(c.nom) + '</button>').join('') +
+
+      /* Les familles, en cartes photo plutot qu'en puces grises. */
+      '<div class="section" style="padding-top:0">' +
+        '<div class="carrousel familles">' + SEED.FOOD_CATS.map((c) =>
+          '<button class="cartefamille' + (p.cat === c.id ? ' on' : '') + '" data-cat="' + c.id + '">' +
+            (global.Stock ? Stock.ic(PHOTO_CAT[c.id] || c.nom, { classe: 'fond', type: 'plat' }) : '') +
+            '<span class="voile"></span><span class="tx">' + UI.esc(c.nom) + '</span>' +
+          '</button>').join('') + '</div>' +
       '</div>' +
-      '<div class="list" style="margin-bottom:14px"><button class="rowitem" data-fav>' +
-        '<span class="ic">' + Icon('star', 17) + '</span><span class="tx"><b>Favoris uniquement</b></span>' +
-        '<span class="switch ' + (p.favOnly ? 'on' : '') + '"></span></button></div>' +
-      '<div id="foodRoul"></div>' +
-      '<div class="btnrow" style="margin-top:10px">' +
-        '<button class="btn grow" data-act="surprise">' + Icon('sparkle', 17) + 'Surprends-moi</button>' +
-        '<button class="btn grow" data-act="three">' + Icon('dice', 17) + '3 idées</button>' +
-      '</div>' +
-      '<div class="section"><div class="list">' +
-        '<button class="rowitem" data-act="ai"><span class="ic">' + Icon('sparkle', 17) + '</span>' +
-          '<span class="tx"><b>Je choisis pour toi</b><small>Selon tes macros du jour et tes goûts</small></span>' +
-          '<span class="rt">' + Icon('next', 15) + '</span></button>' +
-        '<button class="rowitem" data-act="add"><span class="ic">' + Icon('plus', 17) + '</span>' +
-          '<span class="tx"><b>Ajouter un aliment</b></span><span class="rt">' + Icon('next', 15) + '</span></button>' +
-        '<button class="rowitem" data-act="share"><span class="ic">' + Icon('users', 17) + '</span>' +
-          '<span class="tx"><b>Listes partagées</b><small>Couple, famille, vacances, amis</small></span>' +
-          '<span class="rt">' + Icon('next', 15) + '</span></button>' +
-      '</div></div>' +
+
+      Portes.section('', [
+        { act: 'roue',     nom: 'Tourner',   sub: 'Le hasard choisit',  ph: 'hasard' },
+        { act: 'ai',       nom: 'Choisis pour moi', sub: 'Selon mes macros', ph: 'chef cooking' },
+        { act: 'three',    nom: 'Trois idées', sub: 'Puis la roue',     ph: 'surprise' },
+        { act: 'add',      nom: 'Ajouter',   sub: 'Un aliment de plus', ph: 'grocery shelf food' },
+        { act: 'share',    nom: 'Listes',    sub: 'Couple, famille',    ph: 'gens' },
+        { act: 'favoris',  nom: p.favOnly ? 'Favoris' : 'Tout',
+          sub: p.favOnly ? 'Filtré' : 'Sans filtre', ph: 'favoris' }
+      ], { serre: true }) +
       '</div>';
 
-    roul = Roulette.mount(UI.$('#foodRoul'), {
+    bind();
+    if (global.Stock) Stock.peupler(root);
+  }
+
+  /* La roue vit dans sa pop-up : sur la page, elle poussait tout
+     le reste vers le bas et il fallait defiler pour la voir. */
+  function ouvrirRoue() {
+    Portes.ouvrir('Tourner la roue', 'Elle tient compte de tes goûts et de l\'heure.',
+      ['#B4472C', '#E8804F'], 'marmite', '<div id="foodRoul"></div>',
+      { onMount: (sh) => monterRoue(sh.querySelector('#foodRoul')) });
+  }
+
+  /* La roue n'est plus posee sur la page : avant de l'utiliser,
+     il faut donc s'assurer que sa pop-up est ouverte. */
+  function avecRoue() {
+    const deja = UI.$('#foodRoul');
+    if (deja) return Promise.resolve(deja);
+    return new Promise((res) => {
+      Portes.ouvrir('Tourner la roue', 'Elle tient compte de tes goûts et de l\'heure.',
+        ['#B4472C', '#E8804F'], 'marmite', '<div id="foodRoul"></div>',
+        { onMount: (sh) => { const c = sh.querySelector('#foodRoul'); monterRoue(c); res(c); } });
+    });
+  }
+
+  function monterRoue(cible) {
+    roul = Roulette.mount(cible, {
       items: () => pool().map((f) => Object.assign({}, f, { label: f.nom, icon: catIcon(f.cat) })),
       weight: (f) => weightOf(f),
       cta: 'TOURNER',
       emptyText: 'Aucun aliment avec ces filtres',
       onResult: (f, box) => { box.innerHTML = card(f); bindCard(box, f); Store.log('aliment', { id: f.id, label: f.nom }); if (global.Game) Game.award('roulette', 5); }
     });
-    bind();
   }
 
   const catIcon = (c) => (SEED.FOOD_CATS.find((x) => x.id === c) || { icon: 'plate' }).icon;
@@ -133,9 +169,9 @@
   const guess = () => { const h = new Date().getHours(); return h < 11 ? 'matin' : h < 15 ? 'midi' : h < 18 ? 'collation' : 'soir'; };
 
   function bind() {
-    root.querySelectorAll('[data-cat]').forEach((b) => b.onclick = () => { setPrefs({ cat: b.dataset.cat }); render(); });
-    const fb = root.querySelector('[data-fav]');
-    if (fb) fb.onclick = () => { setPrefs({ favOnly: !prefs().favOnly }); UI.haptic('light'); render(); };
+    root.querySelectorAll('[data-cat]').forEach((b) => b.onclick = () => {
+      UI.haptic('select'); setPrefs({ cat: b.dataset.cat }); render();
+    });
     root.querySelectorAll('[data-act]').forEach((b) => b.onclick = () => acts[b.dataset.act] && acts[b.dataset.act]());
   }
 
@@ -157,8 +193,9 @@
       return x;
     };
     const winner = Roulette.pick(all, { weight: w, sharpness: 2.2 });
-    const box = UI.$('#foodRoul').querySelector('[data-result]');
-    await Roulette.spin(UI.$('#foodRoul').querySelector('.roulwin'),
+    const hote = await avecRoue();
+    const box = hote.querySelector('[data-result]');
+    await Roulette.spin(hote.querySelector('.roulwin'),
       all.map((f) => Object.assign({}, f, { label: f.nom, icon: catIcon(f.cat) })),
       Object.assign({}, winner, { label: winner.nom, icon: catIcon(winner.cat) }), 2200);
 
@@ -188,8 +225,9 @@
         '<button class="btn primary block lg" style="margin-top:14px" data-wheel>' + Icon('dice', 17) + 'Laisser la roue décider</button>' +
       '</div>',
       { onMount: (s) => {
-        const show = (f, why) => {
-          const box = UI.$('#foodRoul').querySelector('[data-result]');
+        const show = async (f, why) => {
+          const hote = await avecRoue();
+          const box = hote.querySelector('[data-result]');
           box.innerHTML = card(f).replace('</h3>', '</h3><div class="rwhy" style="margin-top:10px"><b>Pourquoi ? </b>' + UI.esc(why) + '</div>');
           bindCard(box, f);
           Store.log('aliment', { id: f.id, label: f.nom });
@@ -211,6 +249,8 @@
   }
 
   const acts = {
+    roue: () => ouvrirRoue(),
+    favoris: () => { setPrefs({ favOnly: !prefs().favOnly }); UI.haptic('toggle'); render(); },
     manage: () => manage(),
     surprise: () => surprise(),
     three: () => threeIdeas(),

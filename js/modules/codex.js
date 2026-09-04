@@ -399,15 +399,15 @@
     const envies = ENVIES[tab];
 
     UI.openSheet(
-      '<div class="mbody" style="padding-top:6px">' +
-        '<h2 style="font-size:23px;margin-bottom:4px">' + TITRE_CREER[tab] + '</h2>' +
-        '<p class="muted" style="font-size:13.5px;margin-bottom:14px">Dis ce dont tu as envie. L\'IA n\'utilise que ce que tu as coché dans ' +
-          UI.esc(STOCKTITLE[tab].toLowerCase()) + '.</p>' +
+      Portes.tete(TITRE_CREER[tab], 'Dis ce dont tu as envie.',
+        tab === 'ck' ? ['#6B2A4E', '#AE4A80'] : (tab === 'sb' ? ['#0E6E4B', '#31A876'] : ['#8A4B1E', '#C98A4A']),
+        tab === 'ck' ? 'verre' : (tab === 'sb' ? 'tasse' : 'marmite')) +
+      '<div class="mbody form-visuel">' +
         '<div class="chips" style="margin-bottom:12px">' +
           envies.map((e) => '<button class="chip" data-envie="' + UI.attr(e) + '">' + UI.esc(e) + '</button>').join('') +
         '</div>' +
-        '<label class="field"><span>Ton envie</span>' +
-          '<input type="text" data-envietxt placeholder="' + (tab === 'mm' ? 'Un truc chaud pour ce soir' : tab === 'ck' ? 'Quelque chose de frais' : 'Un latte gourmand') + '"></label>' +
+        '<div class="champ"><span class="lb">Ton envie</span>' +
+          '<input type="text" data-envietxt placeholder="' + (tab === 'mm' ? 'Un truc chaud pour ce soir' : tab === 'ck' ? 'Quelque chose de frais' : 'Un latte gourmand') + '"></div>' +
         '<label class="rowitem" style="margin-top:10px;background:var(--surface);border-radius:var(--r-md);box-shadow:var(--sh-inset)">' +
           '<input type="checkbox" data-stockonly checked style="width:20px;height:20px;accent-color:var(--accent)">' +
           '<span class="tx"><b>Seulement avec ce que j\'ai</b><small>Sinon l\'IA peut proposer une course</small></span></label>' +
@@ -609,15 +609,19 @@
      d'œil ce qu'on a déjà dans le placard.
      ============================================================ */
   function ligneIngredient(nom, quantite, note, pastille) {
-    return '<div class="ing avecimg">' +
-      '<div class="l">' +
-        Imagerie.vignette('ingredient', nom, { classe: 'petite ronde' }) +
-        (pastille || '') +
-        '<div>' + UI.esc(nom) + (note ? '<small>' + UI.esc(note) + '</small>' : '') + '</div>' +
-      '</div>' +
-      '<div class="q">' + UI.esc(quantite || '') + '</div>' +
+    return '<div class="carteing">' +
+      '<span class="vis">' + Imagerie.vignette('ingredient', nom, { classe: 'carree' }) +
+        (pastille || '') + '</span>' +
+      '<span class="tx"><b>' + UI.esc(nom) + '</b>' +
+      '<small>' + UI.esc(quantite || note || '') + '</small></span>' +
     '</div>';
   }
+
+  /* Les ingredients ne sont plus une liste : ce sont des cartes,
+     avec la photo de l'ingredient dessus. « Vin blanc » sur une
+     ligne de texte ne dit rien ; une bouteille de blanc, si.
+     Les photos viennent de la photothèque libre, sans clé. */
+  const grilleIngredients = (html) => '<div class="grilleing">' + html + '</div>';
 
   const mimg = (img, cover) => '<div class="mimg' + (cover ? ' cover' : '') + '"><img class="bg" src="' + img + '" alt=""><img src="' + img + '" alt=""></div>';
   const tagsOf = (d) => '<div class="mtags">' + d.tag.map((t, i) => '<span class="tg ' + (i % 2 ? 'b' : '') + '">' + UI.esc(t) + '</span>').join('') + '</div>';
@@ -640,7 +644,7 @@
       stockLine(d) +
       '<button class="btn soft block" data-addfood>' + Icon('plus', 17) + 'Consigner dans Alimentation</button>' +
       '<div class="blk"><h4>Composition <span class="sz">' + SIZENAME[S.size] + '</span></h4>' +
-      d.ing.map((i) => ligneIngredient(i.n, i[S.size], i.note)).join('') + '</div>' +
+      grilleIngredients(d.ing.map((i) => ligneIngredient(i.n, i[S.size], i.note)).join('')) + '</div>' +
       '<div class="blk"><h4>Ordre d\'assemblage</h4><ol class="steps">' + d.steps.map((s) => '<li>' + UI.esc(s) + '</li>').join('') + '</ol></div>' +
       '<div class="machbox"><h4>Sur la Eletta Explore</h4><p>' + UI.esc(d.eletta) + '</p></div>' +
       '<div class="tipbox"><h4>Le détail qui change tout</h4><p>' + UI.esc(d.astuce) + '</p></div></div>';
@@ -656,10 +660,10 @@
       '<div class="num"><b>' + UI.esc(d.temps) + '</b><span>à préparer</span></div></div>' +
       stockLine(d) +
       '<div class="blk"><h4>Composition</h4>' +
-      d.ing.map((i) => {
+      grilleIngredients(d.ing.map((i) => {
         const st = (!i.k || i.opt) ? '' : (S.stock.ck.has(i.k) ? '<span class="pill y">OK</span>' : '<span class="pill n">manque</span>');
         return ligneIngredient(i.n, i.q, i.opt ? 'optionnel' : '', st);
-      }).join('') + '</div>' +
+      }).join('')) + '</div>' +
       '<div class="blk"><h4>Préparation</h4><ol class="steps">' + d.steps.map((s) => '<li>' + UI.esc(s) + '</li>').join('') + '</ol></div>' +
       '<div class="tipbox"><h4>Le détail qui change tout</h4><p>' + UI.esc(d.astuce) + '</p></div></div>';
   }
@@ -675,7 +679,7 @@
       '<div class="num"><b>' + (d.serv === 'chaud' ? 'Chaud' : 'Froid') + '</b><span>service</span></div></div>' +
       stockLine(d) +
       '<div class="blk"><h4>Ingredients</h4>' +
-      d.ing.map((i) => ligneIngredient(i.n, i.q)).join('') + '</div>' +
+      grilleIngredients(d.ing.map((i) => ligneIngredient(i.n, i.q)).join('')) + '</div>' +
       (d.materiel && d.materiel.length ? '<div class="blk"><h4>Matériel</h4><ul class="mat">' + d.materiel.map((m) => '<li>' + UI.esc(m) + '</li>').join('') + '</ul></div>' : '') +
       '<div class="blk"><h4>Préparation</h4><ol class="steps">' + d.steps.map((s) => '<li>' + UI.esc(s) + '</li>').join('') + '</ol></div>' +
       (d.img2 ? '<div class="blk"><h4>En vrai</h4><img src="' + IMG['mm-' + d.img2] + '" style="border-radius:14px;width:100%"></div>' : '') +

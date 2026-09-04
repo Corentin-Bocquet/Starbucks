@@ -130,8 +130,9 @@
       '<div class="txt">' +
         '<div class="sur">' + Icon(m.icon, 12) + UI.esc(m.nom) + '</div>' +
         '<b>' + UI.esc(t.nom || m.nom) + '</b>' +
-        '<div class="puces">' + pieces.slice(0, 4).map((g) =>
-          '<span>' + UI.esc(typeof g === 'string' ? g : g.nom) + '</span>').join('') + '</div>' +
+        '<div class="puces">' + pieces.slice(0, 2).map((g) =>
+          '<span>' + UI.esc(typeof g === 'string' ? g : g.nom) + '</span>').join('') +
+          (pieces.length > 2 ? '<span class="plus">+' + (pieces.length - 2) + '</span>' : '') + '</div>' +
       '</div>' +
       '<button class="relance" data-relance="' + UI.attr(t.mood) + '" aria-label="Régénérer">' + Icon('refresh', 15) + '</button>' +
     '</div>';
@@ -294,6 +295,7 @@
   };
 
   const moodName = (id) => (SEED.MOODS.find((m) => m.id === id) || {}).nom || 'Tenue';
+  const slotName = (id) => (SEED.GARMENT_SLOTS.find((s) => s.id === id) || {}).nom || 'Pièce';
 
   /* ============================================================
      Penderie
@@ -374,97 +376,186 @@
   /* ============================================================
      Tenues enregistrées
      ============================================================ */
+  /* ============================================================
+     Mes tenues
+
+     Des cartes, toutes de la meme taille, triees par registre.
+     Ce qu'on voit sur une carte, dans l'ordre de preference :
+       1. la photo generee ou on porte la tenue ;
+       2. a defaut, la photo de la piece principale ;
+       3. a defaut seulement, une mosaique.
+
+     Une ligne de titre, une ligne de sous-titre, jamais deux : des
+     cartes de hauteurs differentes dans une meme grille, ca se
+     voit tout de suite et ca fait brouillon.
+     ============================================================ */
+  const FILTRE = () => Store.get('tenueFiltre', 'tous');
+
   function outfitsView() {
     const all = outfits();
+    const f = FILTRE();
+    const compte = (id) => all.filter((o) => o.mood === id).length;
+    const visibles = f === 'tous' ? all : all.filter((o) => o.mood === f);
+
     return '<div class="section">' +
-      '<div class="row-between" style="margin-bottom:12px">' +
-        '<b style="font-size:17px">' + all.length + ' tenue' + (all.length > 1 ? 's' : '') + '</b>' +
+      '<div class="secbar">' +
+        '<h2>' + all.length + ' tenue' + (all.length > 1 ? 's' : '') + '</h2>' +
         '<div class="btnrow">' +
           '<button class="btn sm" data-act="composeOutfit">' + Icon('plus', 15) + 'Composer</button>' +
           (AI.available() ? '<button class="btn sm primary" data-act="aiOutfits">' + Icon('sparkle', 15) + 'Générer</button>' : '') +
         '</div>' +
       '</div>' +
-      (all.length ? all.map((o) => outfitRow(o)).join('')
-        : UI.empty('shirt', 'Aucune tenue', 'Compose la tienne, ou laisse l\'IA associer tes pièces par couleur et par style.')) +
+
+      (all.length ?
+        '<div class="chips" style="margin-bottom:14px">' +
+          '<button class="chip' + (f === 'tous' ? ' on' : '') + '" data-filtre="tous">Toutes</button>' +
+          SEED.MOODS.filter((m) => compte(m.id)).map((m) =>
+            '<button class="chip' + (f === m.id ? ' on' : '') + '" data-filtre="' + m.id + '">' +
+            Icon(m.icon, 14) + UI.esc(m.nom) + '<i class="pastilleN">' + compte(m.id) + '</i></button>').join('') +
+        '</div>' : '') +
+
+      (visibles.length
+        ? '<div class="grilletenues">' + visibles.map((o) => carteTenue(o)).join('') + '</div>'
+        : (all.length
+            ? UI.empty('shirt', 'Rien dans ce registre', 'Change de filtre, ou compose une tenue pour celui-ci.')
+            : UI.empty('shirt', 'Aucune tenue', 'Compose la tienne, ou laisse l\'IA associer tes pièces par couleur et par style.'))) +
       '</div>';
   }
 
-  function outfitRow(o) {
+  /* La carte d'une tenue. Format fixe, image en fond, deux lignes
+     de texte au maximum. */
+  function carteTenue(o) {
     const items = (o.items || []).map((id) => garments().find((g) => g.id === id)).filter(Boolean);
-    const teinte = TEINTES_MOOD[o.mood] || TEINTES_MOOD.chill;
-    const noms = items.length ? items.map((g) => g.nom) : (o.pieces || []);
-    return '<button class="tenue-ligne" data-outfit="' + UI.attr(o.id) + '" style="--g1:' + teinte[0] + ';--g2:' + teinte[1] + '">' +
-      '<span class="apercu">' +
-        (items.length
-          ? items.slice(0, 4).map((g) => '<span class="c">' +
-              (g.photo || g.photoUrl ? Photos.img(g, 'photo', 'width:100%;height:100%;object-fit:cover') : Icon('shirt', 15)) +
-            '</span>').join('')
-          : '<span class="c seul">' + Icon('sparkle', 20) + '</span>') +
-      '</span>' +
+    const avecPhoto = items.find((g) => g.photo || g.photoUrl);
+
+    let visuel;
+    if (o.apercu) {
+      visuel = '<img src="' + UI.attr(o.apercu) + '" alt="" loading="lazy">';
+    } else if (o.apercuId) {
+      visuel = '<img data-photo-id="' + UI.attr(o.apercuId) + '" alt="" loading="lazy">';
+    } else if (avecPhoto) {
+      visuel = Photos.img(avecPhoto, 'photo', 'width:100%;height:100%;object-fit:cover');
+    } else {
+      visuel = Imagerie.vignette('vetement', o.nom || moodName(o.mood),
+        { classe: 'large', cle: Imagerie.cleDe('tenue', o.id) });
+    }
+
+    return '<button class="cartetenue" data-outfit="' + UI.attr(o.id) + '">' +
+      '<span class="vis">' + visuel + '</span>' +
+      '<span class="voile"></span>' +
+      (o.apercu || o.apercuId ? '<span class="tag">' + Icon('user', 12) + 'Sur toi</span>' : '') +
       '<span class="tx"><b>' + UI.esc(o.nom || 'Tenue') + '</b>' +
-        '<small>' + UI.esc(moodName(o.mood)) + (noms.length ? ' · ' + UI.esc(noms.slice(0, 3).join(', ')) : '') + '</small></span>' +
-      '<span class="rt">' + Icon('next', 15) + '</span>' +
-    '</button>';
+      '<small>' + UI.esc(moodName(o.mood)) + ' · ' + items.length + ' pièces</small></span>' +
+      '</button>';
   }
 
   /* ============================================================
-     Une tenue enregistrée, entièrement modifiable
+     La fiche d'une tenue
 
-     Le nom, les pièces, le registre : tout se change. Une tenue
-     figée dès sa création n'a aucun intérêt, on la refait à la
-     main la fois suivante.
+     On l'ouvre pour REGARDER, pas pour remplir un formulaire. Donc
+     par defaut : la tenue en grand, puis ses pieces en carrousel,
+     une par ecran. Modifier est un bouton, et ca ouvre une
+     deuxieme pop-up.
      ============================================================ */
   function ouvrirTenue(id) {
     const o = Store.find('outfits', id);
     if (!o) return;
-    let brouillon = {
-      nom: o.nom || 'Tenue',
-      mood: o.mood || 'chill',
-      items: (o.items || []).slice()
-    };
-    const teinte = () => TEINTES_MOOD[brouillon.mood] || TEINTES_MOOD.chill;
+    const items = (o.items || []).map((x) => garments().find((g) => g.id === x)).filter(Boolean);
+
+    const grand = o.apercu
+      ? '<div class="mimg cover"><img src="' + UI.attr(o.apercu) + '" alt=""></div>'
+      : (o.apercuId
+          ? '<div class="mimg cover"><img data-photo-id="' + UI.attr(o.apercuId) + '" alt=""></div>'
+          : '<div class="mtete" style="--t1:' + (TEINTES_MOOD[o.mood] || TEINTES_MOOD.chill)[0] +
+            ';--t2:' + (TEINTES_MOOD[o.mood] || TEINTES_MOOD.chill)[1] + '">' +
+            '<h2>' + UI.esc(o.nom || 'Tenue') + '</h2><p>' + UI.esc(moodName(o.mood)) + '</p></div>');
+
+    const piece = (g) => '<div class="cartepiece">' +
+      '<span class="vis">' + (g.photo || g.photoUrl
+        ? Photos.img(g, 'photo', 'width:100%;height:100%;object-fit:cover')
+        : Imagerie.vignette('vetement', g.nom, { classe: 'large' })) + '</span>' +
+      '<span class="tx"><b>' + UI.esc(g.nom) + '</b>' +
+      '<small>' + UI.esc(slotName(g.slot)) + '</small></span>' +
+      (g.couleurs && g.couleurs.length
+        ? '<span class="pts">' + g.couleurs.slice(0, 3).map((c) =>
+            '<i style="background:' + UI.attr(safeHex(c)) + '"></i>').join('') + '</span>'
+        : '') +
+      '</div>';
+
+    UI.openSheet(
+      grand +
+      '<div class="mbody">' +
+        (o.apercu || o.apercuId
+          ? '<h2 class="ftitre-gros">' + UI.esc(o.nom || 'Tenue') + '</h2>' +
+            '<p class="mdesc">' + UI.esc(moodName(o.mood)) + ' · ' + items.length + ' pièces</p>'
+          : '') +
+        (items.length
+          ? '<h4 class="ftitre">Ce qu\'il y a dedans</h4>' +
+            '<div class="carrousel pieces">' + items.map(piece).join('') + '</div>'
+          : '<p class="mdesc">Aucune pièce enregistrée pour cette tenue.</p>') +
+        '<div class="btnrow" style="margin-top:18px">' +
+          (AI.available() ? '<button class="btn primary grow lg" data-porte>' + Icon('sparkle', 17) +
+            (o.apercu || o.apercuId ? 'Refaire la photo' : 'Me voir avec') + '</button>' : '') +
+          '<button class="btn lg" data-edit aria-label="Modifier">' + Icon('edit', 17) + '</button>' +
+        '</div>' +
+      '</div>',
+      { onMount: async (sh) => {
+          await Photos.hydrate(sh);
+          Imagerie.peupler(sh);
+          const pt = sh.querySelector('[data-porte]');
+          if (pt) pt.onclick = () => {
+            UI.closeSheet();
+            porte({ id: o.id, nom: o.nom, mood: o.mood, items: o.items, source: 'penderie', pieces: items });
+          };
+          sh.querySelector('[data-edit]').onclick = () => { UI.closeSheet(); editerTenue(id); };
+        } });
+  }
+
+  /* La deuxieme pop-up : celle ou on change vraiment les choses. */
+  function editerTenue(id) {
+    const o = Store.find('outfits', id);
+    if (!o) return;
+    let brouillon = { nom: o.nom || 'Tenue', mood: o.mood || 'chill', items: (o.items || []).slice() };
 
     const corps = () => {
       const parSlot = SEED.GARMENT_SLOTS
         .map((sl) => ({ sl: sl, liste: bySlot(sl.id) }))
         .filter((x) => x.liste.length);
 
-      return '<div class="mbody">' +
-        '<label class="field"><span>Nom</span>' +
-          '<input type="text" data-nom value="' + UI.attr(brouillon.nom) + '"></label>' +
+      return '<div class="mbody form-visuel">' +
+        '<div class="champ"><span class="lb">Nom</span>' +
+          '<input type="text" data-nom value="' + UI.attr(brouillon.nom) + '"></div>' +
 
-        '<h4 class="ftitre">Registre</h4>' +
+        '<div class="champ"><span class="lb">Registre</span>' +
         '<div class="chips">' + SEED.MOODS.map((m) =>
-          '<button class="chip' + (brouillon.mood === m.id ? ' on' : '') + '" data-mo="' + m.id + '">' +
-          Icon(m.icon, 14) + UI.esc(m.nom) + '</button>').join('') + '</div>' +
+          '<button type="button" class="chip' + (brouillon.mood === m.id ? ' on' : '') + '" data-mo="' + m.id + '">' +
+          Icon(m.icon, 14) + UI.esc(m.nom) + '</button>').join('') + '</div></div>' +
 
         parSlot.map((x) =>
-          '<h4 class="ftitre">' + UI.esc(x.sl.nom) + '</h4>' +
+          '<div class="champ"><span class="lb">' + UI.esc(x.sl.nom) + '</span>' +
           '<div class="choixpieces">' + x.liste.map((g) =>
             '<button class="pc' + (brouillon.items.indexOf(g.id) >= 0 ? ' on' : '') + '" data-pc="' + UI.attr(g.id) + '">' +
               '<span class="ph">' +
                 (g.photo || g.photoUrl ? Photos.img(g, 'photo', 'width:100%;height:100%;object-fit:cover') : Icon('shirt', 18)) +
-              '</span><small>' + UI.esc(g.nom) + '</small></button>').join('') + '</div>').join('') +
+              '</span><small>' + UI.esc(g.nom) + '</small></button>').join('') + '</div></div>').join('') +
 
-        '<button class="btn primary block lg" style="margin-top:18px" data-save>' + Icon('check', 18) + 'Enregistrer</button>' +
-        (AI.available() ? '<button class="btn block" style="margin-top:8px" data-porte>' + Icon('sparkle', 16) + 'Me voir avec</button>' : '') +
+        '<button class="btn primary block lg" style="margin-top:10px" data-save>' + Icon('check', 18) + 'Enregistrer</button>' +
         '<button class="btn danger block" style="margin-top:8px" data-sup>' + Icon('trash', 16) + 'Supprimer</button>' +
       '</div>';
     };
 
-    const entete = () =>
-      '<div class="result plein"><div class="rtete" style="--g1:' + teinte()[0] + ';--g2:' + teinte()[1] + '">' +
-        '<div class="sur">' + UI.esc(moodName(brouillon.mood)) + '</div>' +
-        '<div class="titreligne"><h3>' + UI.esc(brouillon.nom) + '</h3>' +
-        '<span class="valeur">' + brouillon.items.length + ' pièces</span></div>' +
-      '</div></div>';
+    const tete = () => {
+      const t = TEINTES_MOOD[brouillon.mood] || TEINTES_MOOD.chill;
+      return '<div class="mtete" style="--t1:' + t[0] + ';--t2:' + t[1] + '">' +
+        '<h2>Modifier</h2><p>' + UI.esc(brouillon.nom) + ' · ' + brouillon.items.length + ' pièces</p></div>';
+    };
 
-    UI.openSheet(entete() + corps(), { onMount: monter });
+    UI.openSheet(tete() + corps(), { onMount: monter });
 
     async function monter(sh) {
       await Photos.hydrate(sh);
       const relire = () => { brouillon.nom = sh.querySelector('[data-nom]').value.trim() || 'Tenue'; };
-      const redessiner = () => { relire(); sh.innerHTML = sh.innerHTML; UI.closeSheet(); UI.openSheet(entete() + corps(), { onMount: monter }); };
+      const redessiner = () => { relire(); UI.closeSheet(); UI.openSheet(tete() + corps(), { onMount: monter }); };
 
       sh.querySelectorAll('[data-mo]').forEach((b) => b.onclick = () => { brouillon.mood = b.dataset.mo; redessiner(); });
       sh.querySelectorAll('[data-pc]').forEach((b) => b.onclick = () => {
@@ -479,15 +570,8 @@
         UI.closeSheet(); UI.haptic('success'); UI.toast('Tenue enregistrée'); render();
       };
       sh.querySelector('[data-sup]').onclick = async () => {
-        if (!await UI.confirmSheet('Supprimer ?', 'La tenue disparaît, les vêtements restent.', true)) { ouvrirTenue(id); return; }
+        if (!await UI.confirmSheet('Supprimer ?', 'La tenue disparaît, les vêtements restent.', true)) { editerTenue(id); return; }
         Store.del('outfits', id); UI.closeSheet(); render();
-      };
-      const p = sh.querySelector('[data-porte]');
-      if (p) p.onclick = () => {
-        relire();
-        UI.closeSheet();
-        porte({ nom: brouillon.nom, mood: brouillon.mood, items: brouillon.items, source: 'penderie',
-                pieces: brouillon.items.map((x) => garments().find((g) => g.id === x)).filter(Boolean) });
       };
     }
   }
@@ -646,8 +730,8 @@
            la palette des teintes de vêtements, et le nuancier du
            téléphone en touchant la pastille. */
         '<div class="btnrow" style="margin-top:10px">' +
-          ((g.photo || g.photoUrl) ? '<button class="btn sm" data-pipette>' + Icon('search', 15) + 'Pipette sur la photo</button>' : '') +
-          '<button class="btn sm" data-palette>' + Icon('sparkle', 15) + 'Palette</button>' +
+          ((g.photo || g.photoUrl) ? '<button class="btn sm" data-pipette>' + Icon('pipette', 15) + 'Pipette</button>' : '') +
+          '<button class="btn sm" data-palette>' + Icon('palette', 15) + 'Palette</button>' +
         '</div>' +
 
         '<h4 class="ftitre">Style</h4>' +
@@ -878,17 +962,140 @@
     ['Moutarde', '#C79A32'], ['Rose poudré', '#DDB6B1'], ['Violet', '#4A3A63'], ['Crème', '#F0E7D6']
   ];
 
-  function choisirDansPalette(onChoix) {
+  /* ============================================================
+     La roue chromatique
+
+     Le nuancier de vingt-quatre teintes allait vite mais fermait
+     la porte : impossible d'attraper le bleu exact d'une chemise
+     qui n'y figurait pas.
+
+     Ici, c'est la roue complete. La teinte tourne autour du
+     centre, la saturation part du centre vers le bord, et un
+     curseur sous la roue regle la luminosite. On pose le doigt et
+     on le deplace : la couleur suit en direct.
+
+     Les vingt-quatre teintes restent dessous, en acces rapide,
+     parce que neuf fois sur dix c'est l'une d'elles.
+     ============================================================ */
+  function hsl2hex(h, s2, l) {
+    const a = s2 * Math.min(l, 1 - l);
+    const f = (n) => {
+      const k = (n + h / 30) % 12;
+      const c = l - a * Math.max(-1, Math.min(k - 3, Math.min(9 - k, 1)));
+      return Math.round(255 * c).toString(16).padStart(2, '0');
+    };
+    return '#' + f(0) + f(8) + f(4);
+  }
+
+  function choisirDansPalette(onChoix, depart) {
+    let teinte = 210, sat = 0.7, lum = 0.5;
+
     UI.openSheet(
-      '<div class="mbody" style="padding-top:6px">' +
-        '<h2 style="font-size:21px;margin-bottom:12px">Une couleur</h2>' +
+      '<div class="mtete" style="--t1:#6D4B9E;--t2:#C86FA8">' +
+        '<h2>Choisis ta couleur</h2>' +
+        '<p>Fais glisser sur la roue, puis règle la clarté.</p>' +
+      '</div>' +
+      '<div class="mbody">' +
+        '<div class="roue-couleur">' +
+          '<canvas data-roue width="320" height="320"></canvas>' +
+          '<span class="curseur" data-cur></span>' +
+        '</div>' +
+        '<input type="range" class="jauge-lum" data-lum min="6" max="94" value="50">' +
+        '<div class="apercu-couleur ouvert">' +
+          '<span class="pastille" data-pst></span>' +
+          '<b data-hex>#3E5A82</b>' +
+          '<button class="btn sm primary" data-ok>Choisir</button>' +
+        '</div>' +
+        '<h4 class="ftitre">Teintes courantes</h4>' +
         '<div class="nuancier">' + PALETTE.map(([nom, hex]) =>
           '<button class="teinte" data-hex="' + hex + '" style="--c:' + hex + '">' +
             '<span></span><small>' + UI.esc(nom) + '</small></button>').join('') + '</div>' +
       '</div>',
-      { onMount: (sh) => sh.querySelectorAll('[data-hex]').forEach((b) => b.onclick = () => {
-          UI.closeSheet(); UI.haptic('select'); onChoix(b.dataset.hex);
-        }) }
+      { onMount: (sh) => {
+          const cv = sh.querySelector('[data-roue]');
+          const c2 = cv.getContext('2d');
+          const cur = sh.querySelector('[data-cur]');
+          const pst = sh.querySelector('[data-pst]');
+          const hexEl = sh.querySelector('[data-hex]');
+          const lumEl = sh.querySelector('[data-lum]');
+          const R = cv.width / 2;
+
+          /* On peint la roue une fois, pixel par pixel : c'est le
+             seul moyen d'avoir un vrai degre de saturation continu
+             du centre vers le bord. */
+          function peindre(l) {
+            const im = c2.createImageData(cv.width, cv.height);
+            const d = im.data;
+            for (let y = 0; y < cv.height; y++) {
+              for (let x = 0; x < cv.width; x++) {
+                const dx = x - R, dy = y - R;
+                const r = Math.sqrt(dx * dx + dy * dy);
+                const k = (y * cv.width + x) * 4;
+                if (r > R) { d[k + 3] = 0; continue; }
+                const h = (Math.atan2(dy, dx) * 180 / Math.PI + 360) % 360;
+                const sv = Math.min(1, r / R);
+                const hex = hsl2hex(h, sv, l);
+                d[k] = parseInt(hex.slice(1, 3), 16);
+                d[k + 1] = parseInt(hex.slice(3, 5), 16);
+                d[k + 2] = parseInt(hex.slice(5, 7), 16);
+                d[k + 3] = r > R - 1.5 ? Math.round(255 * (R - r) / 1.5) : 255;
+              }
+            }
+            c2.putImageData(im, 0, 0);
+          }
+
+          function majAffichage() {
+            const hex = hsl2hex(teinte, sat, lum);
+            pst.style.background = hex;
+            hexEl.textContent = hex.toUpperCase();
+            cur.style.background = hex;
+            const rad = teinte * Math.PI / 180;
+            cur.style.left = (50 + Math.cos(rad) * sat * 50) + '%';
+            cur.style.top = (50 + Math.sin(rad) * sat * 50) + '%';
+          }
+
+          function viser(ev) {
+            const p = ev.touches ? ev.touches[0] : ev;
+            const b = cv.getBoundingClientRect();
+            const dx = (p.clientX - b.left) / b.width * cv.width - R;
+            const dy = (p.clientY - b.top) / b.height * cv.height - R;
+            const r = Math.sqrt(dx * dx + dy * dy);
+            teinte = (Math.atan2(dy, dx) * 180 / Math.PI + 360) % 360;
+            sat = Math.min(1, r / R);
+            majAffichage();
+            UI.haptic('tick');
+          }
+
+          cv.addEventListener('pointerdown', (e) => { cv.setPointerCapture(e.pointerId); viser(e); });
+          cv.addEventListener('pointermove', (e) => { if (e.buttons) viser(e); });
+          cv.addEventListener('touchmove', (e) => { e.preventDefault(); viser(e); }, { passive: false });
+
+          lumEl.oninput = () => { lum = Number(lumEl.value) / 100; peindre(lum); majAffichage(); };
+
+          if (depart && /^#[0-9a-f]{6}$/i.test(depart)) {
+            const r0 = parseInt(depart.slice(1, 3), 16) / 255;
+            const g0 = parseInt(depart.slice(3, 5), 16) / 255;
+            const b0 = parseInt(depart.slice(5, 7), 16) / 255;
+            const mx = Math.max(r0, g0, b0), mn = Math.min(r0, g0, b0);
+            lum = (mx + mn) / 2;
+            const dd = mx - mn;
+            sat = dd === 0 ? 0 : dd / (1 - Math.abs(2 * lum - 1));
+            if (dd !== 0) {
+              teinte = mx === r0 ? ((g0 - b0) / dd % 6) : (mx === g0 ? (b0 - r0) / dd + 2 : (r0 - g0) / dd + 4);
+              teinte = (teinte * 60 + 360) % 360;
+            }
+            lumEl.value = Math.round(lum * 100);
+          }
+          peindre(lum);
+          majAffichage();
+
+          sh.querySelector('[data-ok]').onclick = () => {
+            UI.closeSheet(); UI.haptic('select'); onChoix(hsl2hex(teinte, sat, lum));
+          };
+          sh.querySelectorAll('[data-hex][style]').forEach((b) => b.onclick = () => {
+            UI.closeSheet(); UI.haptic('select'); onChoix(b.dataset.hex);
+          });
+        } }
     );
   }
 
@@ -1051,8 +1258,11 @@
         const saved = await Photos.save(f, 'garments', 900);
         Store.set('portraitPhoto', saved.id);
         Store.set('portraitPhotoUrl', saved.url || null);
-        UI.toast('Portrait enregistré');
-        render();
+        UI.toast('Photo enregistrée');
+        /* Les Réglages peuvent appeler cette fonction alors que la
+           page Tenues n'est pas montée : pas de racine, pas de
+           redessin. */
+        if (root) render();
         resolve(saved.id);
       });
     });
@@ -1072,7 +1282,7 @@
     let src = await Photos.versDataUrl(await portraitSource());
     if (!src) {
       const ok = await UI.confirmSheet('Une photo de toi',
-        "Pour t'afficher habillé, il faut une photo de référence. Elle reste sur ton appareil.", false);
+        "Elle reste sur ton appareil, et tu ne la redonneras plus : elle se garde dans les Réglages.", false);
       if (!ok) return;
       await definirPortrait();
       src = await Photos.versDataUrl(await portraitSource());
@@ -1104,12 +1314,17 @@
 
       if (dataUrl) {
         const saved = await Photos.save(dataUrl, 'illustrations', 1000);
+        /* L'apercu devient la vignette de la tenue : c'est cette
+           image-la qu'on veut voir dans la liste, pas une mosaique
+           de bouts de vetements. */
+        if (t.id) Store.put('outfits', t.id, { apercu: saved.url || null, apercuId: saved.id || null });
         UI.openSheet(
           '<div class="mimg cover"><img src="' + UI.attr(saved.url || dataUrl) + '" alt=""></div>' +
           '<div class="mbody"><h2 style="font-size:21px">' + UI.esc(t.nom || 'Aperçu') + '</h2>' +
           '<p class="muted" style="font-size:12.5px;margin-top:8px">Image générée, à titre indicatif.</p>' +
           '<button class="btn block" style="margin-top:14px" data-refaire>' + Icon('refresh', 16) + 'Refaire</button></div>',
-          { onMount: (sh) => { sh.querySelector('[data-refaire]').onclick = () => { UI.closeSheet(); porte(t); }; } });
+          { onMount: (sh) => { sh.querySelector('[data-refaire]').onclick = () => { UI.closeSheet(); porte(t); }; },
+            onClose: () => { if (t.id) render(); } });
       } else {
         UI.openSheet('<div class="mbody"><h2 style="font-size:20px">Aperçu indisponible</h2>' +
           '<p class="mdesc">Le modèle a refusé de représenter une personne réelle, ou il n\'est pas ' +
@@ -1159,6 +1374,9 @@
       ouvrirStyle(b.dataset.style);
     });
     root.querySelectorAll('[data-outfit]').forEach((b) => b.onclick = () => ouvrirTenue(b.dataset.outfit));
+    root.querySelectorAll('[data-filtre]').forEach((b) => b.onclick = () => {
+      Store.set('tenueFiltre', b.dataset.filtre); UI.haptic('select'); render();
+    });
 
     Imagerie.peupler(root, { generer: MODE() === 'inventer', max: 2 });
   }
@@ -1174,5 +1392,5 @@
   };
 
   App.register('outfits', { mount: mount });
-  global.Outfits = { mount };
+  global.Outfits = { mount, definirPortrait, portraitSource };
 })(window);

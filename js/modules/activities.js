@@ -122,38 +122,206 @@
     if (root && root.isConnected) render();
   }
 
-  function render() {
-    const p = prefs(), list = pool();
-    const cats = Array.from(new Set(Store.all('activities').filter((a) => a.city === p.city).map((a) => a.category)));
+  /* ============================================================
+     La page
 
+     Regle unique : rien ne s'empile sur l'accueil. Un bandeau, un
+     budget, six boutons. Tout le reste (l'humeur, la roue, les
+     idees, l'ajout, l'historique, les reglages) vit dans une
+     pop-up qu'on ouvre et qu'on referme.
+
+     Avant, cette page affichait dix blocs a la suite et il fallait
+     defiler pour trouver le bouton qu'on cherchait.
+     ============================================================ */
+  function render() {
     root.innerHTML = '<div class="wrap">' +
-      headerBlock(list.length) +
-      moodStrip(p) +
-      (p.mood ? moodBanner(p) :
-        '<div class="chips" style="margin-top:14px">' +
+      headerBlock(pool().length) +
+      barreBudget() +
+      grilleActions() +
+      agendaBlock() +
+      '</div>';
+    bind();
+    if (global.Stock) Stock.peupler(root);
+  }
+
+  /* Le budget, tout en haut : le mot a gauche, les quatre choix a
+     droite. C'est le reglage qu'on change le plus souvent. */
+  function barreBudget() {
+    const b = (ctx && ctx.budget) || 2;
+    return '<div class="section" style="padding-top:14px">' +
+      '<div class="barreligne">' +
+        '<span class="lb">Budget</span>' +
+        '<div class="seg compact">' + [1, 2, 3, 4].map((n) =>
+          '<button data-budget="' + n + '" class="' + (b === n ? 'on' : '') + '">' + '€'.repeat(n) + '</button>').join('') +
+        '</div>' +
+      '</div></div>';
+  }
+
+  /* Les six portes d'entree. Deux grandes pour ce qu'on fait
+     vraiment (tourner, choisir son humeur), quatre petites pour le
+     reste. Chacune porte une vraie photo, pas un pictogramme. */
+  const PORTES = [
+    { act: 'roue',    nom: 'Tourner',     sub: 'Le hasard choisit', ph: 'hasard' },
+    { act: 'mood',    nom: 'Ton mood',    sub: 'Selon ton état',    ph: 'humeur' },
+    { act: 'three',   nom: 'Trois idées', sub: 'La roue tranche',   ph: 'surprise' },
+    { act: 'add',     nom: 'Ajouter',     sub: 'Activité ou lieu',  ph: 'ajouter une activite' },
+    { act: 'history', nom: 'Historique',  sub: 'Déjà sorti',        ph: 'historique' },
+    { act: 'guide',   nom: 'Le guide',    sub: 'À voir ici',        ph: 'guide' }
+  ];
+
+  function grilleActions() {
+    return '<div class="section" style="padding-top:14px">' +
+      '<div class="secbar">' +
+        '<h2>Qu\'est-ce qu\'on fait ?</h2>' +
+        '<button class="rondgris" data-act="reglages" aria-label="Réglages">' + Icon('settings', 18) + '</button>' +
+      '</div>' +
+      '<div class="portes">' + PORTES.map((d) =>
+        '<button class="porte" data-act="' + d.act + '">' +
+        (global.Stock ? Stock.ic(d.ph, { classe: 'fond' }) : '') +
+        '<span class="voile"></span>' +
+        '<span class="tx"><b>' + UI.esc(d.nom) + '</b><small>' + UI.esc(d.sub) + '</small></span>' +
+        '</button>').join('') + '</div></div>';
+  }
+
+  /* ============================================================
+     Les pop-up
+     ============================================================ */
+
+  /* L'humeur. On choisit dans la pop-up, le resultat s'affiche
+     dans la meme pop-up : on ne repart pas chercher ailleurs. */
+  function ouvrirMood() {
+    const p = prefs();
+    const carte = (e) => {
+      const mol = MOODS.MOLECULES[e.molecule];
+      return '<button class="moodcarte' + (p.mood === e.id ? ' on' : '') + '" data-m="' + e.id + '"' +
+        ' style="--mc:' + mol.teinte + '">' +
+        '<span class="ic">' + Icon(e.icon, 22) + '</span>' +
+        '<b>' + UI.esc(e.nom) + '</b>' +
+        '<small>' + UI.esc(e.sub) + '</small></button>';
+    };
+    UI.openSheet(
+      teteSheet('Choisis ton mood', 'On te propose ce qui va vraiment avec.', ['#4B3A8C', '#8A6FD6'], 'coeur') +
+      '<div class="mbody">' +
+        '<div class="moodgrille">' + MOODS.ETATS.map(carte).join('') + '</div>' +
+        (p.mood ? '<button class="btn ghost block" style="margin-top:14px" data-off>Enlever le mood</button>' : '') +
+        '<div id="moodOut"></div>' +
+      '</div>',
+      { onMount: (sh) => {
+        const out = sh.querySelector('#moodOut');
+        const off = sh.querySelector('[data-off]');
+        if (off) off.onclick = () => { setPrefs({ mood: null }); UI.closeSheet(); render(); };
+        sh.querySelectorAll('[data-m]').forEach((b) => b.onclick = () => {
+          UI.haptic('select');
+          setPrefs({ mood: b.dataset.m, category: 'all' });
+          sh.querySelectorAll('[data-m]').forEach((x) => x.classList.toggle('on', x === b));
+          out.innerHTML = moodBanner(prefs()) +
+            '<button class="btn primary block lg" style="margin-top:14px" data-go>' +
+            Icon('dice', 18) + 'Tourner avec ce mood</button>';
+          out.querySelector('[data-go]').onclick = () => { UI.closeSheet(); ouvrirRoue(); };
+          out.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        });
+      } });
+  }
+
+  /* La roue, dans sa pop-up. Le resultat s'affiche dessous, sans
+     jamais revenir polluer l'accueil. */
+  function ouvrirRoue() {
+    const p = prefs();
+    const cats = Array.from(new Set(Store.all('activities').filter((a) => a.city === p.city).map((a) => a.category)));
+    UI.openSheet(
+      teteSheet('Tourner la roue', p.mood ? 'Filtrée par ton mood du moment.' : 'Tout ce qui est possible ici.',
+        ['#B4472C', '#E8804F'], 'cible') +
+      '<div class="mbody">' +
+        (p.mood ? '' : '<div class="chips" style="margin-bottom:12px">' +
           '<button class="chip ' + (p.category === 'all' ? 'on' : '') + '" data-cat="all">Tout</button>' +
           cats.map((c) => '<button class="chip ' + (p.category === c ? 'on' : '') + '" data-cat="' + UI.attr(c) + '">' + UI.esc(c) + '</button>').join('') +
-        '</div>') +
-      '<div id="actRoul" style="margin-top:8px"></div>' +
-      '<div class="btnrow" style="margin-top:10px">' +
-        '<button class="btn grow" data-act="surprise">' + Icon('sparkle', 17) + 'Surprends-moi</button>' +
-        '<button class="btn grow" data-act="three">' + Icon('dice', 17) + '3 idées</button>' +
-      '</div>' +
-      eventsBlock() +
-      quickToggles(p) +
-      agendaBlock() +
-      manageBlock() +
-      guideTeaser() +
-      '</div>';
+          '</div>') +
+        '<div id="actRoul"></div>' +
+      '</div>',
+      { onMount: (sh) => {
+        const monter = () => {
+          roul = Roulette.mount(sh.querySelector('#actRoul'), {
+            items: () => pool().map((a) => Object.assign({}, a, { label: a.nom, icon: iconFor(a) })),
+            weight: (a) => weightOf(a),
+            cta: 'TOURNER',
+            emptyText: 'Aucune activité avec ces filtres',
+            onResult: (a, box) => onResult(a, box)
+          });
+        };
+        monter();
+        sh.querySelectorAll('[data-cat]').forEach((b) => b.onclick = () => {
+          UI.haptic('select');
+          setPrefs({ category: b.dataset.cat });
+          sh.querySelectorAll('[data-cat]').forEach((x) => x.classList.toggle('on', x === b));
+          if (roul) roul.refresh();
+        });
+      } });
+  }
 
-    roul = Roulette.mount(UI.$('#actRoul'), {
-      items: () => pool().map((a) => Object.assign({}, a, { label: a.nom, icon: iconFor(a) })),
-      weight: (a) => weightOf(a),
-      cta: 'TOURNER',
-      emptyText: 'Aucune activité avec ces filtres',
-      onResult: (a, box) => onResult(a, box)
-    });
-    bind();
+  /* Ajouter : une activite ou une adresse. Deux choix, deux
+     tuiles, pas un menu deroulant. */
+  function ouvrirAjout() {
+    const mine = Store.all('activities').filter((a) => a.source !== 'seed').length;
+    const places = Store.all('places').length;
+    UI.openSheet(
+      teteSheet('Ajouter', 'Qu\'est-ce que tu veux enregistrer ?', ['#215D93', '#4E93CE'], 'etoile') +
+      '<div class="mbody"><div class="portes deux">' +
+        '<button class="porte" data-n="activite">' +
+          (global.Stock ? Stock.ic('ajouter une activite', { classe: 'fond' }) : '') +
+          '<span class="voile"></span><span class="tx"><b>Une activité</b><small>' +
+          mine + ' à toi</small></span></button>' +
+        '<button class="porte" data-n="lieu">' +
+          (global.Stock ? Stock.ic('mes etablissements', { classe: 'fond' }) : '') +
+          '<span class="voile"></span><span class="tx"><b>Une adresse</b><small>' +
+          places + ' enregistrée' + (places > 1 ? 's' : '') + '</small></span></button>' +
+      '</div></div>',
+      { onMount: (sh) => {
+        if (global.Stock) Stock.peupler(sh);
+        sh.querySelector('[data-n="activite"]').onclick = () => { UI.closeSheet(); addActivity(); };
+        sh.querySelector('[data-n="lieu"]').onclick = () => { UI.closeSheet(); managePlaces(); };
+      } });
+  }
+
+  /* Les reglages de la page : trois interrupteurs, et rien de
+     tout ca n'a besoin d'etre visible en permanence. */
+  function ouvrirReglages() {
+    const p = prefs();
+    const ligne = (k, nom, sub, on) =>
+      '<button class="rowitem" data-toggle="' + k + '">' +
+      '<span class="ic">' + Icon(k === 'favOnly' ? 'star' : (k === 'events' ? 'calendar' : 'clock'), 17) + '</span>' +
+      '<span class="tx"><b>' + UI.esc(nom) + '</b><small>' + UI.esc(sub) + '</small></span>' +
+      '<span class="switch ' + (on ? 'on' : '') + '"></span></button>';
+    UI.openSheet(
+      teteSheet('Réglages', 'Ce qui entre dans le tirage.', ['#4A5464', '#8492A6'], 'roue') +
+      '<div class="mbody"><div class="list">' +
+        ligne('favOnly', 'Mes favoris seulement', 'Ignore tout le reste', p.favOnly) +
+        ligne('avoidRecent', 'Éviter ce que je viens de faire', 'Sur les dix derniers jours', p.avoidRecent) +
+        ligne('events', 'Événements du moment', 'Concerts, marchés, expositions', p.events) +
+      '</div>' +
+      '<div id="evOut">' + eventsBlock() + '</div>' +
+      '</div>',
+      { onMount: (sh) => {
+        sh.querySelectorAll('[data-toggle]').forEach((b) => b.onclick = () => {
+          const k = b.dataset.toggle, next = !prefs()[k];
+          setPrefs({ [k]: next });
+          UI.haptic('toggle');
+          b.querySelector('.switch').classList.toggle('on', next);
+          if (k === 'events') {
+            if (next && !events.length) loadEvents();
+            sh.querySelector('#evOut').innerHTML = eventsBlock();
+          }
+        });
+      } });
+  }
+
+  /* En-tete commune a toutes les pop-up : un aplat colore, une
+     illustration, un titre. Le contenu commence juste dessous,
+     sans blanc entre les deux. */
+  function teteSheet(titre, sous, g, art) {
+    return '<div class="mtete" style="--t1:' + g[0] + ';--t2:' + g[1] + '">' +
+      (art && global.Art ? '<span class="ill">' + Art(art, 46) + '</span>' : '') +
+      '<h2>' + UI.esc(titre) + '</h2>' +
+      (sous ? '<p>' + UI.esc(sous) + '</p>' : '') + '</div>';
   }
 
   /* ============================================================
@@ -192,26 +360,6 @@
       '</button></div>';
   }
 
-  /* ============================================================
-     L'humeur
-
-     Six états, pas davantage. Nommés par ce qu'on ressent, jamais
-     par la chimie : personne n'ouvre une application en se disant
-     « je manque de sérotonine ».
-     ============================================================ */
-  function moodStrip(p) {
-    return '<div class="section" style="padding:14px 0 0">' +
-      '<div class="row-between" style="margin-bottom:8px">' +
-        '<b style="font-size:14px">Comment tu te sens ?</b>' +
-        (p.mood ? '<button class="btn sm ghost" data-mood="">Enlever</button>' : '') +
-      '</div>' +
-      '<div class="chips">' +
-        MOODS.ETATS.map((e) =>
-          '<button class="chip mood ' + (p.mood === e.id ? 'on' : '') + '" data-mood="' + e.id + '"' +
-          ' style="--moodink:' + MOODS.MOLECULES[e.molecule].teinte + '">' +
-          Icon(e.icon, 15) + UI.esc(e.nom) + '</button>').join('') +
-      '</div></div>';
-  }
 
   /* Le bandeau qui explique la règle. C'est lui qui fait la
      différence entre un filtre et un vrai conseil. */
@@ -249,8 +397,7 @@
     const up = Events.soon(events, 10);
     if (!up.length) {
       return '<div class="section"><div class="banner">' + Icon('calendar', 18) +
-        '<span>Rien trouvé de fiable ' + UI.esc(prep(cityName(prefs().city))) + ' pour les jours qui viennent. ' +
-        'Plutôt que d\'inventer des dates, on n\'affiche rien.</span></div></div>';
+        '<span>Rien d\'annoncé ' + UI.esc(prep(cityName(prefs().city))) + ' ces jours-ci.</span></div></div>';
     }
     return '<div class="section"><div class="sechead"><h2 style="font-size:16px">En ce moment</h2>' +
       '<button data-act="refreshEvents">Actualiser</button></div>' +
@@ -264,23 +411,6 @@
   const evIcon = (t) => ({ concert: 'sparkle', festival: 'sparkle', marche: 'bag', exposition: 'book',
     spectacle: 'film', sport: 'activity', animation: 'users', saisonnier: 'sun' })[t] || 'calendar';
 
-  function quickToggles(p) {
-    const row = (key, label, on, ic, sub) => '<button class="rowitem" data-toggle="' + key + '">' +
-      '<span class="ic">' + Icon(ic, 17) + '</span><span class="tx"><b>' + UI.esc(label) + '</b>' +
-      (sub ? '<small>' + UI.esc(sub) + '</small>' : '') + '</span>' +
-      '<span class="switch ' + (on ? 'on' : '') + '"></span></button>';
-    return '<div class="section"><div class="list">' +
-      row('favOnly', 'Favoris uniquement', p.favOnly, 'star') +
-      row('avoidRecent', "Éviter ce qui vient d'être fait", p.avoidRecent, 'clock') +
-      row('events', 'Événements du moment', p.events, 'calendar', 'Concerts, marchés, expositions, festivals') +
-      '</div>' +
-      /* Quatre boutons n'ont pas besoin de toute la largeur : la
-         bulle se serre sur son contenu et se cale a droite. */
-      '<div class="row-between" style="margin-top:12px;gap:10px">' +
-        '<span class="muted" style="font-size:12.5px;font-weight:650">Budget</span>' +
-        '<div class="seg compact">' + [1, 2, 3, 4].map((b) => '<button data-budget="' + b + '" class="' + (ctx && ctx.budget === b ? 'on' : '') + '">' + '€'.repeat(b) + '</button>').join('') + '</div>' +
-      '</div></div>';
-  }
 
   function agendaBlock() {
     if (!global.Cal) return '';
@@ -293,31 +423,7 @@
         'La journée est pleine : les propositions restent courtes.') + '</span></div></div>';
   }
 
-  function manageBlock() {
-    const mine = Store.all('activities').filter((a) => a.source !== 'seed').length;
-    const places = Store.all('places').length;
-    return '<div class="section"><div class="list">' +
-      '<button class="rowitem" data-act="addActivity"><span class="ic">' + Icon('plus', 17) + '</span>' +
-        '<span class="tx"><b>Ajouter une activité</b><small>' + mine + ' ajoutée' + (mine > 1 ? 's' : '') + '</small></span>' +
-        '<span class="rt">' + Icon('next', 15) + '</span></button>' +
-      '<button class="rowitem" data-act="places"><span class="ic">' + Icon('pin', 17) + '</span>' +
-        '<span class="tx"><b>Mes établissements</b><small>' + places + ' enregistré' + (places > 1 ? 's' : '') + '</small></span>' +
-        '<span class="rt">' + Icon('next', 15) + '</span></button>' +
-      '<button class="rowitem" data-act="history"><span class="ic">' + Icon('clock', 17) + '</span>' +
-        '<span class="tx"><b>Historique</b><small>Ce que la roue a déjà donné</small></span>' +
-        '<span class="rt">' + Icon('next', 15) + '</span></button>' +
-      '</div></div>';
-  }
 
-  function guideTeaser() {
-    return '<div class="section">' +
-      '<button class="bigrow" data-act="guide">' +
-        '<span class="ic">' + Icon('book', 22) + '</span>' +
-        '<span class="tx"><b>Guide ' + UI.esc(prep(cityName(prefs().city), 'de')) + '</b>' +
-          '<small>Ce qu\'il faut savoir et voir ici</small></span>' +
-        '<span class="go">' + Icon('next', 17) + '</span>' +
-      '</button></div>';
-  }
 
   function iconFor(a) {
     if (a.isEvent) return evIcon(a.type);
@@ -705,29 +811,11 @@
      Interactions
      ============================================================ */
   function bind() {
-    root.querySelectorAll('[data-cat]').forEach((b) => b.onclick = () => { UI.haptic('select'); setPrefs({ category: b.dataset.cat }); render(); });
-    root.querySelectorAll('[data-mood]').forEach((b) => b.onclick = () => {
-      const next = b.dataset.mood || null;
-      UI.haptic(next ? 'select' : 'tap');
-      setPrefs({ mood: prefs().mood === next ? null : next, category: 'all' });
-      render();
-    });
-    root.querySelectorAll('[data-toggle]').forEach((b) => b.onclick = () => {
-      const k = b.dataset.toggle, next = !prefs()[k];
-      setPrefs({ [k]: next });
-      UI.haptic('toggle');
-      render();
-      if (k === 'events' && next && !events.length) loadEvents();
-    });
     root.querySelectorAll('[data-budget]').forEach((b) => b.onclick = () => {
-      Store.set('budget', +b.dataset.budget); ctx.budget = +b.dataset.budget; UI.haptic('select'); render();
-    });
-    root.querySelectorAll('[data-ev]').forEach((b) => b.onclick = () => {
-      const e = events.find((x) => x.id === b.dataset.ev);
-      if (!e) return;
-      const box = UI.$('#actRoul').querySelector('[data-result]');
-      onResult(e, box, 'événement repéré ' + prep(cityName(prefs().city)));
-      box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      Store.set('budget', +b.dataset.budget);
+      ctx.budget = +b.dataset.budget;
+      UI.haptic('select');
+      root.querySelectorAll('[data-budget]').forEach((x) => x.classList.toggle('on', x === b));
     });
     const pb = root.querySelector('[data-place]');
     if (pb) pb.onclick = placePicker;
@@ -735,12 +823,14 @@
   }
 
   const acts = {
-    addActivity: () => addActivity(),
-    places: () => managePlaces(),
+    roue: () => ouvrirRoue(),
+    mood: () => ouvrirMood(),
+    three: () => threeIdeas(),
+    add: () => ouvrirAjout(),
     history: () => showHistory(),
+    reglages: () => ouvrirReglages(),
     guide: () => App.go('#/m/city/' + prefs().city),
     surprise: () => surprise(),
-    three: () => threeIdeas(),
     refreshEvents: () => { Events.clearCache(ctx.place.name); events = []; loadEvents(); }
   };
 

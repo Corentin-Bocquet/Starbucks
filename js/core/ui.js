@@ -86,43 +86,157 @@
   }
 
   /* --- Invite de saisie --- */
-  function promptSheet(title, fields, submitLabel) {
+  /* ============================================================
+     Le formulaire visuel
+
+     Un formulaire, ca doit se remplir avec le pouce, pas se lire
+     comme un questionnaire administratif. Trois principes :
+
+       - une illustration en tete, pour dire de quoi on parle ;
+       - des choix qui se touchent (des tuiles, des segments, des
+         etoiles) plutot que des menus deroulants ;
+       - une seule question par ligne, en gros.
+
+     Types disponibles : text, number, textarea, select (rendu en
+     tuiles des qu'il y a peu d'options), tiles, seg, stars.
+
+     Retro-compatible : le troisieme argument accepte toujours une
+     simple chaine pour le libelle du bouton.
+     ============================================================ */
+  function promptSheet(title, fields, opts) {
+    if (typeof opts === 'string') opts = { submit: opts };
+    opts = opts || {};
+
     return new Promise((resolve) => {
       let answered = false;
+      const etat = {};
+      fields.forEach((f) => { etat[f.name] = f.value == null ? '' : String(f.value); });
+
+      const tuiles = (f) => {
+        const o = f.options || [];
+        return '<div class="tuiles" data-tuiles="' + attr(f.name) + '">' + o.map((x) =>
+          '<button type="button" class="tuile' + (String(x.v) === etat[f.name] ? ' on' : '') + '"' +
+          ' data-v="' + attr(x.v) + '">' +
+          '<span class="im">' + (global.Stock ? Stock.ic(x.ph || x.n, { type: f.phType || 'icone' }) : '') + '</span>' +
+          '<b>' + esc(x.n) + '</b></button>').join('') + '</div>';
+      };
+
+      const segments = (f) => '<div class="seg large" data-seg="' + attr(f.name) + '">' +
+        (f.options || []).map((x) => '<button type="button" data-v="' + attr(x.v) + '"' +
+          (String(x.v) === etat[f.name] ? ' class="on"' : '') + '>' + esc(x.n) + '</button>').join('') + '</div>';
+
+      const etoiles = (f) => '<div class="stars" data-stars="' + attr(f.name) + '">' +
+        [1, 2, 3, 4, 5].map((i) => '<button type="button" data-v="' + i + '"' +
+          (Number(etat[f.name]) >= i ? ' class="on"' : '') + '>' + Icon('star', 26) + '</button>').join('') +
+        '<span class="val"></span></div>';
+
+      const bloc = (f, inner, plein) =>
+        '<div class="champ' + (plein ? ' plein' : '') + '">' +
+        '<span class="lb">' + esc(f.label) + '</span>' + inner +
+        (f.hint ? '<i class="hint">' + esc(f.hint) + '</i>' : '') + '</div>';
+
       const body = fields.map((f) => {
         if (f.type === 'textarea') {
-          return '<label class="field"><span>' + esc(f.label) + '</span>' +
-            '<textarea name="' + attr(f.name) + '" placeholder="' + attr(f.placeholder || '') + '">' + esc(f.value || '') + '</textarea>' +
-            (f.hint ? '<i class="hint">' + esc(f.hint) + '</i>' : '') + '</label>';
+          return bloc(f, '<textarea name="' + attr(f.name) + '" rows="3" placeholder="' +
+            attr(f.placeholder || '') + '">' + esc(f.value || '') + '</textarea>', true);
+        }
+        if (f.type === 'tiles' || (f.type === 'select' && (f.options || []).length <= 14)) {
+          return bloc(f, tuiles(f), true);
         }
         if (f.type === 'select') {
-          return '<label class="field"><span>' + esc(f.label) + '</span><select name="' + attr(f.name) + '">' +
-            (f.options || []).map((o) => '<option value="' + attr(o.v) + '"' + (o.v === f.value ? ' selected' : '') + '>' + esc(o.n) + '</option>').join('') +
-            '</select></label>';
+          return bloc(f, '<select name="' + attr(f.name) + '">' +
+            (f.options || []).map((o) => '<option value="' + attr(o.v) + '"' +
+              (String(o.v) === etat[f.name] ? ' selected' : '') + '>' + esc(o.n) + '</option>').join('') +
+            '</select>', true);
         }
-        return '<label class="field"><span>' + esc(f.label) + '</span>' +
-          '<input name="' + attr(f.name) + '" type="' + attr(f.type || 'text') + '" ' +
+        if (f.type === 'seg') return bloc(f, segments(f), true);
+        if (f.type === 'stars') return bloc(f, etoiles(f), true);
+        if (f.type === 'number') {
+          /* Les fleches natives d'un champ numerique font deux
+             pixels de haut et changent d'aspect a chaque
+             navigateur. Deux vrais boutons, assez gros pour le
+             pouce, et le champ reste editable au clavier. */
+          return bloc(f, '<div class="compteur" data-cpt="' + attr(f.name) + '">' +
+            '<button type="button" data-pas="-1" aria-label="Moins">' + Icon('minus', 20) + '</button>' +
+            '<input name="' + attr(f.name) + '" type="number" inputmode="decimal"' +
+            (f.step ? ' step="' + attr(f.step) + '"' : '') +
+            ' placeholder="' + attr(f.placeholder || '') + '"' +
+            ' value="' + attr(f.value == null ? '' : f.value) + '">' +
+            '<button type="button" data-pas="1" aria-label="Plus">' + Icon('plus', 20) + '</button>' +
+            '</div>', true);
+        }
+        return bloc(f, '<input name="' + attr(f.name) + '" type="' + attr(f.type || 'text') + '" ' +
           (f.step ? 'step="' + attr(f.step) + '" ' : '') +
           (f.inputmode ? 'inputmode="' + attr(f.inputmode) + '" ' : '') +
-          'placeholder="' + attr(f.placeholder || '') + '" value="' + attr(f.value == null ? '' : f.value) + '">' +
-          (f.hint ? '<i class="hint">' + esc(f.hint) + '</i>' : '') + '</label>';
+          'placeholder="' + attr(f.placeholder || '') + '" value="' + attr(f.value == null ? '' : f.value) + '">');
       }).join('');
 
+      const tete =
+        '<div class="mtete' + (opts.teinte ? '' : '') + '"' +
+        (opts.teinte ? ' style="--t1:' + attr(opts.teinte[0]) + ';--t2:' + attr(opts.teinte[1]) + '"' : '') + '>' +
+        '<span class="ill">' + (opts.art && global.Art ? Art(opts.art, 46)
+          : (opts.photo && global.Stock ? Stock.ic(opts.photo, { classe: 'gr' }) : '')) + '</span>' +
+        '<h2>' + esc(title) + '</h2>' +
+        (opts.sub ? '<p>' + esc(opts.sub) + '</p>' : '') +
+        '</div>';
+
       openSheet(
-        '<div class="mbody" style="padding-top:6px"><h2 style="font-size:22px;margin-bottom:16px">' + esc(title) + '</h2>' +
+        tete + '<div class="mbody form-visuel">' +
         '<form data-form>' + body +
-        '<button class="btn primary block lg" style="margin-top:12px" type="submit">' + esc(submitLabel || 'Enregistrer') + '</button>' +
+        '<button class="btn primary block lg" style="margin-top:18px" type="submit">' +
+        esc(opts.submit || 'Enregistrer') + '</button>' +
         '</form></div>',
         {
           onClose: () => { if (!answered) resolve(null); },
           onMount: (s) => {
             const form = s.querySelector('[data-form]');
-            const first = form.querySelector('input,textarea,select');
-            if (first) setTimeout(() => first.focus(), 260);
+            if (global.Stock) Stock.peupler(s);
+
+            s.querySelectorAll('[data-tuiles]').forEach((g) => {
+              g.querySelectorAll('.tuile').forEach((b) => b.onclick = () => {
+                etat[g.dataset.tuiles] = b.dataset.v;
+                g.querySelectorAll('.tuile').forEach((x) => x.classList.remove('on'));
+                b.classList.add('on');
+                haptic('select');
+              });
+            });
+            s.querySelectorAll('[data-seg]').forEach((g) => {
+              g.querySelectorAll('button').forEach((b) => b.onclick = () => {
+                etat[g.dataset.seg] = b.dataset.v;
+                g.querySelectorAll('button').forEach((x) => x.classList.remove('on'));
+                b.classList.add('on');
+                haptic('select');
+              });
+            });
+            s.querySelectorAll('[data-stars]').forEach((g) => {
+              g.querySelectorAll('button').forEach((b) => b.onclick = () => {
+                const v = Number(b.dataset.v);
+                etat[g.dataset.stars] = String(v);
+                g.querySelectorAll('button').forEach((x) => x.classList.toggle('on', Number(x.dataset.v) <= v));
+                haptic('select');
+              });
+            });
+
+            s.querySelectorAll('[data-cpt]').forEach((g) => {
+              const inp = g.querySelector('input');
+              const pas = Number(inp.getAttribute('step')) || 1;
+              g.querySelectorAll('[data-pas]').forEach((b) => b.onclick = () => {
+                const v = (parseFloat(inp.value) || 0) + Number(b.dataset.pas) * pas;
+                inp.value = Math.round(v * 1000) / 1000;
+                haptic('tick');
+              });
+            });
+
+            const first = form.querySelector('input,textarea');
+            if (first && !opts.pasDeFocus) setTimeout(() => first.focus(), 300);
+
             form.onsubmit = (e) => {
               e.preventDefault();
               const out = {};
-              fields.forEach((f) => { out[f.name] = form.elements[f.name] ? form.elements[f.name].value.trim() : ''; });
+              fields.forEach((f) => {
+                const el = form.elements[f.name];
+                out[f.name] = el && el.value != null ? String(el.value).trim() : (etat[f.name] || '');
+              });
               answered = true; closeSheet(); resolve(out);
             };
           }

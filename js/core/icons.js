@@ -21,6 +21,14 @@
     grid: '<circle cx="6" cy="6" r="1.6"/><circle cx="12" cy="6" r="1.6"/><circle cx="18" cy="6" r="1.6"/><circle cx="6" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="18" cy="12" r="1.6"/><circle cx="6" cy="18" r="1.6"/><circle cx="12" cy="18" r="1.6"/><circle cx="18" cy="18" r="1.6"/>',
     user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-3.9 3.6-6 8-6s8 2.1 8 6"/>',
     settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/>',
+    /* Pipette : le corps incline a 45 deg, le reservoir en haut,
+       la pointe en bas a gauche. Trace facon Lucide. */
+    pipette: '<path d="m18.5 2.5 3 3M17 4l3 3M19 6l-8.5 8.5-3 .6.6-3L16.5 3.5a2.1 2.1 0 0 1 3 3Z"/><path d="m8.5 12.5-5 5a2.1 2.1 0 0 0 3 3l5-5"/>',
+    /* Palette de peintre, avec ses quatre godets de couleur. */
+    palette: '<path d="M12 3a9 9 0 1 0 0 18 1.7 1.7 0 0 0 1.3-2.8 1.7 1.7 0 0 1 1.3-2.8h1.6A4.8 4.8 0 0 0 21 10.6C21 6.4 16.9 3 12 3Z"/><circle cx="8" cy="9" r="1.1"/><circle cx="12" cy="7" r="1.1"/><circle cx="16" cy="9.5" r="1.1"/><circle cx="7" cy="13.5" r="1.1"/>',
+    /* Roue crantee pleine, plus lisible en petit que la roue a
+       douze dents de settings. */
+    gear: '<circle cx="12" cy="12" r="3.2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9 17 7M7 17l-2.1 2.1"/>',
     search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.4-3.4"/>',
     close: '<path d="m6 6 12 12M18 6 6 18"/>',
     back: '<path d="m15 19-7-7 7-7"/>',

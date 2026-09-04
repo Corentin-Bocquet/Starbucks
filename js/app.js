@@ -36,7 +36,7 @@
       g1: '#C05F26', g2: '#EBA255' },
     { id: 'gifts', label: 'Cadeaux', icon: 'gift', art: 'cadeau',   accent: 'brand',
       g1: '#A31F46', g2: '#E45C82' },
-    { id: 'media', label: 'Films',   icon: 'film', art: 'etoile',   accent: 'brand',
+    { id: 'media', label: 'Films',   icon: 'film', art: 'clap',     accent: 'brand',
       g1: '#3B3690', g2: '#7268CF' },
     { id: 'city',  label: 'Ville',   icon: 'map', art: 'carte',    accent: 'brand',
       g1: '#1B6C7A', g2: '#3FA9B6' },
@@ -133,7 +133,7 @@
               '<b>' + UI.esc(m.label) + '</b>' +
             '</button>').join('') +
           '<button class="hubtile" data-mod="settings" style="--g1:#5B5754;--g2:#918B86">' +
-            '<span class="ic">' + Art('cible', 40) + '</span><b>Réglages</b>' +
+            '<span class="ic">' + Art('roue', 40) + '</span><b>Réglages</b>' +
           '</button>' +
         '</div>' +
       '</div>';

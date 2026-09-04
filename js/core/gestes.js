@@ -92,7 +92,7 @@
      découvrent. Au relâchement : ouvert si on a dépassé la
      moitié, refermé sinon.
      ============================================================ */
-  const OUVERTURE = 78;   /* largeur d'une action */
+  const OUVERTURE = 58;   /* largeur d'une action, rond + espace */
 
   function actions(liste) {
     return '<div class="actions">' + liste.map((a) =>

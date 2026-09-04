@@ -210,6 +210,18 @@
       const src = await lire(el.dataset.img);
       if (src) poserImage(el, src);
     }
+
+    /* Deuxieme source, gratuite : la photothèque libre. La plupart
+       des sujets (un plat, un lieu, un ingrédient) existent déjà en
+       photo quelque part ; inutile de les faire dessiner. */
+    if (global.Stock) {
+      for (const el of cases) {
+        if (el.dataset.remplie) continue;
+        const u = await Stock.url(el.dataset.imgtype, el.dataset.imgsujet);
+        if (u && el.isConnected) poserImage(el, u);
+      }
+    }
+
     if (!opts.generer || !actif()) return;
 
     const restants = cases.filter((el) => !el.dataset.remplie).slice(0, opts.max || 4);

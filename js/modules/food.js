@@ -166,15 +166,16 @@
       '</div></div>';
   }
 
+  /* Quatre facons d'ajouter, quatre tuiles photo. Avant, c'etait
+     deux boutons pleins et deux boutons fantomes : la hierarchie
+     ne voulait rien dire et rien ne donnait envie d'etre touche. */
   function addBlock() {
-    return '<div class="grid tight two" style="margin-top:14px">' +
-      '<button class="btn primary lg" data-act="scan">' + Icon('camera', 19) + 'Scanner</button>' +
-      '<button class="btn lg" data-act="search">' + Icon('search', 19) + 'Chercher</button>' +
-      '</div>' +
-      '<div class="btnrow" style="margin-top:8px">' +
-        '<button class="btn sm ghost" data-act="manual">' + Icon('plus', 15) + 'Saisie manuelle</button>' +
-        '<button class="btn sm ghost" data-act="fromcodex">' + Icon('coffee', 15) + 'Mes recettes</button>' +
-      '</div>';
+    return Portes.section('Ajouter', [
+      { act: 'scan',      nom: 'Scanner',   sub: 'Photo du plat',   ph: 'camera photo food' },
+      { act: 'search',    nom: 'Chercher',  sub: 'Dans la base',    ph: 'grocery shelf food' },
+      { act: 'manual',    nom: 'À la main', sub: 'Nom et calories', ph: 'notebook pen' },
+      { act: 'fromcodex', nom: 'Mes recettes', sub: 'Déjà enregistrées', ph: 'cuisine' }
+    ]);
   }
 
   function mealsBlock(list) {
@@ -202,10 +203,12 @@
        couleur : le journal se lit alors comme une image et pas
        comme un tableau. */
     const ref = global.ALIMENTS ? ALIMENTS.TABLE.find((a) => ALIMENTS.norm(a.nom) === ALIMENTS.norm(m.nom)) : null;
+    /* Une photo de l'aliment, toujours. La photo enregistree si on
+       en a une, sinon celle de la photothèque libre. L'icone sur
+       aplat colore n'est plus qu'un dernier recours invisible. */
     const vign = m.photoUrl || m.image
       ? '<span class="thumb"><img loading="lazy" src="' + UI.attr(m.photoUrl || m.image) + '" alt=""></span>'
-      : '<span class="thumb" style="background:' + (ref ? (CATTINT[ref.cat] || 'var(--accent-soft)') : 'var(--accent-soft)') + ';color:var(--ink-2)">' +
-          Icon(ref ? (CATICON[ref.cat] || 'fork') : (m.src === 'ai' ? 'sparkle' : m.src === 'off' ? 'scan' : 'fork'), 19) + '</span>';
+      : Imagerie.vignette(ref && ref.cat === 'boisson' ? 'boisson' : 'plat', m.nom, { classe: 'petite' });
     const ligne = '<div class="rowitem" data-meal="' + UI.attr(m.id) + '">' + vign +
       '<span class="tx"><b>' + UI.esc(m.nom) + '</b><small>' + q + (m.brand ? ' · ' + UI.esc(m.brand) : '') + '</small></span>' +
       '<span class="rt tabnum">' + UI.fmt.n(m.kcal) + ' kcal</span></div>';
