@@ -65,6 +65,8 @@
       Store.set('actPrefs', Object.assign(Store.get('actPrefs', {}), { mood: 'seul', category: 'all' }));
       App.go('#/activities');
     });
+    root.querySelectorAll('[data-kart]').forEach((b) => b.onclick = () => ouvrirSource(b.dataset.kart));
+    if (global.Stock) Stock.peupler(root);
     const q = (sel) => root.querySelector(sel);
     if (q('[data-creer]')) q('[data-creer]').onclick = creerLigue;
     if (q('[data-rejoindre]')) q('[data-rejoindre]').onclick = rejoindreLigue;
@@ -252,47 +254,97 @@
      un regard. Les points, c'est du décor ; une tasse restée vide
      toute la semaine, ça se corrige le soir même.
      ============================================================ */
+  /* ============================================================
+     Ce qui remplit une semaine
+
+     On appelait ca « les six tasses ». Personne ne sait ce qu'est
+     une tasse : ni image, ni metaphore comprise, juste un mot de
+     code interne devenu titre. On dit maintenant ce que c'est.
+
+     Six cartes, une par source de bien-etre, avec sa photo et son
+     compte de la semaine. Celles restees vides portent une pastille
+     rouge : c'est exactement l'information qu'on vient chercher.
+     ============================================================ */
+  const PHOTO_MOL = {
+    dopamine:      'runner finish line achievement',
+    serotonine:    'sunlight calm morning',
+    ocytocine:     'two people hugging warmth',
+    cannabinoides: 'friends laughing together',
+    opioides:      'warm blanket comfort tea',
+    testosterone:  'gym weights training'
+  };
+
   function cupsBlock() {
     if (!global.Mood) return '';
     const b = Mood.balance(7);
-    const max = Math.max(3, Math.max.apply(null, Object.keys(b).map((k) => b[k])));
     const jours = Mood.joursSansLien();
     const vides = Object.keys(b).filter((m) => b[m] === 0);
 
-    const lignes = Object.keys(MOODS.MOLECULES).map((m) => {
-      const mol = MOODS.MOLECULES[m], v = b[m];
-      const pct = Math.min(100, (v / max) * 100);
-      return '<div class="cup ' + (v === 0 ? 'vide' : '') + '">' +
-        '<span class="ci" style="background:color-mix(in srgb,' + mol.teinte + ' 14%,transparent);color:' + mol.teinte + '">' +
-          Icon(mol.icon, 17) + '</span>' +
-        '<span class="ct"><b>' + UI.esc(mol.nom) + '</b>' +
-          '<small>' + UI.esc(v === 0 ? mol.manque : mol.role) + '</small>' +
-          '<span class="bar-track"><span class="bar-fill" style="width:' + pct.toFixed(0) + '%;background:' + mol.teinte + '"></span></span>' +
-        '</span>' +
-        '<span class="cn">' + Math.round(v) + '</span></div>';
-    }).join('');
+    const cartes = Object.keys(MOODS.MOLECULES).map((m) => {
+      const mol = MOODS.MOLECULES[m], v = Math.round(b[m]);
+      return {
+        id: m,
+        titre: mol.nom,
+        sous: v === 0 ? 'Rien cette semaine' : v + (v > 1 ? ' moments' : ' moment'),
+        ph: PHOTO_MOL[m] || mol.nom,
+        type: 'activite',
+        badge: v === 0 ? '0' : String(v)
+      };
+    });
 
-    /* L'alerte sociale passe avant tout le reste : c'est la seule
-       chose que l'application ne peut pas régler à ta place. */
+    /* L'alerte sociale passe avant tout : c'est la seule chose que
+       l'application ne peut pas regler a ta place. */
     let alerte = '';
     if (jours != null && jours >= 4) {
       alerte = '<div class="banner danger" style="margin-bottom:12px">' + Icon('users', 18) +
         '<span><b>' + jours + ' jours sans rien faire avec quelqu\'un.</b> ' +
-        'Trois des six tasses ne se remplissent pas autrement. Aucune activité solo ne rattrapera ça.</span>' +
+        'Trois de ces six sources ne se remplissent pas autrement.</span>' +
         '<button class="btn sm primary" data-act="seul" style="flex:none">Y remédier</button></div>';
     } else if (vides.length >= 3) {
       alerte = '<div class="banner warn" style="margin-bottom:12px">' + Icon('info', 18) +
-        '<span>' + vides.length + ' tasses sur six sont restées vides cette semaine.</span></div>';
+        '<span>' + vides.length + ' sources sur six sont restées vides cette semaine.</span></div>';
     }
 
-    return '<div class="section"><div class="sechead"><h2 style="font-size:16px">Les six tasses</h2>' +
-      '<span>7 derniers jours</span></div>' +
+    return '<div class="section">' +
+      '<div class="secbar"><h2>Ce qui a rempli ta semaine</h2><span class="muted" style="font-size:12px">7 jours</span></div>' +
       alerte +
-      '<div class="panel"><div class="cups">' + lignes + '</div>' +
-      '<p class="muted" style="font-size:11.5px;margin-top:12px;line-height:1.5">' +
-      'Toutes les émotions positives passent par ces six molécules. Les trois du bas ' +
-      'ne se sécrètent qu\'en présence de quelqu\'un — c\'est biologique, pas moral.</p></div></div>';
+      Cartes.carrousel(cartes, { classe: 'petit' }) +
+      '<p class="muted" style="font-size:11.5px;margin-top:4px;line-height:1.5">' +
+      'Le bien-être passe par six circuits différents. Trois d\'entre eux ne s\'activent ' +
+      'qu\'en présence de quelqu\'un : c\'est biologique, pas moral.</p></div>';
   }
+
+  /* La fiche d'une source : ce qu'elle est, ce qui la remplit. */
+  function ouvrirSource(m) {
+    const mol = MOODS.MOLECULES[m];
+    if (!mol) return;
+    const b = Mood.balance(7);
+    const v = Math.round(b[m] || 0);
+    const sources = (MOODS.SOURCES || []).filter((x) => (x.m || [])[0] === m).slice(0, 12);
+
+    Cartes.ouvrir({
+      tete: Cartes.tete(mol.nom, mol.role, [mol.teinte, mol.teinte], null),
+      corps:
+        '<div class="gduo" style="margin-bottom:16px">' +
+          Graph.tuile({ nom: 'Cette semaine', teinte: mol.teinte, valeur: String(v),
+            unite: v > 1 ? 'moments' : 'moment',
+            graph: Graph.anneau({ valeur: v, objectif: 5, c1: mol.teinte, c2: mol.teinte, centre: String(v) }) }) +
+          Graph.tuile({ nom: 'Besoin', teinte: mol.teinte, valeur: Mood.estSociale(m) ? 'À deux' : 'Seul',
+            unite: Mood.estSociale(m) ? 'ne marche pas seul' : 'possible seul' }) +
+        '</div>' +
+        (v === 0 ? '<div class="banner warn" style="margin-bottom:14px">' + Icon('info', 18) +
+          '<span>' + UI.esc(mol.manque) + '</span></div>' : '') +
+        (sources.length
+          ? '<h4 class="ftitre">Ce qui la remplit</h4>' +
+            Cartes.carrousel(sources.map((x, i) => ({
+              id: 'src' + i, titre: x.nom, sous: (x.min ? x.min + ' min' : '') +
+                (x.social && x.social !== 'solo' ? ' · à plusieurs' : ''),
+              ph: x.nom, type: 'activite'
+            })), { classe: 'petit' })
+          : '')
+    });
+  }
+
 
   function quest(q) {
     const done = q.value >= q.target;

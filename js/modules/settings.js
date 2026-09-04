@@ -31,21 +31,21 @@
                 '<span class="tx"><b>' + UI.esc((u.user_metadata && u.user_metadata.pseudo) || 'Connecté') + '</b>' +
                 '<small>' + UI.esc(u.email) + '</small></span>' +
                 '<span class="rt">' + (Store.get('avatar', null) || Store.get('avatarUrl', null) ? 'Changer' : 'Ajouter une photo') + Icon('next', 15) + '</span></button>' +
-              '<button class="rowitem" data-act="pseudo"><span class="ic">' + Icon('edit', 17) + '</span>' +
+              '<button class="rowitem" data-act="pseudo">' + art3d('personne') +
                 '<span class="tx"><b>Pseudo</b></span>' +
                 '<span class="rt">' + UI.esc((u.user_metadata && u.user_metadata.pseudo) || '—') + Icon('next', 15) + '</span></button>' +
-              '<button class="rowitem" data-act="sync"><span class="ic">' + Icon('sync', 17) + '</span>' +
+              '<button class="rowitem" data-act="sync">' + art3d('sync') +
                 '<span class="tx"><b>Synchroniser maintenant</b><small>' + lastSync() + '</small></span>' +
                 '<span class="rt">' + Icon('next', 15) + '</span></button>' +
-              '<button class="rowitem" data-act="signout"><span class="ic" style="background:var(--danger-soft);color:var(--danger)">' + Icon('logout', 17) + '</span>' +
+              '<button class="rowitem" data-act="signout">' + art3d('sortie') +
                 '<span class="tx"><b>Se déconnecter</b></span><span class="rt">' + Icon('next', 15) + '</span></button>' +
             '</div>'
           : Cloud.configured()
             ? '<div class="list">' +
-                '<button class="rowitem" data-act="login"><span class="ic">' + Icon('lock', 17) + '</span>' +
+                '<button class="rowitem" data-act="login">' + art3d('cle') +
                   '<span class="tx"><b>Se connecter</b><small>Retrouver ses données partout</small></span>' +
                   '<span class="rt">' + Icon('next', 15) + '</span></button>' +
-                '<button class="rowitem" data-act="signup"><span class="ic">' + Icon('plus', 17) + '</span>' +
+                '<button class="rowitem" data-act="signup">' + art3d('personne') +
                   '<span class="tx"><b>Créer un compte</b></span><span class="rt">' + Icon('next', 15) + '</span></button>' +
               '</div>'
             : '<div class="banner" style="margin-bottom:10px">' + Icon('info', 18) +
@@ -64,13 +64,13 @@
           '<button class="rowitem" data-act="gemini"><span class="ic marque">' + Icon.marque('gemini', 21) + '</span>' +
             '<span class="tx"><b>Clé Gemini</b><small>' + (Store.get('geminiKey', '') ? 'Configurée · ' + mask(Store.get('geminiKey', '')) : 'Non configurée') + '</small></span>' +
             '<span class="rt">' + Icon('next', 15) + '</span></button>' +
-          '<button class="rowitem" data-act="tmdb"><span class="ic">' + Icon('film', 17) + '</span>' +
+          '<button class="rowitem" data-act="tmdb">' + art3d('clap') +
             '<span class="tx"><b>Clé TMDB</b><small>' + (Store.get('tmdbKey', '') ? 'Configurée' : 'Facultative, pour les affiches de films') + '</small></span>' +
             '<span class="rt">' + Icon('next', 15) + '</span></button>' +
           '<button class="rowitem" data-act="google"><span class="ic marque">' + Icon.marque('gcal', 21) + '</span>' +
             '<span class="tx"><b>Google Agenda</b><small>' + (Store.get('googleClientId', '') ? 'Configuré' : 'Sans cela, les événements passent par un fichier .ics') + '</small></span>' +
             '<span class="rt">' + Icon('next', 15) + '</span></button>' +
-          '<button class="rowitem" data-act="images"><span class="ic marque">' + Art('pomme', 21) + '</span>' +
+          '<button class="rowitem" data-act="images">' + art3d('appareil') +
             '<span class="tx"><b>Images générées</b><small>' +
             (Imagerie.actif()
               ? Imagerie.stats().enCache + ' en mémoire · ' + Imagerie.resteAujourdhui() + " possibles aujourd'hui"
@@ -88,11 +88,11 @@
               ? 'Enregistrée · sert à générer tes tenues portées'
               : 'Pour te voir habillé avec une tenue') + '</small></span>' +
             '<span class="rt">' + Icon('next', 15) + '</span></button>' +
-          '<button class="rowitem" data-act="diag"><span class="ic">' + Icon('activity', 17) + '</span>' +
+          '<button class="rowitem" data-act="diag">' + art3d('eclair') +
             '<span class="tx"><b>Tester l\'IA</b><small>' +
             (AI.currentModel() ? 'Modèle actif : ' + UI.esc(AI.currentModel()) : 'Vérifie la clé et choisit le modèle') +
             '</small></span><span class="rt">' + Icon('next', 15) + '</span></button>' +
-          '<button class="rowitem" data-act="clearcache"><span class="ic">' + Icon('refresh', 17) + '</span>' +
+          '<button class="rowitem" data-act="clearcache">' + art3d('refaire') +
             '<span class="tx"><b>Vider le cache des réponses IA</b></span><span class="rt">' + Icon('next', 15) + '</span></button>' +
         '</div>' +
         '<div class="banner warn" style="margin-top:10px">' + Icon('alert', 18) +
@@ -120,10 +120,10 @@
         'seuls des partenaires sous contrat y accèdent, et aucune bibliotheque ne contourne cela sans stocker ton mot de passe. ' +
         'Le pont passe donc par des fichiers, dans les deux sens. Tes exports MFP rentrent, tes journées ressortent.</span></div>' +
         '<div class="list">' +
-          '<button class="rowitem" data-act="mfpImport"><span class="ic">' + Icon('download', 17) + '</span>' +
+          '<button class="rowitem" data-act="mfpImport">' + art3d('carte') +
             '<span class="tx"><b>Importer un export MyFitnessPal</b><small>Fichier CSV</small></span>' +
             '<span class="rt">' + Icon('next', 15) + '</span></button>' +
-          '<button class="rowitem" data-act="mfpExport"><span class="ic">' + Icon('upload', 17) + '</span>' +
+          '<button class="rowitem" data-act="mfpExport">' + art3d('livre') +
             '<span class="tx"><b>Exporter mon journal</b><small>CSV compatible</small></span>' +
             '<span class="rt">' + Icon('next', 15) + '</span></button>' +
         '</div>' +
@@ -139,13 +139,13 @@
         '<div class="seg full">' + [['apple', 'Plans'], ['google', 'Google Maps']].map((t) =>
           '<button data-maps="' + t[0] + '" class="' + (Store.get('mapsProvider', 'apple') === t[0] ? 'on' : '') + '">' + t[1] + '</button>').join('') + '</div></div>' +
         '<div class="list" style="margin-top:10px">' +
-          '<button class="rowitem" data-act="haptics"><span class="ic">' + Icon('activity', 17) + '</span>' +
+          '<button class="rowitem" data-act="haptics">' + art3d('eclair') +
             '<span class="tx"><b>Vibrations</b><small>Retour au toucher sur iPhone</small></span>' +
             '<span class="switch ' + (Store.get('haptics', true) ? 'on' : '') + '"></span></button>' +
-          '<button class="rowitem" data-act="sound"><span class="ic">' + Icon('bell', 17) + '</span>' +
+          '<button class="rowitem" data-act="sound">' + art3d('etoile') +
             '<span class="tx"><b>Sons</b><small>Coupés par défaut</small></span>' +
             '<span class="switch ' + (Store.get('sound', true) ? 'on' : '') + '"></span></button>' +
-          '<button class="rowitem" data-act="weather"><span class="ic">' + Icon('cloud', 17) + '</span>' +
+          '<button class="rowitem" data-act="weather">' + art3d('goutte') +
             '<span class="tx"><b>Tenir compte de la météo</b></span>' +
             '<span class="switch ' + (Store.get('useWeather', true) ? 'on' : '') + '"></span></button>' +
         '</div>' +
@@ -155,12 +155,12 @@
       '<div class="section" data-sec="donnees">' +
         '<div class="sechead"><h2 style="font-size:16px">Mes données</h2></div>' +
         '<div class="list">' +
-          '<button class="rowitem" data-act="export"><span class="ic">' + Icon('download', 17) + '</span>' +
+          '<button class="rowitem" data-act="export">' + art3d('carte') +
             '<span class="tx"><b>Tout exporter</b><small>' + Math.round(Store.usage() / 1024) + ' Ko en local</small></span>' +
             '<span class="rt">' + Icon('next', 15) + '</span></button>' +
-          '<button class="rowitem" data-act="import"><span class="ic">' + Icon('upload', 17) + '</span>' +
+          '<button class="rowitem" data-act="import">' + art3d('livre') +
             '<span class="tx"><b>Importer une sauvegarde</b></span><span class="rt">' + Icon('next', 15) + '</span></button>' +
-          '<button class="rowitem" data-act="wipe"><span class="ic" style="background:var(--danger-soft);color:var(--danger)">' + Icon('trash', 17) + '</span>' +
+          '<button class="rowitem" data-act="wipe">' + art3d('corbeille') +
             '<span class="tx"><b>Tout effacer</b><small>Definitif sur cet appareil</small></span>' +
             '<span class="rt">' + Icon('next', 15) + '</span></button>' +
         '</div>' +
@@ -211,6 +211,10 @@
     root.querySelectorAll('[data-maps]').forEach((b) => b.onclick = () => { Store.set('mapsProvider', b.dataset.maps); render(); });
     root.querySelectorAll('[data-act]').forEach((b) => b.onclick = () => acts[b.dataset.act] && acts[b.dataset.act]());
   }
+
+  /* Une illustration 3D a la place de l'icone de trait : une icone
+     bleue sur un fond bleu ne se voit pas, un objet dessine si. */
+  const art3d = (nom) => '<span class="ic art">' + Art(nom, 30) + '</span>';
 
   const acts = {
     /* --- Ma photo, pour « Me voir avec » --- */

@@ -1023,49 +1023,207 @@
     UI.toast('Activité ajoutée'); render();
   }
 
+  /* ============================================================
+     Mes etablissements
+
+     Deux manques : on ne pouvait que supprimer ou ajouter, jamais
+     corriger une adresse ou une note ; et la liste etait grise.
+     Maintenant : des cartes photo, et une fiche modifiable.
+     ============================================================ */
+  const CHAMPS_LIEU = [
+    { name: 'nom',     label: 'Nom' },
+    { name: 'kind',    label: 'Type', type: 'tiles', phType: 'lieu', options: [
+        { v: 'bar', n: 'Bar' }, { v: 'cafe', n: 'Café' }, { v: 'restaurant', n: 'Restaurant' },
+        { v: 'brunch', n: 'Brunch' }, { v: 'glacier', n: 'Glacier' }, { v: 'musee', n: 'Musée' },
+        { v: 'cinema', n: 'Cinéma' }, { v: 'shopping', n: 'Boutique' }, { v: 'spa', n: 'Spa' },
+        { v: 'autre', n: 'Autre' } ] },
+    { name: 'adresse', label: 'Adresse', placeholder: 'Rue, ville' },
+    { name: 'rating',  label: 'Ta note sur 5', type: 'stars' },
+    { name: 'price',   label: 'Budget', type: 'seg', options: [
+        { v: '1', n: '€' }, { v: '2', n: '€€' }, { v: '3', n: '€€€' }, { v: '4', n: '€€€€' } ] }
+  ];
+
   function managePlaces() {
-    const list = Store.all('places');
-    UI.openSheet('<div class="mbody" style="padding-top:6px">' +
-      '<h2 style="font-size:22px;margin-bottom:4px">Mes établissements</h2>' +
-      '<p class="secdesc">Ceux que tu ajoutes toi-même passent toujours avant ceux trouvés par l\'IA.</p>' +
-      (list.length ? '<div class="list">' + list.map((p) =>
-        '<div class="rowitem"><span class="ic">' + Icon('pin', 17) + '</span>' +
-        '<span class="tx"><b>' + UI.esc(p.nom) + '</b><small>' + UI.esc(p.kind || '') + (p.adresse ? ' · ' + UI.esc(p.adresse) : '') + '</small></span>' +
-        '<button class="rt" data-rm="' + UI.attr(p.id) + '">' + Icon('trash', 16) + '</button></div>').join('') + '</div>'
-        : UI.empty('pin', 'Aucun établissement', 'Ajoute tes adresses, ou garde celles que la roue te propose.')) +
-      '<button class="btn primary block lg" style="margin-top:14px" data-add>' + Icon('plus', 17) + 'Ajouter une adresse</button>' +
-      '</div>', {
-      onMount: (s) => {
-        s.querySelectorAll('[data-rm]').forEach((b) => b.onclick = () => { Store.del('places', b.dataset.rm); UI.closeSheet(); render(); });
-        s.querySelector('[data-add]').onclick = async () => {
+    const liste = Store.all('places');
+
+    const cartes = liste.map((p) => ({
+      id: p.id,
+      titre: p.nom,
+      sous: [p.kind, p.rating ? p.rating + '/5' : ''].filter(Boolean).join(' · ') || 'Enregistré',
+      ph: p.nom + ' ' + (p.kind || ''),
+      type: 'lieu'
+    }));
+
+    Cartes.ouvrir({
+      tete: Cartes.tete('Mes établissements',
+        liste.length ? liste.length + ' adresses à toi' : 'Aucune adresse pour l\'instant',
+        ['#1F6E5A', '#3FAF8A'], 'lieu'),
+      corps:
+        (cartes.length ? Cartes.grille(cartes) :
+          UI.empty('pin', 'Aucun établissement', 'Ajoute tes adresses, ou garde celles que la roue te propose.')) +
+        '<button class="btn primary block lg" style="margin-top:16px" data-add>' +
+          Icon('plus', 17) + 'Ajouter une adresse</button>' +
+        '<p class="aide">Les tiennes passent toujours avant celles trouvées par l\'IA.</p>',
+      onMount: (sh) => {
+        sh.querySelector('[data-add]').onclick = () => nouveauLieu();
+      },
+      onCarte: (id) => ficheLieu(id)
+    });
+  }
+
+  /* La fiche d'un etablissement : la carte en vrai, et tout
+     modifiable. */
+  function ficheLieu(id) {
+    const p = Store.find('places', id);
+    if (!p) return;
+    const tuiles = [p.adresse ? { l: 'Adresse', v: p.adresse } : null,
+      p.rating ? { l: 'Ta note', v: p.rating + ' / 5' } : null,
+      p.price ? { l: 'Budget', v: '€'.repeat(Math.min(4, p.price)) } : null].filter(Boolean);
+
+    Cartes.empiler({
+      tete: Cartes.tete(p.nom, p.kind || 'Établissement', ['#1F6E5A', '#3FAF8A'], 'lieu'),
+      corps:
+        '<div class="minicarte" data-mini></div>' +
+        (tuiles.length ? '<div class="list" style="margin-top:14px">' + tuiles.map((t) =>
+          '<div class="rowitem"><span class="tx"><b>' + UI.esc(t.l) + '</b></span>' +
+          '<span class="rt">' + UI.esc(t.v) + '</span></div>').join('') + '</div>' : '') +
+        '<div class="btnrow" style="margin-top:16px">' +
+          '<button class="btn primary grow lg" data-modif>' + Icon('edit', 17) + 'Modifier</button>' +
+          '<button class="btn lg" data-carte aria-label="Voir sur la carte">' + Icon('map', 17) + '</button>' +
+          '<button class="btn danger lg" data-sup aria-label="Supprimer">' + Icon('trash', 17) + '</button>' +
+        '</div>',
+      onMount: (sh) => {
+        if (global.MapPick && MapPick.mini) {
+          MapPick.mini(sh.querySelector('[data-mini]'), { lat: p.lat, lon: p.lon, nom: p.nom });
+        }
+        sh.querySelector('[data-modif]').onclick = () => modifierLieu(id);
+        sh.querySelector('[data-carte]').onclick = () => {
           UI.closeSheet();
-          const r = await UI.promptSheet('Nouvel établissement', [
-            { name: 'nom', label: 'Nom' },
-            { name: 'kind', label: 'Type', placeholder: 'bar, restaurant, café…' },
-            { name: 'adresse', label: 'Adresse' },
-            { name: 'rating', label: 'Ta note sur 5', type: 'number', step: '0.1', value: '' },
-            { name: 'price', label: 'Budget (1 à 4)', type: 'number', value: 2 }
-          ], 'Ajouter');
-          if (!r || !r.nom) return;
-          Store.add('places', {
-            nom: r.nom, kind: (r.kind || 'autre').toLowerCase(), adresse: r.adresse,
-            rating: Number(r.rating) || null, reviews: null, price: Number(r.price) || null,
-            city: prefs().city, source: 'user', lat: ctx.place.lat, lon: ctx.place.lon
-          });
-          UI.toast('Ajouté'); render();
+          MapPick.fiche({ nom: p.nom, adresse: p.adresse, lat: p.lat, lon: p.lon });
+        };
+        sh.querySelector('[data-sup]').onclick = async () => {
+          if (!await UI.confirmSheet('Supprimer ?', p.nom + ' disparaît de tes adresses.', true)) { ficheLieu(id); return; }
+          Store.del('places', id); UI.closeSheet(); render();
         };
       }
     });
   }
 
-  function showHistory() {
-    const h = Store.history('activite', 60).concat(Store.history('etablissement', 60)).sort((a, b) => b.at - a.at).slice(0, 60);
-    UI.openSheet('<div class="mbody" style="padding-top:6px"><h2 style="font-size:22px;margin-bottom:12px">Historique</h2>' +
-      (h.length ? '<div class="list">' + h.map((x) =>
-        '<div class="rowitem"><span class="ic">' + Icon(x.kind === 'activite' ? 'activity' : 'pin', 17) + '</span>' +
-        '<span class="tx"><b>' + UI.esc(x.payload.label || '') + '</b><small>' + UI.esc(UI.fmt.date(x.at)) + '</small></span></div>').join('') + '</div>'
-        : UI.empty('clock', 'Rien encore', 'Lance la roue une première fois.')) + '</div>');
+  async function modifierLieu(id) {
+    const p = Store.find('places', id);
+    if (!p) return;
+    const champs = CHAMPS_LIEU.map((c) => Object.assign({}, c, {
+      value: c.name === 'price' ? String(p.price || 2) : (p[c.name] == null ? '' : String(p[c.name]))
+    }));
+    const r = await UI.promptSheet('Modifier', champs,
+      { submit: 'Enregistrer', art: 'lieu', teinte: ['#1F6E5A', '#3FAF8A'], sub: p.nom });
+    if (!r) { ficheLieu(id); return; }
+    Store.put('places', id, {
+      nom: r.nom || p.nom, kind: (r.kind || p.kind || 'autre').toLowerCase(),
+      adresse: r.adresse, rating: Number(r.rating) || null, price: Number(r.price) || null
+    });
+    UI.toast('Modifié'); render();
+    ficheLieu(id);
   }
+
+  async function nouveauLieu() {
+    const r = await UI.promptSheet('Nouvel établissement',
+      CHAMPS_LIEU.map((c) => Object.assign({}, c, { value: c.name === 'price' ? '2' : '' })),
+      { submit: 'Ajouter', art: 'lieu', teinte: ['#1F6E5A', '#3FAF8A'] });
+    if (!r || !r.nom) return;
+    Store.add('places', {
+      nom: r.nom, kind: (r.kind || 'autre').toLowerCase(), adresse: r.adresse,
+      rating: Number(r.rating) || null, reviews: null, price: Number(r.price) || null,
+      city: prefs().city, source: 'user', lat: ctx.place.lat, lon: ctx.place.lon
+    });
+    UI.toast('Ajouté'); render();
+    managePlaces();
+  }
+
+
+  /* ============================================================
+     L'historique
+
+     Une liste de soixante lignes grises ne se lit pas : on la
+     fait defiler jusqu'en bas sans rien y voir.
+
+     Ici, l'historique est range par famille (bars, culture,
+     dehors...), chaque famille a son carrousel, et chaque sortie
+     est une carte avec la photo de ce que c'etait.
+     ============================================================ */
+  const FAMILLES = [
+    ['Manger et boire', ['bar', 'cafe', 'restaurant', 'brunch', 'glacier'], 'restaurant'],
+    ['Culture',         ['musee', 'galerie', 'exposition', 'monument', 'cinema', 'theatre'], 'culture'],
+    ['Dehors',          ['plage', 'promenade', 'randonnee', 'velo', 'vtt', 'ski', 'parc'], 'nature'],
+    ['Sport et jeux',   ['karting', 'bowling', 'escape', 'golf', 'tennis', 'equitation', 'piscine'], 'sport'],
+    ['Autres',          [], 'surprise']
+  ];
+
+  function familleDe(kind) {
+    const f = FAMILLES.find((x) => x[1].indexOf(kind) >= 0);
+    return f ? f[0] : 'Autres';
+  }
+
+  function showHistory() {
+    const h = Store.history('activite', 120)
+      .concat(Store.history('etablissement', 120))
+      .sort((a, b) => b.at - a.at);
+
+    if (!h.length) {
+      Cartes.ouvrir({
+        tete: Cartes.tete('Historique', 'Ce que la roue a déjà donné.', ['#6B5330', '#A98A55'], 'refaire'),
+        corps: UI.empty('clock', 'Rien encore', 'Lance la roue une première fois.')
+      });
+      return;
+    }
+
+    /* On range par famille en gardant l'ordre chronologique. */
+    const paquets = {};
+    h.forEach((x, i) => {
+      const nom = x.payload.label || '';
+      const kind = x.payload.kind || '';
+      const fam = x.kind === 'etablissement' ? 'Manger et boire' : familleDe(kind);
+      (paquets[fam] = paquets[fam] || []).push({
+        id: 'h' + i,
+        titre: nom,
+        sous: UI.fmt.date(x.at),
+        ph: nom,
+        type: 'activite',
+        at: x.at
+      });
+    });
+
+    const corps = FAMILLES.map(([nom]) => {
+      const l = paquets[nom];
+      if (!l || !l.length) return '';
+      return '<h4 class="ftitre">' + UI.esc(nom) + ' · ' + l.length + '</h4>' +
+        Cartes.carrousel(l, { classe: 'petit' });
+    }).join('');
+
+    Cartes.ouvrir({
+      tete: Cartes.tete('Historique', h.length + ' sorties enregistrées', ['#6B5330', '#A98A55'], 'refaire'),
+      corps: corps,
+      onCarte: (id) => {
+        const tous = [].concat.apply([], Object.values(paquets));
+        const c = tous.find((x) => x.id === id);
+        if (!c) return;
+        Cartes.empiler({
+          tete: Cartes.tete(c.titre, c.sous, ['#6B5330', '#A98A55'], 'lieu'),
+          corps: '<div class="kart grand">' +
+              '<span class="vis">' + Stock.ic(c.titre, { classe: 'fond', type: 'activite' }) + '</span>' +
+            '</div>' +
+            '<p class="mdesc" style="margin-top:14px">Fait le ' + UI.esc(UI.fmt.date(c.at)) + '.</p>' +
+            '<button class="btn primary block lg" style="margin-top:14px" data-refaire>' +
+              Icon('refresh', 17) + 'Le refaire</button>',
+          onMount: (sh) => {
+            const b = sh.querySelector('[data-refaire]');
+            if (b) b.onclick = () => { UI.closeSheet(); ouvrirRoue(); };
+          }
+        });
+      }
+    });
+  }
+
 
   App.register('activities', { mount: mount });
   global.Activities = { mount, surprise, threeIdeas };

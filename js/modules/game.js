@@ -63,6 +63,7 @@
 
   function celebrate(r) {
     UI.haptic('success');
+    if (global.Anim) Anim.confettis(60);
     const c = Rang.couleurs(r.matiere);
     UI.openSheet(
       '<div class="mbody" style="text-align:center;padding-top:18px">' +

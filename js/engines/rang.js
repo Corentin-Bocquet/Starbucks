@@ -24,15 +24,34 @@
   };
   const DIVISIONS = ['III', 'II', 'I'];
 
-  /* Seuils cumulés, une entrée par division. */
+  /* ============================================================
+     Les seuils
+
+     Ils montaient trop doucement : de Bois III a Diamant I, il n'y
+     avait qu'un facteur 93, et les derniers crans coutaient a peine
+     plus que les premiers. Un palier qui se gagne en une semaine
+     n'est pas un palier.
+
+     La progression est maintenant quasi geometrique : chaque
+     division coute environ 38 % de plus que la precedente. Les
+     premieres se prennent en quelques jours, la derniere demande
+     des mois. C'est le point : le haut doit se meriter.
+
+       Bois III       0        Or III       6 400
+       Bois I         420      Or I        12 200
+       Bronze III     820      Platine III 16 700
+       Bronze I     1 900      Platine I   30 800
+       Argent III   2 800      Diamant III 42 000
+       Argent I     5 100      Diamant I   77 000
+     ============================================================ */
   const SEUILS = [
-    0, 150, 350,            /* Bois    III II I */
-    600, 900, 1250,         /* Bronze  */
-    1650, 2100, 2600,       /* Argent  */
-    3200, 3900, 4700,       /* Or      */
-    5600, 6600, 7700,       /* Platine */
-    9000, 10500, 12200,     /* Diamant */
-    14000                   /* plafond */
+    0, 180, 420,                  /* Bois    III II I */
+    820, 1300, 1900,              /* Bronze  */
+    2800, 3800, 5100,             /* Argent  */
+    6400, 8800, 12200,            /* Or      */
+    16700, 22600, 30800,          /* Platine */
+    42000, 56000, 77000,          /* Diamant */
+    104000                        /* plafond */
   ];
 
   function rang(xp) {

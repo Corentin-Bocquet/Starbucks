@@ -57,105 +57,139 @@
      a passer un concours de dessin medical.
      ============================================================ */
 
-  /* Le corps, en neutre : c'est le support, il ne se colore jamais.
-     Les bras sont ranges a part parce qu'ils sont pivotes de seize
-     degres vers l'exterieur : bras colles au corps, on ne distingue
-     plus le triceps de l'oblique. */
-  const TRONC = [
+  /* ============================================================
+     La planche anatomique
+
+     Deux essais avant celui-ci. Le premier alignait des rectangles
+     arrondis : on devinait un corps, aucun muscle. Le second avait
+     des proportions fausses, un buste trop etroit et des bras
+     dessines pour un corps deux fois plus court.
+
+     Celui-ci part d'une grille de proportions reelles, en huit
+     tetes, sur une hauteur de 420 :
+
+       tete     8 a 58        epaules  demi-largeur 46 a y = 78
+       cou     55 a 72        taille   demi-largeur 30 a y = 170
+       buste   68 a 222       hanches  demi-largeur 40 a y = 210
+       cuisse 222 a 318       genou    demi-largeur 21
+       mollet 332 a 392       cheville demi-largeur 11
+
+     Le bras est trace en place, deja ecarte, avec ses deux bords :
+     le faire pivoter apres coup le detachait de l'epaule.
+
+     Chaque muscle porte un trait fin. C'est lui, plus que la forme,
+     qui fait qu'on lit une planche et pas une tache de couleur.
+     ============================================================ */
+
+  /* Le support neutre : peau et volumes, jamais colore. */
+  const CORPS = [
     /* Tete, oreille, cou */
-    'M60 4c-8.6 0-15.4 7.2-15.4 17S51.4 39 60 39V4Z',
-    'M45.2 19.4c-2.8 0-4.8 2.2-4.8 5s2 5 4.8 5Z',
-    'M53 34h7v14.5h-7Z',
-    /* Buste : epaules larges, taille marquee, hanches */
-    'M60 42c-9.6.8-17.6 5-22.6 12.2-4.8 7-5.8 15.8-4.8 25.2.8 7.8 2.2 15.4 3.4 22.6 1.4 7.6 2.4 15 2.6 22H60Z',
-    /* Cuisse, genou, mollet, cheville, pied */
-    'M38.4 122c-1.8 9-2.2 19-1.6 29 .6 9.8 2 19.2 3.8 27.4H60V122Z',
-    'M41.6 178.4c-.8 4.8-.8 9 0 12.6H60v-12.6Z',
-    'M42 190.6c-.6 8.8 0 18.2 1.2 26.8 1 7 2.2 13.2 3.6 18H60v-44.8Z',
-    'M47.4 235.4c-1.6 4.8-4.8 8.6-9 11-3.4 2-4.8 4.6-4.2 7 .6 2.2 3 3.6 6.4 3.6H60v-21.6Z'
-  ];
-  const BRAS = [
-    /* Deltoide, bras, avant-bras */
-    'M36.6 51.4c-6.6 3.8-10.8 10-12.2 18.8-.6 4-.8 7.8-.6 11.2l12 1.2c.2-8.4 1.6-16 4.4-22.6Z',
-    'M23.6 81.2c-1 9.6-2.4 19-4.2 28.2-.8 4-1.6 7.6-2.4 11l11.2 2.6c1-4 2-8.2 2.8-12.8 1.6-9.2 2.6-18.6 3-27.8Z',
-    'M17 120.2c-1.6 6.8-3.2 12.8-4.6 17.6-1.2 4-2.2 7.2-2.8 9l10.4 3.2c.8-2.4 1.8-5.6 3-9.8 1.4-4.8 2.8-10.6 4.2-17.2Z',
-    /* Main et doigts */
-    'M9.6 145.4c-2.6 1.2-4.6 3.6-4.8 6.2 0 1.8.4 3.2 1.2 4.4l2.6-6.6Zm.6 3.6c-1.8 3-3 6.2-3.4 9-.4 2.8.4 5.2 2.2 6.4 2.6 1.6 6.2.6 8.2-2.2 1.6-2.4 3.2-5.6 4.4-9.4Z',
-    'M4.8 154.4c-1.4 2.6-2 5.2-1.6 7.2.4 1.8 1.6 3 3.2 2.8l1-8.6Z'
+    'M100 8c-10.4 0-18.6 11.2-18.6 25s8.2 25 18.6 25Z',
+    'M81.8 30c-3 0-5.2 2.6-5.2 5.8s2.2 5.8 5.2 5.8Z',
+    'M100 54c-5.8 0-9 1.6-10 5.2-.9 3.2-1.2 6.8-1.2 10.8H100Z',
+    /* Buste : epaules, taille marquee, hanches */
+    'M100 66c-17 0-29.6 4.4-38 13-6.4 6.6-9.4 15-8.8 25.4.5 9.6 2.1 19 3.7 28.4 1.7 10 2.7 19.6 2.7 29 0 9.4-.6 18.4-1.7 27.2-.9 7.4-.4 13.8 1.5 19 2.5 7 7.4 12 14.9 15.2 6.8 2.9 15.3 4.4 26.7 4.4Z',
+    /* Cuisse */
+    'M100 218c-13.8 0-24.4 1.1-31.8 3.2-4.9 10.6-7.2 23.4-7.2 38.2 0 14.9 1.7 29.8 3.8 43.6 2.1 13.8 4.2 25.5 6.4 34H100Z',
+    /* Genou */
+    'M100 317H78.6c.4 6.4 1.3 11.7 2.3 16H100Z',
+    /* Mollet */
+    'M100 331H80.2c-2.3 9.6-3.2 20.2-2.6 31.9.6 11 2.3 21.3 4.5 30.6H100Z',
+    /* Cheville et pied */
+    'M100 390H86c.4 4.5 1 8.3 1.7 11.3H100Z',
+    'M100 399H87.4c-.5 4.5-2.8 7.9-6.2 10-2.8 1.7-3.9 3.9-3.4 6.2.6 2.1 2.9 3.3 5.6 3.3H100Z'
   ];
 
-  /* Les muscles, poses par-dessus. [identifiant, trace]. */
+  /* Le bras, avec ses deux bords, deja ecarte du buste. */
+  const MEMBRE = [
+    /* Deltoide */
+    'M66 70c-10.6 4-17.4 12-20.4 24-1.6 6.4-2.2 12-1.8 16.8l18.4 1.8c0-9.4 1.1-18 3.4-25.8 1.1-3.8 2.4-7.4 4-10.6Z',
+    /* Bras */
+    'M43.8 110.8c-.6 12-.6 24.4.2 37 .3 5 .7 9.8 1.2 14.2l17-1.6c-.4-4.6-.7-9.4-.9-14.4-.5-12.4-.4-24.6.3-36Z',
+    /* Coude et avant-bras */
+    'M45.2 162c1 9.6 2.2 19.4 3.6 29 .8 5.4 1.6 10.4 2.4 15l16-3.2c-.7-4.4-1.4-9.2-2.1-14.2-1.3-9.4-2.4-19-3.1-28.4Z',
+    /* Main */
+    'M51.4 206c-2.8 2-4.4 5.4-4.4 9.6 0 5.2 1.2 10.8 3.2 15.2 1.8 4 4.2 6.4 6.8 6.2 2.6-.2 4.6-2.8 5.4-6.8.8-4 .8-9.6 0-15.4Z'
+  ];
+
+  /* [identifiant, trace]. L'identifiant renvoie a SPORT.MUSCLES. */
   const MUSCLES_TRONC = {
     avant: [
-      ['trap',   'M60 42.6c-7 .6-13.2 3-18 7l4.2 9c4-3 8.6-4.6 13.8-5Z'],
-      ['pect',   'M60 56.4l-15.4 3.4c-4.2 4.2-6.2 10.8-5.6 17.8.4 4.8 1.8 8.8 4.2 11.6L60 92Z'],
-      ['abdo',   'M60 93.4l-13 1.8c-1.4 9-1.6 19.4-.6 29.8L60 126.4Z'],
-      ['obl',    'M45 95.6c-3.6 3-5.6 9-5.8 16.6-.2 5.2.4 10 1.6 13.6l5.2.6c-1-10-1-20.6.4-30.4Z'],
-      ['flechh', 'M58.4 124.4l-12.2-1c.4 3.6 1 6.8 1.8 9.4l10.4.6Z'],
-      ['quad',   'M58.4 131.6l-17.6 1.2c-1.4 9-1.6 18.8-1 28.6.4 5.8 1 11.4 1.8 16.2l16.8-.4Z'],
-      ['add',    'M58.4 132.4l-7.8.6c-.8 9-1 18.2-.4 26.8l8.2.4Z'],
-      ['mol',    'M43.6 192.6c-1 8-.8 16.8.6 25.4.6 4.2 1.4 8 2.2 11.2l12-.4v-36.8Z']
+      ['trap',   'M100 66c-13.6.4-24 3-31.4 8.4l5.6 13.4c6.4-3.8 14-6 25.8-7Z'],
+      ['pect',   'M100 88l-30 5.2c-3.2 2.2-5.8 5.8-7.4 11L100 110Z'],
+      ['pect',   'M100 111L62.6 105c-.5 6.4 1.1 11.7 4.8 16.5L100 130Z'],
+      ['serr',   'M66.5 124.5l-2.2 4 8.8 3 1.7-4.2Zm-2.8 9.4l-1.8 4.2 8.8 2.8 1.5-4.2Zm-2.2 9.6l-1.5 4.2 8.8 2.6 1.3-4.2Z'],
+      ['abdo',   'M99 132H85.4c-.6 5.4-1 10.8-1.2 16.2H99Z'],
+      ['abdo',   'M99 152H83.8c-.4 5.4-.7 10.8-.7 16.2H99Z'],
+      ['abdo',   'M99 172H82.9c0 5.4.2 10.8.6 16.2H99Z'],
+      ['abdo',   'M99 192H83.8c.4 5.2 1.1 9.9 2 14.2H99Z'],
+      ['obl',    'M82.4 130c-6.2 3-9.8 10-10.8 20.6-1 10.6 0 21.2 2.6 29.6l6.2.6c-1.6-16.9-1.6-33.8 2-50.8Z'],
+      ['flechh', 'M99 210l-12.4-.6c.7 4.2 1.6 7.8 2.7 10.7l9.7.6Z'],
+      ['quad',   'M78 232c-6.4 10.6-9.6 23.4-10.1 38.2-.5 14.8 1.1 29.6 3.2 41.3l8.5 1.1c-2.1-26.6-3.2-54.1-1.6-80.6Z'],
+      ['quad',   'M97 230l-16.6 1.6c-2.7 26.6-1.6 54.1.5 80.6l16.1.5Z'],
+      ['quad',   'M97 300l-13.9-.5c1.1 10.6 2.7 19.6 4.3 26.5l9.6.5Z'],
+      ['add',    'M97 230l-9.6.5c-1.6 20.2-1.6 40.4 0 59.5l9.6.5Z'],
+      ['tib',    'M97 348l-11.7.5c-1.6 16-1.6 31.9 0 46.8l11.7.5Z'],
+      ['mol',    'M84.6 349c-3.2 8-4.3 18.2-3.7 28.2.3 6.6 1 12.8 2.1 17.6l3.2.5c-1.6-15.4-2.1-30.8-1.6-46.3Z']
     ],
     arriere: [
-      ['trap',   'M60 42.6c-8.4.8-15.6 3.8-20.6 8.8-1 8.8.6 16.6 4.8 23.2L60 77.8Z'],
-      ['rhom',   'M60 58l-12.2 2c-.6 4.6-.4 8.8.6 12.6L60 74.4Z'],
-      ['dors',   'M60 76.6l-16.8-3c-4.2 6.8-5.6 15.2-4.2 24.6.6 4.2 1.8 7.8 3.6 10.8L60 111.6Z'],
-      ['lomb',   'M60 113.6l-14-1.8c-.6 7-.4 13.8.6 20.2l13.4.6Z'],
-      ['fess',   'M60 132.6l-18.2.6c-2.2 7-2.2 14.8 0 21.4 1 3.4 2.4 6.2 4.4 8l13.8.8Z'],
-      ['fess-m', 'M39.6 133.4c-2.4 5.2-3.2 11.6-1.8 17.4.4 2.2 1 4 1.8 5.4l2.6.2c-1.4-7.6-1.6-15.6-.4-23Z'],
-      ['isch',   'M58.4 162.6l-16.8.8c-1.4 7-1.8 15.2-1 23.2.4 4.2 1.2 8.2 2 11.6l15.8-.4Z'],
-      ['mol',    'M43.6 199.6c-1 7.4-.8 15.6.6 23.4.6 3.8 1.4 7.2 2.2 10.2l12-.4v-34.2Z'],
-      ['sol',    'M45.8 227.6c.6 3.8 1.4 7 2.2 9.4l10-.4v-9.6Z']
+      ['trap',   'M100 66c-14.4.5-26 3.8-33.5 9.9 0 12.2 2.9 22.4 8.6 30.6L100 112Z'],
+      ['rhom',   'M100 88l-19.2 3.2c-.5 6 0 11.5 2.1 16.5L100 111Z'],
+      ['dors',   'M100 113l-24.6-4.3c-6.4 8.8-8.5 20.4-6.4 33.2 1.1 6 3.2 11.5 6.4 15.9L100 164Z'],
+      ['lomb',   'M100 166l-21.3-2.1c-1.1 9.4-.9 18.6.6 26.9L100 194Z'],
+      ['fess',   'M100 196l-26.6.5c-3.7 9.9-3.7 21 0 30.3 1.9 5.2 4.3 9.2 7.4 12.2L100 242Z'],
+      ['fess-m', 'M73.4 196c-3.7 7.4-4.8 16.8-3.2 24.8.6 3.5 1.8 6.4 3.2 8.1l3.7.5c-1.8-11-2.4-22.6-1.2-33.4Z'],
+      ['isch',   'M97 248l-16 .5c-2.1 10.4-2.7 22.4-1.9 34.1.6 6.9 1.9 13.3 3.2 18.6l14.7.5Z'],
+      ['isch',   'M79.4 249l-6.9.5c-2.1 10.4-2.7 22-1.3 32.9.6 5.9 1.9 11 3.2 15l5.3.5c-1.9-16-1.9-32.9 0-48.9Z'],
+      ['mol',    'M97 348l-10.1.5c-2.1 9.1-2.7 19.4-1.9 29.1.4 5.9 1.3 11 2.1 15.4l9.9.5Z'],
+      ['mol',    'M84.8 349c-3.2 7.4-4.3 17.2-3.7 26.8.4 6.4 1.3 12 2.5 16.5l3.2.5c-1.9-14.9-2.4-29.6-2-43.8Z'],
+      ['sol',    'M97 396l-11.7-.5c.6 5.9 1.5 10.4 2.5 13.8l9.2.5Z']
     ]
   };
+
   const MUSCLES_BRAS = {
     avant: [
-      ['delt-a', 'M37.4 50.6c-7 3.8-11.4 10.2-12.8 19.2-.6 4-.8 7.8-.6 11.4l12 1.2c.2-8.4 1.4-16 4.2-22.4Z'],
-      ['bi',     'M25.2 81.4c-.8 8.4-1.8 16.2-3.2 23.4l11.2 2.4c1.2-7.4 2-15.6 2.4-24.4Z'],
-      ['avb',    'M21.2 108.2c-1.4 6.8-3 13.2-4.6 19l10.4 3.2c1.6-6.2 3-12.8 4.2-19.8Z']
+      ['delt-a', 'M66 70c-10.6 4-17.4 12-20.4 24-1.6 6.4-2.2 12-1.8 16.8l18.4 1.8c0-9.4 1.1-18 3.4-25.8 1.1-3.8 2.4-7.4 4-10.6Z'],
+      ['bi',     'M44 112c-.6 11.4-.5 22.9.2 34.4l17-1.5c-.5-11.4-.5-22.7 0-33.5Z'],
+      ['avb',    'M44.6 148c.8 8.2 1.9 16.6 3.2 24.8l16.4-2.4c-1.1-8-2-16.2-2.6-24.2Z'],
+      ['avb',    'M48.2 175c1 6.2 2.1 12.2 3.2 17.6l16-3.2c-1-5.2-1.9-11-2.7-17.2Z']
     ],
     arriere: [
-      ['delt-p', 'M37.4 50.6c-7 3.8-11.4 10.2-12.8 19.2-.6 4-.8 7.8-.6 11.4l12 1.2c.2-8.4 1.4-16 4.2-22.4Z'],
-      ['rond',   'M40 62.4c-2.4 3.4-3.8 7.6-4.2 12.4l6 1.4 2.2-11Z'],
-      ['tri',    'M25.2 81.4c-.8 8.4-1.8 16.2-3.2 23.4l11.2 2.4c1.2-7.4 2-15.6 2.4-24.4Z'],
-      ['avb',    'M21.2 108.2c-1.4 6.8-3 13.2-4.6 19l10.4 3.2c1.6-6.2 3-12.8 4.2-19.8Z']
+      ['delt-p', 'M66 70c-10.6 4-17.4 12-20.4 24-1.6 6.4-2.2 12-1.8 16.8l18.4 1.8c0-9.4 1.1-18 3.4-25.8 1.1-3.8 2.4-7.4 4-10.6Z'],
+      ['rond',   'M67 96c-3.2 4.2-5 9.6-5.6 15.9l8.8 1.8 3.2-15.1Z'],
+      ['tri',    'M44 112c-.6 11.4-.5 22.9.2 34.4l17-1.5c-.5-11.4-.5-22.7 0-33.5Z'],
+      ['avb',    'M44.6 148c.8 8.2 1.9 16.6 3.2 24.8l16.4-2.4c-1.1-8-2-16.2-2.6-24.2Z'],
+      ['avb',    'M48.2 175c1 6.2 2.1 12.2 3.2 17.6l16-3.2c-1-5.2-1.9-11-2.7-17.2Z']
     ]
   };
 
-  /* Le bras pivote autour de l'epaule, vers l'exterieur. En SVG un
-     angle positif tourne dans le sens des aiguilles, et comme le
-     bras gauche pend sous le pivot, c'est bien un angle positif qui
-     l'ecarte du corps. La zone de dessin est elargie de seize
-     unites de chaque cote pour lui laisser la place. */
-  const PIVOT = 'rotate(12 37 55)';
-
-  /* Un score de 0 (jamais) à 1 (beaucoup) donne une teinte. */
+  /* Un score de 0 (jamais) a 1 (beaucoup) donne une teinte. */
   function teinte(v) {
     if (!v) return 'var(--silhouette)';
     const t = Math.min(1, v);
-    return 'color-mix(in srgb, var(--accent) ' + Math.round(18 + t * 82) + '%, var(--silhouette))';
+    return 'color-mix(in srgb, var(--accent) ' + Math.round(20 + t * 80) + '%, var(--silhouette))';
   }
 
   function silhouette(face, scores, max) {
+    const trait = ' stroke="var(--trait-corps)" stroke-width=".8" stroke-linejoin="round"';
     const peindre = (paires) => paires.map(([m, d]) => {
       const v = (scores[m] || 0) / (max || 1);
-      return '<path d="' + d + '" fill="' + teinte(v) + '"/>';
+      return '<path d="' + d + '" fill="' + teinte(v) + '"' + trait + '/>';
     }).join('');
-    const neutre = (traces) => traces.map((d) => '<path d="' + d + '" fill="var(--silhouette)"/>').join('');
+    const neutre = (traces) => traces.map((d) =>
+      '<path d="' + d + '" fill="var(--silhouette)"' + trait + '/>').join('');
 
     const moitie =
-      neutre(TRONC) +
-      '<g transform="' + PIVOT + '">' + neutre(BRAS) + '</g>' +
+      neutre(CORPS) +
+      '<g transform="translate(5,0)">' + neutre(MEMBRE) + '</g>' +
       peindre(MUSCLES_TRONC[face]) +
-      '<g transform="' + PIVOT + '">' + peindre(MUSCLES_BRAS[face]) + '</g>';
+      '<g transform="translate(5,0)">' + peindre(MUSCLES_BRAS[face]) + '</g>';
 
-    /* La moitie droite est le reflet exact de la gauche. L'axe est
-       ramene a 59,7 pour que les deux moities se chevauchent d'un
-       demi-point : posees bord a bord, elles laissaient un liseré
-       de fond visible au milieu du corps. */
-    return '<svg viewBox="-16 0 152 266" class="corps" aria-hidden="true">' +
+    /* Les deux moities se chevauchent d'un demi-point : posees bord
+       a bord, un lisere de fond restait visible au milieu. */
+    return '<svg viewBox="30 0 140 424" class="corps" aria-hidden="true">' +
       '<g>' + moitie + '</g>' +
-      '<g transform="translate(119.4,0) scale(-1,1)">' + moitie + '</g>' +
+      '<g transform="translate(199.4,0) scale(-1,1)">' + moitie + '</g>' +
     '</svg>';
   }
 
@@ -277,23 +311,61 @@
     ]) : ligne;
   }
 
+  /* L'historique des seances, en cartes. Une liste de douze lignes
+     ne disait pas ce qu'on avait fait ; une photo, si. */
   function historiqueBlock() {
-    const l = seances().slice().sort((a, b) => (b.day < a.day ? -1 : 1)).slice(0, 12);
-    const passees = l.filter((s) => s.day !== UI.day.today());
+    const passees = seances().slice()
+      .filter((s2) => s2.day !== UI.day.today())
+      .sort((a, b) => (b.day < a.day ? -1 : 1))
+      .slice(0, 24);
     if (!passees.length) return '';
-    return '<div class="section"><div class="sechead"><h2 style="font-size:16px">Avant</h2></div>' +
-      '<div class="list">' + passees.map((s) =>
-        '<div class="rowitem" data-seance="' + UI.attr(s.id) + '">' +
-          '<span class="ic">' + Icon(s.type === 'muscu' ? 'dumbbell' : 'activity', 17) + '</span>' +
-          '<span class="tx"><b>' + UI.esc(s.nom) + '</b><small>' + UI.esc(UI.day.label(s.day)) + '</small></span>' +
-          '<span class="rt tabnum">' + UI.fmt.n(s.kcal) + ' kcal</span></div>').join('') + '</div></div>';
+
+    return '<div class="section">' +
+      '<div class="secbar"><h2>Séances précédentes</h2>' +
+        '<button class="lientout" data-act="toutHisto">Tout voir</button></div>' +
+      Cartes.carrousel(passees.slice(0, 10).map((s2) => ({
+        id: s2.id,
+        titre: s2.nom,
+        sous: UI.day.label(s2.day) + ' · ' + UI.fmt.n(s2.kcal) + ' kcal',
+        ph: s2.type === 'muscu' ? 'gym weights training' : s2.nom,
+        type: 'sport'
+      })), { classe: 'petit' }) +
+      '</div>';
   }
+
+  /* Tout l'historique, range par mois. */
+  function toutHistorique() {
+    const l = seances().slice().sort((a, b) => (b.day < a.day ? -1 : 1));
+    if (!l.length) return;
+    const mois = {};
+    l.forEach((s2) => {
+      const d = new Date(s2.day + 'T12:00:00');
+      const cle = d.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+      (mois[cle] = mois[cle] || []).push(s2);
+    });
+
+    Cartes.ouvrir({
+      tete: Cartes.tete('Tout mon sport', l.length + ' séances enregistrées', ['#1F6E5A', '#3FAF8A'], 'haltere'),
+      corps: Object.keys(mois).map((m) =>
+        '<h4 class="ftitre">' + UI.esc(m) + ' · ' + mois[m].length + '</h4>' +
+        Cartes.carrousel(mois[m].map((s2) => ({
+          id: s2.id, titre: s2.nom,
+          sous: UI.day.label(s2.day) + ' · ' + UI.fmt.n(s2.kcal) + ' kcal',
+          ph: s2.type === 'muscu' ? 'gym weights training' : s2.nom, type: 'sport'
+        })), { classe: 'petit' })).join(''),
+      onCarte: (id) => { UI.closeSheet(); voirSeance(id); }
+    });
+  }
+
 
   function bind() {
     root.querySelectorAll('[data-act]').forEach((b) => b.onclick = () => {
       if (b.dataset.act === 'muscu') nouvelleSeance();
       if (b.dataset.act === 'sport') choisirSport();
+      if (b.dataset.act === 'toutHisto') toutHistorique();
     });
+    root.querySelectorAll('[data-kart]').forEach((b) => b.onclick = () => voirSeance(b.dataset.kart));
+    if (global.Stock) Stock.peupler(root);
     root.querySelectorAll('[data-seance]').forEach((b) => b.onclick = (e) => {
       if (e.target.closest('[data-glisse]')) return;
       voirSeance(b.dataset.seance);
@@ -562,42 +634,58 @@
   /* ============================================================
      Saisie d'un sport
      ============================================================ */
+  /* ============================================================
+     Choisir un sport
+
+     Quatre-vingt-huit lignes grises avec la meme petite icone :
+     on cherchait « natation » a la lecture. En cartes photo,
+     chaque famille tient sur un carrousel et on reconnait le
+     sport avant d'avoir lu son nom.
+     ============================================================ */
+  const carteSport = (sp) => ({
+    id: sp.id, titre: sp.nom, sous: sp.fam,
+    ph: sp.nom, type: 'sport'
+  });
+
   function choisirSport() {
     const fams = SPORT.familles();
-    UI.openSheet(
-      '<div class="mbody" style="padding-top:6px">' +
-        '<h2 style="font-size:22px;margin-bottom:12px">Quel sport ?</h2>' +
-        '<label class="search" style="box-shadow:var(--sh-inset)">' + Icon('search', 17) +
+
+    const parFamille = () => fams.map((f) => {
+      const l = SPORT.SPORTS.filter((x) => x.fam === f);
+      if (!l.length) return '';
+      return '<h4 class="ftitre">' + UI.esc(f) + '</h4>' +
+        Cartes.carrousel(l.map(carteSport), { classe: 'petit' });
+    }).join('');
+
+    Cartes.ouvrir({
+      tete: Cartes.tete('Quel sport ?', SPORT.SPORTS.length + ' possibilités', ['#1F6E5A', '#3FAF8A'], 'ballon'),
+      corps:
+        '<label class="search" style="box-shadow:var(--sh-inset);margin-bottom:6px">' + Icon('search', 17) +
           '<input type="search" data-q placeholder="Volley, natation, boxe…" autocomplete="off"></label>' +
-        '<div data-res style="margin-top:12px"></div>' +
-      '</div>',
-      { onMount: (sh) => {
-          const q = sh.querySelector('[data-q]'), out = sh.querySelector('[data-res]');
-          const carte = (s) => '<button class="rowitem" data-sport="' + s.id + '">' +
-            '<span class="ic">' + Icon('activity', 17) + '</span>' +
-            '<span class="tx"><b>' + UI.esc(s.nom) + '</b><small>' + UI.esc(s.fam) + '</small></span>' +
-            '<span class="rt">' + Icon('next', 15) + '</span></button>';
-          const brancher = () => out.querySelectorAll('[data-sport]').forEach((b) => b.onclick = () => {
-            UI.closeSheet(); saisirSport(b.dataset.sport);
+        '<div data-res>' + parFamille() + '</div>',
+      onCarte: (id) => { UI.closeSheet(); saisirSport(id); },
+      onMount: (sh) => {
+        const q = sh.querySelector('[data-q]'), out = sh.querySelector('[data-res]');
+        const rebrancher = () => {
+          out.querySelectorAll('[data-kart]').forEach((b) => b.onclick = () => {
+            UI.closeSheet(); saisirSport(b.dataset.kart);
           });
-          const tout = () => {
-            out.innerHTML = fams.map((f) =>
-              '<h4 style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:16px 0 8px">' + UI.esc(f) + '</h4>' +
-              '<div class="list">' + SPORT.SPORTS.filter((s) => s.fam === f).map(carte).join('') + '</div>').join('');
-            brancher();
-          };
-          q.oninput = UI.debounce(() => {
-            const v = q.value.trim();
-            if (!v) return tout();
-            const l = SPORT.chercherSport(v, 30);
-            out.innerHTML = l.length ? '<div class="list">' + l.map(carte).join('') + '</div>'
-              : UI.empty('search', 'Pas dans la liste', 'Choisis « Autre activité » en bas.');
-            brancher();
-          }, 160);
-          tout();
-        } }
-    );
+          if (global.Stock) Stock.peupler(out);
+        };
+        q.oninput = UI.debounce(() => {
+          const v = q.value.trim();
+          if (!v) { out.innerHTML = parFamille(); rebrancher(); return; }
+          const l = SPORT.chercherSport(v, 24);
+          out.innerHTML = l.length
+            ? Cartes.grille(l.map(carteSport))
+            : UI.empty('search', 'Pas dans la liste', 'Choisis une activité proche, la dépense sera juste.');
+          rebrancher();
+        }, 180);
+        rebrancher();
+      }
+    });
   }
+
 
   async function saisirSport(id) {
     const s = SPORT.sport(id);
@@ -681,6 +769,6 @@
       '</p>';
   }
 
-  global.Sport = { mount, duJour, semaine, carteDuCorps, seances, nouvelleSeance, choisirSport };
+  global.Sport = { mount, duJour, semaine, carteDuCorps, seances, nouvelleSeance, choisirSport, _silhouette: silhouette };
   App.register('sport', { mount: mount });
 })(window);

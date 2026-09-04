@@ -34,23 +34,81 @@
     } catch (e) { return []; }
   }
 
-  function locate() {
+  /* ============================================================
+     Ou suis-je ?
+
+     Trois choses clochaient et donnaient toujours le meme
+     « Position introuvable » :
+
+       1. neuf secondes ne suffisent pas. Sur ordinateur la position
+          vient du Wi-Fi, ce qui prend souvent quinze a vingt
+          secondes la premiere fois.
+       2. en cas d'echec, on abandonnait. On retente maintenant en
+          haute precision, qui interroge une autre source.
+       3. le nom du lieu etait demande a un service de RECHERCHE par
+          nom, a qui on envoyait des coordonnees : il ne repondait
+          jamais rien. C'est Nominatim qui sait faire l'inverse.
+
+     Et surtout : un echec de nom n'est plus un echec de position.
+     Les coordonnees suffisent a centrer la carte.
+     ============================================================ */
+  function position(precise, delai) {
     return new Promise((resolve, reject) => {
-      if (!navigator.geolocation) return reject(new Error('Position indisponible sur cet appareil'));
-      navigator.geolocation.getCurrentPosition(
-        async (pos) => {
-          const lat = pos.coords.latitude, lon = pos.coords.longitude;
-          let name = 'Ma position';
-          try {
-            const r = await fetch('https://geocoding-api.open-meteo.com/v1/search?latitude=' + lat + '&longitude=' + lon + '&count=1&language=fr');
-            const j = await r.json();
-            if (j.results && j.results[0]) name = j.results[0].name;
-          } catch (e) {}
-          resolve(setPlace({ name: name, lat: lat, lon: lon, country: '', admin: '' }));
-        },
-        (err) => reject(new Error(err.code === 1 ? 'Position refusée' : 'Position introuvable')),
-        { enableHighAccuracy: false, timeout: 9000, maximumAge: 600000 }
-      );
+      navigator.geolocation.getCurrentPosition(resolve, reject, {
+        enableHighAccuracy: !!precise,
+        timeout: delai,
+        maximumAge: precise ? 0 : 300000
+      });
+    });
+  }
+
+  async function nomDuLieu(lat, lon) {
+    try {
+      const r = await fetch('https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=12' +
+        '&accept-language=fr&lat=' + lat + '&lon=' + lon, { headers: { Accept: 'application/json' } });
+      if (!r.ok) return null;
+      const j = await r.json();
+      const a = j.address || {};
+      return {
+        name: a.city || a.town || a.village || a.municipality || a.county || 'Ma position',
+        admin: a.state || a.county || '',
+        country: a.country || ''
+      };
+    } catch (e) { return null; }
+  }
+
+  async function locate() {
+    if (!navigator.geolocation) throw new Error('Cet appareil ne sait pas donner sa position');
+    if (!isSecureContext && location.hostname !== 'localhost') {
+      throw new Error('La position demande une connexion sécurisée (https)');
+    }
+
+    let pos = null, refus = false;
+    try {
+      pos = await position(false, 20000);
+    } catch (e1) {
+      if (e1 && e1.code === 1) refus = true;
+      if (!refus) {
+        /* Deuxieme essai, haute precision : sur beaucoup
+           d'ordinateurs c'est le seul qui aboutit. */
+        try { pos = await position(true, 25000); }
+        catch (e2) { if (e2 && e2.code === 1) refus = true; }
+      }
+    }
+
+    if (!pos) {
+      throw new Error(refus
+        ? 'Position refusée. Autorise la localisation pour ce site dans ton navigateur.'
+        : 'Position introuvable. Vérifie que la localisation est activée, puis réessaie.');
+    }
+
+    const lat = pos.coords.latitude, lon = pos.coords.longitude;
+    const info = await nomDuLieu(lat, lon);
+    return setPlace({
+      name: (info && info.name) || 'Ma position',
+      lat: lat, lon: lon,
+      country: (info && info.country) || '',
+      admin: (info && info.admin) || ''
     });
   }
 

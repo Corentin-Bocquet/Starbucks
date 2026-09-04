@@ -201,6 +201,13 @@
 
   function visuel(m) {
     if (m.poster) return '<img loading="lazy" src="' + UI.attr(m.poster) + '" alt="">';
+    /* Sans affiche TMDB, on en fabrique une plutot que d'afficher
+       une initiale sur un degrade. */
+    if (global.Stock) {
+      return '<img loading="lazy" src="' + UI.attr(Stock.genere('lieu',
+        'movie poster for ' + (m.type === 'serie' ? 'the TV series' : 'the film') + ' ' + m.titre,
+        { l: 500, h: 750 })) + '" alt="">';
+    }
     return Imagerie.vignette('lieu', 'affiche de ' + (m.type === 'serie' ? 'la série ' : 'du film ') + m.titre,
       { classe: 'haute', cle: Imagerie.cleDe('affiche', m.titre) });
   }
@@ -220,8 +227,10 @@
       '<button data-act="reco">Régénérer</button></div>' +
       '<div class="carrousel">' + r.map((x) =>
         '<div class="affiche idee" data-idee="' + UI.attr(x.id) + '">' +
-          Imagerie.vignette('lieu', 'affiche de ' + (x.type === 'serie' ? 'la série ' : 'du film ') + x.titre,
-            { classe: 'haute', cle: Imagerie.cleDe('affiche', x.titre) }) +
+          (x.poster
+            ? '<img loading="lazy" src="' + UI.attr(x.poster) + '" alt="">'
+            : Imagerie.vignette('lieu', 'affiche de ' + (x.type === 'serie' ? 'la série ' : 'du film ') + x.titre,
+                { classe: 'haute', cle: Imagerie.cleDe('affiche', x.titre) })) +
           '<div class="voile"></div>' +
           '<div class="txt"><b>' + UI.esc(x.titre) + '</b>' +
           '<small>' + UI.esc(x.pourquoi || x.annee || '') + '</small></div>' +
@@ -576,10 +585,45 @@
 
       Store.all('mediaIdeas').forEach((x) => Store.del('mediaIdeas', x.id));
       const bas = new Set(connus.map(clef));
-      (res.propositions || []).forEach((p) => { if (!bas.has(clef(p.titre))) Store.add('mediaIdeas', p); });
+      const gardees = (res.propositions || []).filter((p) => !bas.has(clef(p.titre)));
+      gardees.forEach((p) => Store.add('mediaIdeas', p));
       UI.closeSheet();
       render();
+
+      /* Les affiches arrivaient seulement APRES l'ajout a la liste :
+         le carrousel des suggestions n'affichait donc que des
+         lettres. On va les chercher tout de suite, en tache de
+         fond, et le carrousel se remplit tout seul. */
+      affichesDesIdees();
     } catch (e) { UI.closeSheet(); UI.toast(AI.humanError(e)); }
+  }
+
+  /* Va chercher l'affiche de chaque suggestion. TMDB quand la cle
+     est renseignee, sinon une image fabriquee : jamais une lettre. */
+  async function affichesDesIdees() {
+    const idees = Store.all('mediaIdeas').filter((x) => !x.poster);
+    for (const x of idees) {
+      let url = null;
+      if (tmdbKey()) {
+        try {
+          const r = await fetch(TMDB + '/search/' + (x.type === 'serie' ? 'tv' : 'movie') +
+            '?api_key=' + encodeURIComponent(tmdbKey()) +
+            '&language=fr-FR&query=' + encodeURIComponent(x.titre));
+          if (r.ok) {
+            const j = await r.json();
+            const t = (j.results || [])[0];
+            if (t && t.poster_path) url = IMG + t.poster_path;
+          }
+        } catch (e) { /* on passe a l'image fabriquee */ }
+      }
+      if (!url && global.Stock) {
+        url = Stock.genere('lieu',
+          'movie poster for ' + (x.type === 'serie' ? 'the TV series' : 'the film') + ' ' + x.titre,
+          { l: 500, h: 750 });
+      }
+      if (url) Store.put('mediaIdeas', x.id, { poster: url });
+    }
+    if (idees.length && root) render();
   }
 
   async function accepterIdee(id) {

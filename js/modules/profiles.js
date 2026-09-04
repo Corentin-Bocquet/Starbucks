@@ -45,12 +45,13 @@
           : '<p class="muted" style="font-size:13px">Aucune liste partagée pour le moment.</p>') +
       '</div>' +
 
-      '<div class="section"><div class="sechead"><h2 style="font-size:16px">Mes fiches</h2>' +
-        '<button data-act="gifts">Ouvrir</button></div>' +
-        (people.length ? '<div class="list">' + people.map((p) =>
-          '<button class="rowitem" data-p="' + UI.attr(p.id) + '"><span class="ic">' + Icon('user', 17) + '</span>' +
-          '<span class="tx"><b>' + UI.esc(p.nom) + '</b><small>' + UI.esc(p.relation || '') + '</small></span>' +
-          '<span class="rt">' + Icon('next', 15) + '</span></button>').join('') + '</div>'
+      /* Les proches en cartes photo, dans un carrousel. Une liste
+         de lignes avec la meme silhouette grise ne permettait pas
+         de reconnaitre quelqu'un du premier coup d'oeil. */
+      '<div class="section"><div class="secbar"><h2>Mes proches</h2>' +
+        '<button class="lientout" data-act="gifts">Ouvrir</button></div>' +
+        (people.length
+          ? '<div class="kcarrousel petit">' + people.map((p) => cartePersonne(p)).join('') + '</div>'
           : '<p class="muted" style="font-size:13px">Les personnes ajoutées dans Cadeaux apparaissent ici.</p>') +
       '</div>' +
 
@@ -59,12 +60,31 @@
       '</div>';
 
     Photos.hydrate(root);
+    if (global.Stock) Stock.peupler(root);
     root.querySelectorAll('[data-act]').forEach((b) => b.onclick = () => ({
       account: () => App.go('#/m/settings/compte'),
       lists: () => Lists.open(),
       gifts: () => App.go('#/m/gifts')
     })[b.dataset.act]());
-    root.querySelectorAll('[data-p]').forEach((b) => b.onclick = () => App.go('#/m/gifts/' + b.dataset.p));
+    root.querySelectorAll('[data-kart]').forEach((b) => b.onclick = () => App.go('#/m/gifts/' + b.dataset.kart));
+  }
+
+  /* La carte d'un proche. Sa photo si elle existe, sinon une image
+     evocatrice tiree de la relation : « ma soeur » vaut mieux
+     qu'une silhouette grise, et on peut toujours ajouter la vraie
+     photo depuis sa fiche. */
+  function cartePersonne(p) {
+    const aPhoto = p.photo || p.photoUrl;
+    const visuel = aPhoto
+      ? Photos.img(p, 'photo', 'width:100%;height:100%;object-fit:cover')
+      : (global.Stock ? Stock.ic(p.relation || p.nom, { classe: 'fond', type: 'icone' }) : '');
+    return '<button class="kart" data-kart="' + UI.attr(p.id) + '">' +
+      '<span class="vis">' + visuel + '</span>' +
+      '<span class="voile"></span>' +
+      (aPhoto ? '' : '<span class="badge">Photo ?</span>') +
+      '<span class="tx"><b>' + UI.esc(p.nom) + '</b>' +
+      '<small>' + UI.esc(p.relation || 'Proche') + '</small></span>' +
+      '</button>';
   }
 
   App.register('profiles', { mount: mount });

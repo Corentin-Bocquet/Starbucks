@@ -63,17 +63,27 @@
       '<div class="section" style="padding:16px 0 0">' +
         '<h2 style="font-size:22px">Pour qui ?</h2>' +
         '<p class="secdesc">Une fiche par personne. Ce que tu notes ici ne quitte pas ton appareil, sauf si tu partages la liste.</p>' +
-        (list.length ? '<div class="list">' + list.map((p) =>
-          '<button class="rowitem" data-p="' + UI.attr(p.id) + '"><span class="ic">' + Icon('user', 17) + '</span>' +
-          '<span class="tx"><b>' + UI.esc(p.nom) + '</b><small>' + gifts(p.id).length + ' idées · ' + hints(p.id).length + ' indices' +
-          (p.date ? ' · ' + UI.esc(p.date) : '') + '</small></span>' +
-          '<span class="rt">' + Icon('next', 15) + '</span></button>').join('') + '</div>'
-          : UI.empty('users', 'Personne pour l\'instant', 'Ajoute quelqu\'un pour commencer à noter des idées.')) +
-        '<div class="btnrow" style="margin-top:14px">' +
-          '<button class="btn primary grow" data-act="addPerson">' + Icon('plus', 16) + 'Ajouter quelqu\'un</button>' +
-          '<button class="btn" data-act="share">' + Icon('users', 16) + 'Listes partagées</button>' +
+        (list.length
+          ? '<div class="kgrille">' + list.map((p) => {
+              const aPhoto = p.photo || p.photoUrl;
+              return '<button class="kart" data-p="' + UI.attr(p.id) + '">' +
+                '<span class="vis">' + (aPhoto
+                  ? Photos.img(p, 'photo', 'width:100%;height:100%;object-fit:cover')
+                  : (global.Stock ? Stock.ic(p.relation || p.nom, { classe: 'fond' }) : '')) + '</span>' +
+                '<span class="voile"></span>' +
+                (aPhoto ? '' : '<span class="badge">Photo ?</span>') +
+                '<span class="tx"><b>' + UI.esc(p.nom) + '</b>' +
+                '<small>' + gifts(p.id).length + ' idées · ' + hints(p.id).length + ' indices</small></span>' +
+                '</button>';
+            }).join('') + '</div>'
+          : UI.empty('users', "Personne pour l'instant", 'Ajoute quelqu\'un pour commencer à noter des idées.')) +
+        '<div class="btnrow" style="margin-top:16px">' +
+          '<button class="btn primary grow lg" data-act="addPerson">' + Icon('plus', 17) + 'Ajouter quelqu\'un</button>' +
+          '<button class="btn lg" data-act="share" aria-label="Listes partagées">' + Icon('users', 17) + '</button>' +
         '</div>' +
       '</div></div>';
+    Photos.hydrate(root);
+    if (global.Stock) Stock.peupler(root);
     bind();
   }
 
@@ -279,27 +289,61 @@
     root.querySelectorAll('[data-idea]').forEach((b) => b.onclick = () => openIdea(b.dataset.idea));
   }
 
+  /* ============================================================
+     La photo d'un proche
+
+     Elle change tout : une carte avec un visage se reconnait sans
+     lire, une carte sans visage se lit. Elle est donc proposee des
+     la creation, et modifiable ensuite depuis la fiche.
+     ============================================================ */
+  async function proposerPhoto(id, nom) {
+    const ok = await UI.confirmSheet('Une photo de ' + nom + ' ?',
+      'Elle apparaîtra sur sa carte. Elle reste sur ton appareil.', false);
+    if (ok) choisirPhoto(id);
+  }
+
+  function choisirPhoto(id) {
+    Photos.pick(async (f) => {
+      if (!f) return;
+      UI.toast('Enregistrement…');
+      const saved = await Photos.save(f, 'people', 700);
+      Store.put('people', id, { photo: saved.id, photoUrl: saved.url || null });
+      UI.haptic('success'); UI.toast('Photo enregistrée');
+      render();
+    });
+  }
+
   const acts = {
     addPerson: async () => {
-      const r = await UI.promptSheet('Ajouter quelqu\'un', [
-        { name: 'nom', label: 'Prenom' },
-        { name: 'relation', label: 'Relation', placeholder: 'copine, frere, collegue…' },
+      const r = await UI.promptSheet("Ajouter quelqu'un", [
+        { name: 'nom', label: 'Prénom' },
+        { name: 'relation', label: 'Relation', type: 'tiles', options: [
+            { v: 'copine', n: 'Copine' }, { v: 'frère', n: 'Frère' }, { v: 'sœur', n: 'Sœur' },
+            { v: 'mère', n: 'Mère' }, { v: 'père', n: 'Père' }, { v: 'ami', n: 'Ami' },
+            { v: 'amie', n: 'Amie' }, { v: 'collègue', n: 'Collègue' }, { v: 'autre', n: 'Autre' } ] },
         { name: 'date', label: 'Date importante', type: 'date', value: '' }
-      ], 'Ajouter');
+      ], { submit: 'Ajouter', art: 'personne', teinte: ['#215D93', '#4E93CE'] });
       if (!r || !r.nom) return;
       const p = Store.add('people', { nom: r.nom, relation: r.relation, date: r.date });
       personId = p.id; render();
+      /* On propose la photo dans la foulee : demandee plus tard,
+         elle n'est jamais ajoutee, et la carte reste anonyme. */
+      proposerPhoto(p.id, p.nom);
     },
     editPerson: async () => {
       const p = Store.find('people', personId);
       const r = await UI.promptSheet('Modifier', [
-        { name: 'nom', label: 'Prenom', value: p.nom },
+        { name: 'nom', label: 'Prénom', value: p.nom },
         { name: 'relation', label: 'Relation', value: p.relation || '' },
         { name: 'date', label: 'Date importante', type: 'date', value: p.date || '' }
-      ], 'Enregistrer');
+      ], { submit: 'Enregistrer', art: 'personne', teinte: ['#215D93', '#4E93CE'], sub: p.nom });
       if (!r) return;
       Store.put('people', personId, { nom: r.nom, relation: r.relation, date: r.date });
       render();
+    },
+    photoPerson: () => {
+      const p = Store.find('people', personId);
+      if (p) choisirPhoto(p.id);
     },
     addGift: async () => {
       const r = await UI.promptSheet('Nouvelle idée', [

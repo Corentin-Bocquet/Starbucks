@@ -32,6 +32,37 @@
     return loading;
   }
 
+  /* ============================================================
+     Le marqueur
+
+     Leaflet pose par defaut une image PNG dont le chemin est
+     calcule a partir de celui de sa feuille de style. Servie depuis
+     un CDN, cette image ne se resout pas : le navigateur affiche
+     alors le rectangle a point d'interrogation de l'image cassee.
+
+     On ne lui laisse pas le choix : le marqueur est un SVG ecrit
+     ici, donc rien a telecharger et rien qui puisse manquer.
+     ============================================================ */
+  function epingle(L, couleur) {
+    const c = couleur || '#C6402F';
+    return L.divIcon({
+      className: 'epingle',
+      iconSize: [30, 40],
+      iconAnchor: [15, 38],
+      popupAnchor: [0, -34],
+      html:
+        '<svg viewBox="0 0 30 40" width="30" height="40" aria-hidden="true">' +
+          '<defs><linearGradient id="pg" x1="6" y1="2" x2="24" y2="34" gradientUnits="userSpaceOnUse">' +
+            '<stop offset="0" stop-color="#fff" stop-opacity=".45"/>' +
+            '<stop offset="1" stop-color="#000" stop-opacity=".22"/></linearGradient></defs>' +
+          '<ellipse cx="15" cy="37" rx="6" ry="2.2" fill="rgba(0,0,0,.28)"/>' +
+          '<path d="M15 1.5c-6.1 0-11 4.8-11 10.8 0 7.9 9.6 18.6 10.4 19.5a.8.8 0 0 0 1.2 0c.8-.9 10.4-11.6 10.4-19.5 0-6-4.9-10.8-11-10.8Z" fill="' + c + '"/>' +
+          '<path d="M15 1.5c-6.1 0-11 4.8-11 10.8 0 7.9 9.6 18.6 10.4 19.5a.8.8 0 0 0 1.2 0c.8-.9 10.4-11.6 10.4-19.5 0-6-4.9-10.8-11-10.8Z" fill="url(#pg)"/>' +
+          '<circle cx="15" cy="12" r="4.4" fill="#fff"/>' +
+        '</svg>'
+    });
+  }
+
   async function reverse(lat, lon) {
     try {
       const r = await fetch('https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=14&accept-language=fr&lat=' + lat + '&lon=' + lon,
@@ -104,13 +135,24 @@
       }, 400);
 
       $('[data-ok]').onclick = () => { answered = true; UI.closeSheet(); resolve(current); };
-      $('[data-here]').onclick = async () => {
+      $('[data-here]').onclick = async (ev) => {
+        const b = ev.currentTarget;
+        const avant = b.innerHTML;
+        b.disabled = true; b.innerHTML = Icon('pin', 16) + 'Recherche…';
         try {
           const loc = await Ctx.locate();
-          current = { name: loc.name, lat: loc.lat, lon: loc.lon, admin: '', country: '' };
+          current = { name: loc.name, lat: loc.lat, lon: loc.lon, admin: loc.admin || '', country: loc.country || '' };
           show();
           if (map) { map.setView([loc.lat, loc.lon], 13); marker.setLatLng([loc.lat, loc.lon]); }
-        } catch (e) { UI.toast(e.message); }
+          /* Le nom exact arrive apres, par Nominatim : la carte
+             bouge tout de suite, le libelle se corrige ensuite. */
+          const info = await reverse(loc.lat, loc.lon);
+          if (info) { current.name = info.name; current.admin = info.admin; current.country = info.country; show(); }
+        } catch (e) {
+          UI.toast(e.message);
+        } finally {
+          b.disabled = false; b.innerHTML = avant;
+        }
       };
 
       let map = null, marker = null;
@@ -122,7 +164,7 @@
         L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
           maxZoom: 18, attribution: '© OpenStreetMap'
         }).addTo(map);
-        marker = L.marker([current.lat, current.lon], { draggable: true }).addTo(map);
+        marker = L.marker([current.lat, current.lon], { draggable: true, icon: epingle(L) }).addTo(map);
 
         const settle = async (latlng) => {
           current.lat = latlng.lat; current.lon = latlng.lng;
@@ -220,9 +262,28 @@
             const g = await geocode([lieu.nom, lieu.adresse, lieu.ville].filter(Boolean).join(', '));
             if (g) { lat = g.lat; lon = g.lon; }
           }
+          /* Adresse introuvable : on ne laisse pas un rectangle gris.
+             On centre sur la ville en cours, ce qui situe deja le
+             lieu, et on le dit en une ligne. Faute de ville connue,
+             une photo du lieu vaut mieux que rien. */
+          let approx = false;
           if (!isFinite(lat) || !isFinite(lon)) {
-            boite.innerHTML = '<div class="attente">' + Icon('location', 26) + '<span>Adresse non localisée</span></div>';
+            const ville = global.Ctx ? Ctx.place() : null;
+            if (ville && isFinite(ville.lat)) { lat = ville.lat; lon = ville.lon; approx = true; }
+          }
+          if (!isFinite(lat) || !isFinite(lon)) {
+            if (global.Stock) {
+              boite.innerHTML = '<img src="' + UI.attr(Stock.genere('lieu', lieu.nom, { l: 800, h: 500 })) +
+                '" alt="" style="width:100%;height:100%;object-fit:cover">';
+            } else {
+              boite.innerHTML = '<div class="attente">' + Icon('location', 26) + '<span>Adresse non localisée</span></div>';
+            }
             return;
+          }
+          if (approx) {
+            const n = sh.querySelector('.infos .adr');
+            if (n) n.insertAdjacentHTML('afterend',
+              '<p class="approx">Adresse exacte inconnue : la carte montre la ville.</p>');
           }
           try {
             const L = await load();
@@ -232,7 +293,7 @@
               dragging: true, scrollWheelZoom: false, doubleClickZoom: true, tapHold: false
             }).setView([lat, lon], 16);
             L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
-            L.marker([lat, lon]).addTo(map);
+            L.marker([lat, lon], { icon: epingle(L) }).addTo(map);
             setTimeout(() => map.invalidateSize(), 220);
           } catch (e) {
             boite.innerHTML = '<div class="attente">' + Icon('location', 26) + '<span>Carte indisponible hors ligne</span></div>';
@@ -241,5 +302,44 @@
     );
   }
 
-  global.MapPick = { pick, load, reverse, fiche, geocode, liens };
+  /* ============================================================
+     La carte en miniature
+
+     Partout ou une petite image devrait dire « c'est ici », on
+     posait une icone d'epingle. Une vraie carte, meme minuscule,
+     en dit infiniment plus : on reconnait le trait de cote, le
+     centre-ville, la route.
+
+     Elle est figee : ni zoom, ni deplacement, ni clic. C'est une
+     illustration, pas un outil.
+     ============================================================ */
+  async function mini(boite, lieu) {
+    if (!boite || !lieu) return;
+    let lat = Number(lieu.lat), lon = Number(lieu.lon);
+    if (!isFinite(lat) || !isFinite(lon)) {
+      const g = await geocode([lieu.nom, lieu.adresse].filter(Boolean).join(', '));
+      if (g) { lat = g.lat; lon = g.lon; }
+    }
+    if (!isFinite(lat) || !isFinite(lon)) {
+      const v = global.Ctx ? Ctx.place() : null;
+      if (v && isFinite(v.lat)) { lat = v.lat; lon = v.lon; }
+    }
+    if (!isFinite(lat) || !isFinite(lon)) return;
+
+    try {
+      const L = await load();
+      boite.innerHTML = '';
+      const m = L.map(boite, {
+        zoomControl: false, attributionControl: false, dragging: false,
+        scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false,
+        keyboard: false, touchZoom: false, tap: false
+      }).setView([lat, lon], lieu.zoom || 14);
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(m);
+      L.marker([lat, lon], { icon: epingle(L), interactive: false }).addTo(m);
+      setTimeout(() => m.invalidateSize(), 200);
+      boite.classList.add('prete');
+    } catch (e) { /* pas de carte, pas de trou : la boite reste vide */ }
+  }
+
+  global.MapPick = { pick, load, reverse, fiche, geocode, liens, mini, epingle };
 })(window);

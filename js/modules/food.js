@@ -87,16 +87,20 @@
     const g = goals(), list = entries(), t = totals(list);
     const isToday = viewDay === UI.day.today();
 
+    /* L'ordre de la page suit ce qu'on vient regarder, pas l'ordre
+       dans lequel les blocs ont ete ecrits. Ce qui reste a manger
+       et l'analyse du jour etaient tout en bas : c'est justement ce
+       qu'on ouvre l'application pour savoir. */
     root.innerHTML =
       '<div class="wrap">' +
         dayNav(isToday) +
         ringsBlock(t, g) +
+        resteBlock(t, g, isToday) +
+        analysisBlock() +
         macroBlock(t, g) +
         waterBlock(g) +
         addBlock() +
         mealsBlock(list) +
-        resteBlock(t, g, isToday) +
-        analysisBlock() +
       '</div>';
 
     bind();
@@ -379,7 +383,18 @@
       });
     }
     root.querySelectorAll('[data-water]').forEach((b) => b.onclick = () => {
-      setWater(water() + (+b.dataset.water)); UI.haptic('light'); render();
+      const ajout = +b.dataset.water;
+      const avant = water();
+      const apres = Math.max(0, avant + ajout);
+      setWater(apres); UI.haptic('light');
+      if (ajout > 0 && global.Anim) {
+        Anim.gouttes(b);
+        /* L'objectif franchi merite son onde : c'est le seul
+           moment de la journee ou l'eau devient une bonne nouvelle. */
+        const but = goals().water || 2500;
+        if (avant < but && apres >= but) setTimeout(() => Anim.halo(b, 'var(--info)'), 180);
+      }
+      render();
     });
     root.querySelectorAll('[data-act]').forEach((b) => b.onclick = () => actions[b.dataset.act] && actions[b.dataset.act]());
     root.querySelectorAll('[data-addslot]').forEach((b) => b.onclick = () => actions.search(b.dataset.addslot));
@@ -419,54 +434,123 @@
   }
   const r1 = (v) => v == null ? 0 : Math.round(Number(v) * 10) / 10;
 
+  /* ============================================================
+     La fiche d'un aliment, entierement modifiable
+
+     Deux facons de corriger, et elles ne se melangent pas :
+
+       la QUANTITE tire tout le reste. Passer de 100 a 150 grammes
+       multiplie par 1,5 les calories, les proteines, les glucides,
+       les lipides, les fibres, les sucres et le sodium. C'est le
+       comportement attendu neuf fois sur dix.
+
+       un MACRO se corrige seul. Un produit plus riche en proteines
+       que la moyenne de la table, ca arrive : on entre la vraie
+       valeur et rien d'autre ne bouge.
+
+     Avant, cette fiche etait en lecture seule et ne montrait meme
+     pas la photo de l'aliment.
+     ============================================================ */
+  const CHAMPS = [
+    ['kcal',   'Calories',  'kcal', 0],
+    ['prot',   'Protéines', 'g',    1],
+    ['carb',   'Glucides',  'g',    1],
+    ['fat',    'Lipides',   'g',    1],
+    ['fiber',  'Fibres',    'g',    1],
+    ['sugar',  'Sucres',    'g',    1],
+    ['sodium', 'Sodium',    'mg',   0]
+  ];
+
   function openMeal(id) {
     const m = Store.find('meals', id);
     if (!m) return;
+
+    const cur = { qty: Number(m.qty) || 100, unit: m.unit || 'g' };
+    CHAMPS.forEach(([k]) => { cur[k] = Number(m[k]) || 0; });
+
+    const tete = m.photoUrl || m.image
+      ? '<div class="mimg cover"><img src="' + UI.attr(m.photoUrl || m.image) + '" alt=""></div>'
+      : '<div class="mimg cover" data-photo>' +
+          Imagerie.vignette('plat', m.nom, { classe: 'plein' }) + '</div>';
+
+    const ligne = ([k, nom, unite, dec]) =>
+      '<div class="macroligne">' +
+        '<span class="lb">' + UI.esc(nom) + '</span>' +
+        '<span class="ch"><input type="number" inputmode="decimal" step="' + (dec ? '0.1' : '1') +
+          '" data-m="' + k + '" value="' + (dec ? Math.round(cur[k] * 10) / 10 : Math.round(cur[k])) + '">' +
+          '<i>' + UI.esc(unite) + '</i></span>' +
+      '</div>';
+
     UI.openSheet(
-      '<div class="mbody" style="padding-top:6px">' +
-        '<h2 style="font-size:23px">' + UI.esc(m.nom) + '</h2>' +
-        (m.brand ? '<p class="muted" style="font-size:13px">' + UI.esc(m.brand) + '</p>' : '') +
-        '<div class="nums" style="margin-top:16px">' +
-          '<div class="num"><b>' + UI.fmt.n(m.kcal) + '</b><span>kcal</span></div>' +
-          '<div class="num"><b>' + UI.fmt.n(m.prot) + '</b><span>prot. g</span></div>' +
-          '<div class="num"><b>' + UI.fmt.n(m.carb) + '</b><span>gluc. g</span></div>' +
-          '<div class="num"><b>' + UI.fmt.n(m.fat) + '</b><span>lip. g</span></div>' +
+      tete +
+      '<div class="mbody">' +
+        '<h2 class="ftitre-gros">' + UI.esc(m.nom) + '</h2>' +
+        (m.brand ? '<p class="mdesc">' + UI.esc(m.brand) + '</p>' : '') +
+
+        '<h4 class="ftitre">Quantité</h4>' +
+        '<div class="compteur">' +
+          '<button type="button" data-q="-1" aria-label="Moins">' + Icon('minus', 20) + '</button>' +
+          '<input type="number" inputmode="decimal" data-qty value="' + Math.round(cur.qty) + '">' +
+          '<button type="button" data-q="1" aria-label="Plus">' + Icon('plus', 20) + '</button>' +
         '</div>' +
-        '<div class="list" style="margin-top:14px">' +
-          '<div class="rowitem"><span class="tx"><b>Quantité</b></span><span class="rt">' + UI.fmt.n(m.qty) + ' ' + UI.esc(m.unit) + '</span></div>' +
-          '<div class="rowitem"><span class="tx"><b>Fibres</b></span><span class="rt">' + UI.fmt.n(m.fiber) + ' g</span></div>' +
-          '<div class="rowitem"><span class="tx"><b>Sucrés</b></span><span class="rt">' + UI.fmt.n(m.sugar) + ' g</span></div>' +
-          '<div class="rowitem"><span class="tx"><b>Sodium</b></span><span class="rt">' + UI.fmt.n(m.sodium) + ' mg</span></div>' +
-        '</div>' +
-        '<div class="btnrow" style="margin-top:18px">' +
+        '<p class="aide">En ' + UI.esc(cur.unit) + '. Tout le reste suit automatiquement.</p>' +
+
+        '<h4 class="ftitre">Valeurs</h4>' +
+        '<div class="macros">' + CHAMPS.map(ligne).join('') + '</div>' +
+        '<p class="aide">Corrige une valeur seule si le produit sort de l\'ordinaire : elle ne bouge plus toute seule.</p>' +
+
+        '<button class="btn primary block lg" style="margin-top:18px" data-ok>' + Icon('check', 18) + 'Enregistrer</button>' +
+        '<div class="btnrow" style="margin-top:8px">' +
           '<button class="btn grow" data-dup>' + Icon('copy', 16) + 'Dupliquer</button>' +
           '<button class="btn danger" data-del>' + Icon('trash', 16) + 'Supprimer</button>' +
         '</div>' +
       '</div>',
-      { onMount: (s) => {
-        s.querySelector('[data-del]').onclick = () => { Store.del('meals', id); UI.closeSheet(); Store.set('analysis.' + viewDay, null); render(); UI.toast('Supprime'); };
-        s.querySelector('[data-dup]').onclick = () => { UI.closeSheet(); addEntry(m, m.slot); };
+      { onMount: (sh) => {
+        Imagerie.peupler(sh, { generer: true, max: 1 });
+        const qEl = sh.querySelector('[data-qty]');
+
+        /* La quantite tire tout le reste, proportionnellement. */
+        const majQuantite = (nouvelle) => {
+          const avant = cur.qty || 1;
+          const apres = Math.max(1, Number(nouvelle) || 1);
+          if (apres === avant) return;
+          const k = apres / avant;
+          CHAMPS.forEach(([c, , , dec]) => {
+            cur[c] = cur[c] * k;
+            const el = sh.querySelector('[data-m="' + c + '"]');
+            if (el) el.value = dec ? Math.round(cur[c] * 10) / 10 : Math.round(cur[c]);
+          });
+          cur.qty = apres;
+          qEl.value = Math.round(apres);
+          UI.haptic('tick');
+        };
+
+        qEl.onchange = () => majQuantite(qEl.value);
+        sh.querySelectorAll('[data-q]').forEach((b) => b.onclick = () => {
+          const pas = cur.qty >= 200 ? 25 : (cur.qty >= 50 ? 10 : 5);
+          majQuantite(cur.qty + Number(b.dataset.q) * pas);
+        });
+
+        /* Un macro corrige a la main ne touche a rien d'autre. */
+        sh.querySelectorAll('[data-m]').forEach((el) => el.oninput = () => {
+          cur[el.dataset.m] = Number(el.value) || 0;
+        });
+
+        sh.querySelector('[data-ok]').onclick = () => {
+          const patch = { qty: cur.qty, unit: cur.unit };
+          CHAMPS.forEach(([k]) => { patch[k] = Math.round(cur[k] * 10) / 10; });
+          Store.put('meals', id, patch);
+          Store.set('analysis.' + viewDay, null);
+          UI.closeSheet(); UI.haptic('success'); UI.toast('Modifié'); render();
+        };
+        sh.querySelector('[data-del]').onclick = () => {
+          Store.del('meals', id); UI.closeSheet();
+          Store.set('analysis.' + viewDay, null); render(); UI.toast('Supprimé');
+        };
+        sh.querySelector('[data-dup]').onclick = () => { UI.closeSheet(); addEntry(m, m.slot); };
       } }
     );
   }
-
-  /* ---------- Scan photo ---------- */
-  const SCAN_SCHEMA = AI.T.obj({
-    aliments: AI.T.arr(AI.T.obj({
-      nom: AI.T.str('Nom court en francais'),
-      quantite: AI.T.num('Quantité estimée'),
-      unite: AI.T.enu(['g', 'ml', 'pièce', 'portion'], 'Unité'),
-      kcal: AI.T.num('Calories totales de cette portion'),
-      proteines: AI.T.num('Grammes'),
-      glucides: AI.T.num('Grammes'),
-      lipides: AI.T.num('Grammes'),
-      fibres: AI.T.num('Grammes'),
-      sucres: AI.T.num('Grammes'),
-      sodium: AI.T.num('Milligrammes'),
-      confiance: AI.T.enu(['haute', 'moyenne', 'basse'], 'Confiance de l estimation')
-    })),
-    commentaire: AI.T.str('Une phrase sur le plat')
-  }, ['aliments']);
 
   function scanFlow() {
     if (!AI.available()) return needKey();
@@ -778,45 +862,134 @@
      Dans les deux cas on finit par un chiffre, qu'on envoie a Open
      Food Facts.
      ============================================================ */
+  /* ============================================================
+     Lire un code-barres
+
+     BarcodeDetector n'existe que sur Android et ChromeOS. Sur un
+     Mac, sur un iPhone, sur Firefox : rien. Le bouton retombait
+     alors sur la lecture par photo, qui exige une cle IA et une
+     photo nette du code. Autant dire que ca ne marchait jamais.
+
+     Trois chemins, dans cet ordre, et le premier qui repond gagne :
+       1. BarcodeDetector du navigateur, quand il existe ;
+       2. ZXing, une bibliotheque de decodage chargee a la volee,
+          qui marche partout ou il y a une camera ;
+       3. la photo lue par l'IA, en dernier recours.
+     ============================================================ */
+  const ZXING = 'https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js';
+  let zxing = null;
+
+  function chargerZxing() {
+    if (global.ZXing) return Promise.resolve(global.ZXing);
+    if (zxing) return zxing;
+    zxing = new Promise((res, rej) => {
+      const sc = document.createElement('script');
+      sc.src = ZXING; sc.async = true;
+      sc.onload = () => global.ZXing ? res(global.ZXing) : rej(new Error('lecteur indisponible'));
+      sc.onerror = () => rej(new Error('lecteur injoignable'));
+      document.head.appendChild(sc);
+    });
+    return zxing;
+  }
+
   function barcodeFlow(slot) {
-    if ('BarcodeDetector' in global) return barcodeLive(slot);
-    return barcodePhoto(slot);
+    return barcodeLive(slot);
   }
 
   async function barcodeLive(slot) {
-    let stream = null, arret = false;
+    let flux = null, arret = false, lecteur = null;
+
     UI.openSheet(
-      '<div class="mbody" style="padding-top:6px">' +
-        '<h2 style="font-size:22px;margin-bottom:4px">Vise le code-barres</h2>' +
-        '<p class="muted" style="font-size:13px;margin-bottom:12px">Approche jusqu\'à ce que les barres remplissent le cadre.</p>' +
+      '<div class="mtete" style="--t1:#1F5E93;--t2:#4E93CE">' +
+        (global.Art ? '<span class="ill">' + Art('codebarre', 46) + '</span>' : '') +
+        '<h2>Vise le code-barres</h2>' +
+        '<p>Approche jusqu\'à ce que les barres remplissent le cadre.</p></div>' +
+      '<div class="mbody">' +
         '<div class="scanbox"><video data-v playsinline muted autoplay></video><div class="scanline"></div></div>' +
-        '<button class="btn ghost block" style="margin-top:12px" data-photo>Plutôt prendre une photo</button>' +
+        '<p class="aide" data-etat>Ouverture de la caméra…</p>' +
+        '<button class="btn block" style="margin-top:12px" data-photo>' + Icon('camera', 16) + 'Plutôt une photo</button>' +
+        '<button class="btn ghost block" style="margin-top:8px" data-saisie>Saisir le code à la main</button>' +
       '</div>',
       { onMount: async (sh) => {
           const v = sh.querySelector('[data-v]');
-          sh.querySelector('[data-photo]').onclick = () => { arret = true; stop(); UI.closeSheet(); barcodePhoto(slot); };
-          try {
-            stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-            v.srcObject = stream;
-          } catch (e) { UI.closeSheet(); barcodePhoto(slot); return; }
+          const etat = sh.querySelector('[data-etat]');
+          const dire = (t) => { if (etat) etat.textContent = t; };
 
-          const det = new global.BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128'] });
-          const boucle = async () => {
-            if (arret) return;
-            try {
-              const codes = await det.detect(v);
-              if (codes && codes.length) {
-                arret = true; stop(); UI.closeSheet();
-                return lookupBarcode(codes[0].rawValue, slot);
-              }
-            } catch (e) {}
-            requestAnimationFrame(boucle);
+          sh.querySelector('[data-photo]').onclick = () => { fin(); UI.closeSheet(); barcodePhoto(slot); };
+          sh.querySelector('[data-saisie]').onclick = async () => {
+            fin(); UI.closeSheet();
+            const r = await UI.promptSheet('Le code du produit',
+              [{ name: 'code', label: 'Les chiffres sous les barres', type: 'text', inputmode: 'numeric', placeholder: '3017620422003' }],
+              { submit: 'Chercher', art: 'codebarre', teinte: ['#1F5E93', '#4E93CE'] });
+            const c = r && String(r.code || '').replace(/\D/g, '');
+            if (c && c.length >= 8) lookupBarcode(c, slot);
           };
-          requestAnimationFrame(boucle);
+
+          try {
+            flux = await navigator.mediaDevices.getUserMedia({
+              video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 } }
+            });
+            v.srcObject = flux;
+            await v.play().catch(() => {});
+          } catch (e) {
+            dire("Pas d'accès à la caméra sur cet appareil.");
+            UI.closeSheet(); barcodePhoto(slot); return;
+          }
+
+          const trouve = (code) => {
+            const c = String(code || '').replace(/\D/g, '');
+            if (c.length < 8) return false;
+            fin(); UI.closeSheet();
+            UI.haptic('success');
+            lookupBarcode(c, slot);
+            return true;
+          };
+
+          /* 1. Le lecteur du navigateur, quand il existe. */
+          if ('BarcodeDetector' in global) {
+            dire('Lecture en cours…');
+            const det = new global.BarcodeDetector({
+              formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'qr_code']
+            });
+            const boucle = async () => {
+              if (arret) return;
+              try {
+                const codes = await det.detect(v);
+                if (codes && codes.length && trouve(codes[0].rawValue)) return;
+              } catch (e) {}
+              requestAnimationFrame(boucle);
+            };
+            requestAnimationFrame(boucle);
+            return;
+          }
+
+          /* 2. ZXing : partout ailleurs. */
+          try {
+            dire('Préparation du lecteur…');
+            const Z = await chargerZxing();
+            lecteur = new Z.BrowserMultiFormatReader();
+            dire('Lecture en cours…');
+            lecteur.decodeFromVideoElement(v, (res) => {
+              if (arret || !res) return;
+              trouve(res.getText ? res.getText() : res.text);
+            });
+          } catch (e) {
+            dire("Le lecteur n'a pas pu se charger. Essaie la photo.");
+          }
+
+          function fin() {
+            arret = true;
+            try { if (lecteur && lecteur.reset) lecteur.reset(); } catch (e2) {}
+            if (flux) { flux.getTracks().forEach((t) => t.stop()); flux = null; }
+          }
+          sh._fin = fin;
         },
-        onClose: () => { arret = true; stop(); } }
+        onClose: () => {
+          arret = true;
+          try { if (lecteur && lecteur.reset) lecteur.reset(); } catch (e) {}
+          if (flux) { flux.getTracks().forEach((t) => t.stop()); flux = null; }
+        } }
     );
-    function stop() { if (stream) stream.getTracks().forEach((t) => t.stop()); stream = null; }
   }
 
   function barcodePhoto(slot) {

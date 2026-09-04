@@ -90,11 +90,14 @@
     const today = dayOf(UI.day.today()) || days[days.length - 1] || {};
     const has = daily().length > 0;
 
+    /* L'ordre suit ce qu'on vient chercher : le sport du jour parce
+       qu'on le saisit tous les jours, l'analyse ensuite parce
+       qu'elle repond a la question qu'on se pose en ouvrant la
+       page. Les tendances et l'import viennent apres. Avant,
+       l'analyse etait tout en bas. */
     root.innerHTML = '<div class="wrap">' +
-      /* Le sport passe avant le reste : c'est la seule chose de
-         cette page qu'on vienne saisir a la main tous les jours. */
       blocSport() +
-      (has ? todayBlock(today) + rangeBar() + trendBlock(days) + workoutsBlock() + insightBlock(days) : onboarding()) +
+      (has ? todayBlock(today) + insightBlock(days) + rangeBar() + trendBlock(days) + workoutsBlock() : onboarding()) +
       (global.Sport ? Sport.carteDuCorps(7) : '') +
       sourcesBlock() +
       '</div>';
@@ -200,34 +203,58 @@
         (n === 365 ? '1 an' : n + ' j') + '</button>').join('') + '</div>';
   }
 
+  /* ============================================================
+     Les tendances
+
+     Six panneaux empiles, chacun avec une ligne brisee dix fois
+     plus large que haute : on ne comparait rien, on faisait
+     defiler. Ce sont maintenant des tuiles, deux par ligne sur
+     telephone, quatre sur grand ecran, avec la valeur du jour en
+     gros et la courbe de la periode dessous.
+     ============================================================ */
+  const SUIVIS = [
+    { k: 'steps',  nom: 'Pas',       art: 'pas',      teinte: '#3FAE79', unite: '',      fmt: (v) => UI.fmt.n(v) },
+    { k: 'active', nom: 'Énergie',   art: 'flamme',   teinte: '#E0653C', unite: 'kcal',  fmt: (v) => UI.fmt.n(v) },
+    { k: 'sleep',  nom: 'Sommeil',   art: 'lune',     teinte: '#8F76D0', unite: 'h',     fmt: (v) => (v / 60).toFixed(1).replace('.', ',') },
+    { k: 'hrRest', nom: 'FC repos',  art: 'coeur',    teinte: '#C6402F', unite: 'bpm',   fmt: (v) => Math.round(v) },
+    { k: 'hrv',    nom: 'Variabilité', art: 'eclair', teinte: '#3D95D8', unite: 'ms',    fmt: (v) => Math.round(v) },
+    { k: 'weight', nom: 'Poids',     art: 'balance',  teinte: '#43A86B', unite: 'kg',    fmt: (v) => v.toFixed(1).replace('.', ',') }
+  ];
+
   function trendBlock(days) {
-    const series = [
-      { k: 'steps',    label: 'Pas',            fmt: (v) => UI.fmt.n(v) },
-      { k: 'active',   label: 'Énergie active', fmt: (v) => UI.fmt.n(v) + ' kcal' },
-      { k: 'sleep',    label: 'Sommeil',        fmt: (v) => UI.fmt.dur(v) },
-      { k: 'hrRest',   label: 'FC au repos',    fmt: (v) => Math.round(v) + ' bpm' },
-      { k: 'hrv',      label: 'Variabilite',    fmt: (v) => Math.round(v) + ' ms' },
-      { k: 'weight',   label: 'Poids',          fmt: (v) => v.toFixed(1).replace('.', ',') + ' kg' }
-    ];
-    const cards = series.map((s) => {
-      const vals = days.map((d) => d[s.k]).filter((v) => v != null);
+    const tuiles = SUIVIS.map((s2) => {
+      const vals = days.map((d) => d[s2.k]).filter((v) => v != null);
       if (vals.length < 2) return '';
-      const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
-      const half = Math.floor(vals.length / 2);
-      const a1 = vals.slice(0, half).reduce((a, b) => a + b, 0) / (half || 1);
-      const a2 = vals.slice(half).reduce((a, b) => a + b, 0) / (vals.length - half || 1);
-      const delta = a1 ? ((a2 - a1) / a1) * 100 : 0;
-      const good = s.k === 'hrRest' ? delta < 0 : true;
-      return '<div class="panel" style="margin-bottom:10px">' +
-        '<div class="row-between"><b style="font-size:14px">' + s.label + '</b>' +
-        '<span class="muted" style="font-size:12.5px">moyenne ' + s.fmt(avg) + '</span></div>' +
-        UI.sparkline(days.map((d) => d[s.k] == null ? null : d[s.k]).filter((v) => v != null)) +
-        '<div class="d ' + (Math.abs(delta) < 2 ? 'flat' : (delta > 0) === good ? 'up' : 'down') + '" style="font-size:12px;font-weight:650">' +
-          (Math.abs(delta) < 2 ? 'stable' : (delta > 0 ? '+' : '') + delta.toFixed(0) + ' % sur la période') +
-        '</div></div>';
-    }).join('');
-    return '<div class="section">' + (cards || UI.empty('chart', 'Pas assez de données', 'Importé un export plus large pour voir les tendances.')) + '</div>';
+      const dernier = vals[vals.length - 1];
+      const moitie = Math.floor(vals.length / 2);
+      const a1 = vals.slice(0, moitie).reduce((a, b) => a + b, 0) / (moitie || 1);
+      const a2 = vals.slice(moitie).reduce((a, b) => a + b, 0) / (vals.length - moitie || 1);
+      const ecart = a1 ? ((a2 - a1) / a1) * 100 : 0;
+      /* Pour la frequence cardiaque au repos, baisser est bon. */
+      const bon = s2.k === 'hrRest' ? ecart < 0 : ecart > 0;
+      const sens = Math.abs(ecart) < 2 ? 'stable'
+        : (ecart > 0 ? '+' : '') + ecart.toFixed(0) + ' %';
+
+      const graph = s2.k === 'sleep'
+        ? Graph.barres({ valeurs: vals.slice(-7), c2: s2.teinte })
+        : Graph.courbe({ valeurs: vals.slice(-14), c1: s2.teinte });
+
+      return Graph.tuile({
+        nom: s2.nom, art: s2.art, teinte: s2.teinte,
+        valeur: s2.fmt(dernier), unite: s2.unite + (sens === 'stable' ? '' : ' · ' + sens),
+        graph: graph
+      });
+    }).filter(Boolean);
+
+    if (!tuiles.length) {
+      return '<div class="section">' +
+        UI.empty('chart', 'Pas assez de données', 'Importe un export plus large pour voir les tendances.') + '</div>';
+    }
+    return '<div class="section">' +
+      '<div class="secbar"><h2>Tendances</h2></div>' +
+      '<div class="gquatre">' + tuiles.join('') + '</div></div>';
   }
+
 
   function workoutsBlock() {
     const w = Store.all('workouts').sort((a, b) => b.start - a.start).slice(0, 12);
@@ -310,19 +337,22 @@
      distinguait. */
   function sourcesBlock() {
     const meta = Store.get('healthImport', null);
-    return Portes.section('Mes données', [
-      { act: 'import', nom: 'Apple Santé', ph: 'iphone health data',
-        sub: meta ? UI.fmt.n(meta.records) + ' mesures' : 'Importer l\'export' },
-      { act: 'manual', nom: 'Saisir un jour', sub: 'À la main', ph: 'notebook pen' },
-      { act: 'goals',  nom: 'Mes objectifs', sub: 'Pas, sommeil, énergie', ph: 'cible' },
-      daily().length ? { act: 'clear', nom: 'Tout effacer', sub: daily().length + ' journées', ph: 'empty box' } : null
-    ].filter(Boolean)) +
+    return '<div class="section"><div class="secbar"><h2>Mes données</h2></div>' +
+      Cartes.grille([
+        { id: 'import', titre: 'Apple Santé', ph: 'iphone health app screen', type: 'icone',
+          sous: meta ? UI.fmt.n(meta.records) + ' mesures' : 'Importer l\'export' },
+        { id: 'manual', titre: 'Saisir un jour', sous: 'À la main', ph: 'notebook pen writing', type: 'icone' },
+        { id: 'goals',  titre: 'Mes objectifs', sous: 'Pas, sommeil, énergie', ph: 'target archery', type: 'icone' },
+        daily().length ? { id: 'clear', titre: 'Tout effacer', sous: daily().length + ' journées', ph: 'empty cardboard box', type: 'icone' } : null
+      ].filter(Boolean)) + '</div>' +
     '<div class="section" style="padding-top:0"><p class="muted" style="font-size:11.5px;line-height:1.5">' +
     'Apple Santé ne propose aucune connexion directe pour le web. L\'export met une à deux minutes ' +
     'à se générer sur l\'iPhone et couvre tout l\'historique.</p></div>';
   }
 
   function bind() {
+    root.querySelectorAll('[data-kart]').forEach((b) => b.onclick = () => acts[b.dataset.kart] && acts[b.dataset.kart]());
+    if (global.Stock) Stock.peupler(root);
     root.querySelectorAll('[data-range]').forEach((b) => b.onclick = () => { range = +b.dataset.range; render(); });
     root.querySelectorAll('[data-act]').forEach((b) => b.onclick = () => acts[b.dataset.act] && acts[b.dataset.act]());
   }

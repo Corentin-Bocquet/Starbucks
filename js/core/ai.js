@@ -243,10 +243,13 @@
     return { text: text, images: inline, truncated: cand.finishReason === 'MAX_TOKENS', model: model };
   }
 
-  /* Ce qui justifie d'essayer le modèle suivant plutôt que d'échouer :
-     le modèle a disparu, ou il est momentanément saturé. Une clé
-     refusée ou un quota dépassé, eux, ne changeront pas de résultat. */
-  const RETRYABLE = { MODEL_GONE: 1, UPSTREAM: 1 };
+  /* Ce qui justifie d'essayer le modèle suivant plutôt que d'échouer.
+     QUOTA en fait partie, contrairement a ce qu'on croyait : chez
+     Google le quota est compte PAR MODELE. Un 429 sur
+     gemini-2.5-flash-image ne dit rien du modele suivant de la
+     liste. On s'arretait au premier refus, et la generation
+     d'images echouait alors qu'un autre modele aurait repondu. */
+  const RETRYABLE = { MODEL_GONE: 1, UPSTREAM: 1, QUOTA: 1 };
 
   async function call(kind, body, opts) {
     opts = opts || {};
@@ -291,7 +294,8 @@
     const c = String(code && code.message || code || '');
     if (c === 'NO_KEY')     return "Ajoute ta clé Gemini dans Réglages pour activer l'IA.";
     if (c === 'BAD_KEY')    return 'Clé Gemini refusée. Vérifie-la dans Réglages.';
-    if (c === 'QUOTA')      return 'Quota Gemini atteint. Réessaie un peu plus tard.';
+    if (c === 'QUOTA')      return 'Google a refusé la demande : quota atteint sur ce modèle. ' +
+      "La génération d'images en a un très petit sur les clés gratuites, bien plus petit que le texte.";
     if (c === 'NETWORK')    return 'Pas de connexion : les suggestions arrivent quand le réseau revient.';
     if (c === 'SAFETY')     return 'La demande a été bloquée par le filtre de sécurité.';
     if (c === 'MODEL_GONE') return "Le modèle a changé côté Google. Réessaie, l'app se remet à jour toute seule.";

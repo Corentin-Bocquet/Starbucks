@@ -184,6 +184,56 @@
     'chaud': 'winter coat knitwear'
   };
 
+  /* ============================================================
+     La generation libre, en dernier recours gratuit
+
+     Openverse ne trouve pas tout : un plat precis, un cocktail
+     maison, une tenue qui n'existe pas encore. Plutot que de
+     laisser une pastille a initiale, on fait dessiner l'image.
+
+     Pollinations rend une image a partir d'une simple URL : aucune
+     cle, aucun compte, aucun quota a surveiller. Une graine tiree
+     du sujet rend le resultat STABLE : le meme plat donne toujours
+     la meme image, donc le navigateur la met en cache et l'app ne
+     redessine jamais deux fois la meme chose.
+
+     Ordre complet dans l'application :
+       1. cache local                gratuit, instantane
+       2. Openverse                  gratuit, vraie photo
+       3. generation libre (ici)     gratuit, image dessinee
+       4. Gemini                     payant, seulement pour ce qui
+                                     a besoin du visage de Corentin
+     ============================================================ */
+  const GEN = 'https://image.pollinations.ai/prompt/';
+
+  const STYLE_GEN = {
+    plat:       'appetizing food photography of {S}, plated on a ceramic dish, natural window light, shallow depth of field, top down',
+    ingredient: 'single {S} on a clean light neutral background, studio product photography, soft shadow, centred',
+    boisson:    '{S} served in the correct glass, bar counter, warm light, condensation, product photography',
+    vetement:   'men fashion lookbook photo, {S}, full body, plain light grey studio background, soft daylight',
+    tenue:      'men fashion lookbook, full body model wearing {S}, plain light grey studio background, soft daylight, editorial',
+    lieu:       'travel photography of {S}, golden hour, wide shot, no people in focus',
+    activite:   'candid lifestyle photography, people doing {S}, natural light, documentary style',
+    sport:      'dynamic sports photography, athlete doing {S}, gym or outdoor, motion, dramatic light',
+    icone:      'minimal 3d render icon of {S}, soft studio lighting, pastel background, clay material, centred'
+  };
+
+  /* Une graine stable tiree du texte : meme sujet, meme image. */
+  function graine(txt) {
+    let h = 2166136261;
+    String(txt).split('').forEach((c) => { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); });
+    return Math.abs(h) % 1000000;
+  }
+
+  function genere(type, sujet, opts) {
+    opts = opts || {};
+    const modele = STYLE_GEN[type] || STYLE_GEN.icone;
+    const prompt = modele.replace('{S}', String(sujet || '').trim());
+    const q = 'width=' + (opts.l || 640) + '&height=' + (opts.h || 640) +
+      '&seed=' + graine(type + ':' + sujet) + '&nologo=true&model=flux&referrer=ever';
+    return GEN + encodeURIComponent(prompt) + '?' + q;
+  }
+
   const QUALIF = {
     plat: 'food dish',
     ingredient: 'food ingredient',
@@ -272,11 +322,13 @@
       if (encore !== undefined) return encore;
       try {
         const u = await interroger(q);
-        Store.set(c, u ? { u: u, at: Date.now() } : { vide: 1, at: Date.now() });
-        return u;
-      } catch (e) {
-        return null;
-      }
+        if (u) { Store.set(c, { u: u, at: Date.now() }); return u; }
+      } catch (e) { /* on tombe sur la generation */ }
+      /* Openverse n'a rien : on fait dessiner l'image plutot que de
+         laisser une pastille vide. Gratuit, et stable dans le temps. */
+      const g = genere(type, sujet);
+      Store.set(c, { u: g, at: Date.now(), gen: 1 });
+      return g;
     });
   }
 
@@ -328,5 +380,5 @@
     coupe = false;
   }
 
-  global.Stock = { url, ic, peupler, stats, vider, requete, actif, MOTS };
+  global.Stock = { url, ic, peupler, stats, vider, requete, actif, genere, graine, MOTS };
 })(window);

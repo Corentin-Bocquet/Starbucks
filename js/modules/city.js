@@ -14,22 +14,21 @@
   let root = null, city = null, data = null;
 
   const SECTIONS = [
-    { k: 'a_savoir',      nom: 'À savoir',            icon: 'info',    type: 'list' },
-    { k: 'histoire',      nom: 'Histoire',            icon: 'book',    type: 'text' },
-    { k: 'culture',       nom: 'Culture',             icon: 'book',    type: 'text' },
-    { k: 'connue_pour',   nom: 'Pourquoi elle est connue', icon: 'star', type: 'text' },
-    { k: 'a_voir',        nom: 'À voir',              icon: 'eye',     type: 'places' },
-    { k: 'a_faire',       nom: 'À faire',             icon: 'activity', type: 'places' },
-    { k: 'ou_manger',     nom: 'Où manger',           icon: 'fork',    type: 'places' },
-    { k: 'ou_boire',      nom: 'Où boire un verre',   icon: 'glass',   type: 'places' },
-    { k: 'ou_cafe',       nom: 'Ou prendre un cafe',  icon: 'coffee',  type: 'places' },
-    { k: 'ou_sortir',     nom: 'Où sortir',           icon: 'sparkle', type: 'places' },
-    { k: 'shopping',      nom: 'Shopping',            icon: 'bag',     type: 'places' },
-    { k: 'bons_plans',    nom: 'Bons plans',          icon: 'target',  type: 'list' },
-    { k: 'insolite',      nom: 'Les coins que tout le monde ne connaît pas', icon: 'map', type: 'places' },
-    { k: 'pratique',      nom: 'Pratique',            icon: 'settings', type: 'list' }
+    { k: 'a_savoir',      nom: 'À savoir',            icon: 'info',    art: 'livre',      type: 'list',   ph: 'guide' },
+    { k: 'histoire',      nom: 'Histoire',            icon: 'book',    art: 'livre',      type: 'text',   ph: 'old town heritage' },
+    { k: 'culture',       nom: 'Culture',             icon: 'book',    art: 'carte',      type: 'text',   ph: 'culture' },
+    { k: 'connue_pour',   nom: 'Pourquoi elle est connue', icon: 'star', art: 'etoile',   type: 'text',   ph: 'landmark famous' },
+    { k: 'a_voir',        nom: 'À voir',              icon: 'eye',     art: 'lieu',       type: 'places', ph: 'monument' },
+    { k: 'a_faire',       nom: 'À faire',             icon: 'activity', art: 'ballon',    type: 'places', ph: 'activite' },
+    { k: 'ou_manger',     nom: 'Où manger',           icon: 'fork',    art: 'marmite',    type: 'places', ph: 'restaurant' },
+    { k: 'ou_boire',      nom: 'Où boire un verre',   icon: 'glass',   art: 'verre',      type: 'places', ph: 'bar' },
+    { k: 'ou_cafe',       nom: 'Où prendre un café',  icon: 'coffee',  art: 'tasse',      type: 'places', ph: 'cafe' },
+    { k: 'ou_sortir',     nom: 'Où sortir',           icon: 'sparkle', art: 'eclair',     type: 'places', ph: 'soiree' },
+    { k: 'shopping',      nom: 'Shopping',            icon: 'bag',     art: 'cadeau',     type: 'places', ph: 'shopping' },
+    { k: 'bons_plans',    nom: 'Bons plans',          icon: 'target',  art: 'cible',      type: 'list',   ph: 'budget' },
+    { k: 'insolite',      nom: 'Les coins discrets',  icon: 'map',     art: 'loupe',      type: 'places', ph: 'hidden alley' },
+    { k: 'pratique',      nom: 'Pratique',            icon: 'settings', art: 'roue',      type: 'list',   ph: 'train station' }
   ];
-
   const CONTEXTES = [
     { id: 'auto',    nom: 'Peu importe' },
     { id: 'solo',    nom: 'Seul' },
@@ -77,26 +76,116 @@
       return;
     }
 
+    /* ============================================================
+       Le guide, en cartes
+
+       Le contenu ne bouge pas : c'est la forme qui changeait tout.
+       Quatorze sections empilees les unes sous les autres se
+       parcourent au pouce pendant une minute avant de trouver
+       « ou boire un verre ». En cartes, on voit tout d'un coup et
+       on ouvre celle qu'on veut.
+       ============================================================ */
+    const dispo = SECTIONS.filter((sec) => {
+      const v = data[sec.k];
+      return v && (Array.isArray(v) ? v.length : String(v).trim());
+    });
+
     root.innerHTML = '<div class="wrap">' +
       header() +
       (at ? '<div class="section" style="padding-bottom:0"><div class="banner" style="padding:9px 12px;font-size:12px">' +
         Icon('clock', 16) + '<span>Guide écrit le ' + UI.esc(UI.fmt.date(at)) + ' pour la saison en cours. ' +
-        'Les horaires et les adresses changent : vérifie avant de te déplacer.</span></div></div>' : '') +
+        'Vérifie les horaires avant de te déplacer.</span></div></div>' : '') +
       fiveThings() +
       mustSee() +
-      SECTIONS.map(section).join('') +
-      '<div class="section"><div class="list">' +
-        '<button class="rowitem" data-act="roue"><span class="ic">' + Icon('dice', 17) + '</span>' +
-          '<span class="tx"><b>Faire tourner la roue ici</b><small>Une activité au hasard a ' + UI.esc(city) + '</small></span>' +
-          '<span class="rt">' + Icon('next', 15) + '</span></button>' +
-        '<button class="rowitem" data-act="refresh"><span class="ic">' + Icon('refresh', 17) + '</span>' +
-          '<span class="tx"><b>Actualiser le guide</b><small>' + (at ? 'Généré le ' + UI.fmt.dateShort(at) : '') + '</small></span>' +
-          '<span class="rt">' + Icon('next', 15) + '</span></button>' +
+      '<div class="section">' +
+        '<div class="secbar"><h2>Le guide ' + UI.esc(prep(city, 'de')) + '</h2></div>' +
+        Cartes.grille(dispo.map((sec) => ({
+          id: sec.k, titre: sec.nom, ph: sec.ph + ' ' + city, type: 'lieu',
+          sous: Array.isArray(data[sec.k]) ? data[sec.k].length + ' entrées' : 'À lire'
+        }))) +
       '</div>' +
-      '<p class="muted" style="font-size:11px;margin-top:12px;line-height:1.5">Guide généré par IA à partir de connaissances generales. ' +
-      'Les horaires et les établissements changent : vérifie avant de te déplacer.</p></div>' +
+      Portes.section('', [
+        { act: 'roue',    nom: 'Tourner ici', sub: 'Une activité au hasard', ph: 'hasard' },
+        { act: 'refresh', nom: 'Actualiser',  sub: at ? UI.fmt.dateShort(at) : 'Réécrire le guide', ph: 'refresh arrows' }
+      ]) +
+      '<div class="section" style="padding-top:0"><p class="muted" style="font-size:11px;line-height:1.5">' +
+      'Guide écrit par IA. Les horaires et les établissements changent.</p></div>' +
       '</div>';
+
     bindHeader(); bindBody();
+    if (global.Stock) Stock.peupler(root);
+
+    root.querySelectorAll('[data-kart]').forEach((b) => b.onclick = () => {
+      const sec = SECTIONS.find((x) => x.k === b.dataset.kart);
+      if (sec) ouvrirSection(sec);
+    });
+  }
+
+  /* Une section du guide, dans sa pop-up. Les lieux y sont des
+     cartes ; toucher une carte ouvre la fiche avec sa carte
+     geographique, et la fleche ramene a la section. */
+  function ouvrirSection(sec) {
+    const v = data[sec.k];
+    const teinte = ['#7A2E54', '#BE5F8C'];
+
+    if (sec.type === 'text') {
+      Cartes.ouvrir({
+        tete: Cartes.tete(sec.nom, UI.esc(city), teinte, sec.art),
+        corps: '<p class="textelong">' + UI.esc(v) + '</p>'
+      });
+      return;
+    }
+    if (sec.type === 'list') {
+      Cartes.ouvrir({
+        tete: Cartes.tete(sec.nom, v.length + ' points', teinte, sec.art),
+        corps: '<ol class="listelong">' + v.map((x) => '<li>' + UI.esc(x) + '</li>').join('') + '</ol>'
+      });
+      return;
+    }
+
+    Cartes.ouvrir({
+      tete: Cartes.tete(sec.nom, v.length + ' adresses ' + prep(city), teinte, sec.art),
+      corps: Cartes.grille(v.map((x, i) => ({
+        id: 'p' + i, titre: x.nom, sous: x.description || x.adresse || '',
+        ph: x.nom + ' ' + city, type: 'lieu'
+      }))),
+      onCarte: (id) => {
+        const x = v[Number(String(id).slice(1))];
+        if (!x) return;
+        ouvrirLieuGuide(x, sec);
+      }
+    });
+  }
+
+  /* La fiche d'un lieu du guide : la carte geographique en haut,
+     jamais un rectangle gris. */
+  function ouvrirLieuGuide(x, sec) {
+    Cartes.empiler({
+      tete: Cartes.tete(x.nom, sec.nom, ['#1F5E93', '#4E93CE'], sec.art),
+      corps:
+        '<div class="minicarte" data-mini></div>' +
+        (x.description ? '<p class="mdesc" style="margin-top:14px">' + UI.esc(x.description) + '</p>' : '') +
+        (x.adresse ? '<p class="aide">' + UI.esc(x.adresse) + '</p>' : '') +
+        '<div class="btnrow" style="margin-top:16px">' +
+          '<button class="btn primary grow lg" data-plan>' + Icon('map', 17) + 'Voir le plan</button>' +
+          '<button class="btn lg" data-gard aria-label="Garder">' + Icon('star', 17) + '</button>' +
+        '</div>',
+      onMount: (sh) => {
+        if (global.MapPick && MapPick.mini) {
+          MapPick.mini(sh.querySelector('[data-mini]'),
+            { nom: x.nom, adresse: [x.adresse, city].filter(Boolean).join(', ') });
+        }
+        sh.querySelector('[data-plan]').onclick = () => {
+          UI.closeSheet();
+          MapPick.fiche({ nom: x.nom, adresse: x.adresse, ville: city, categorie: sec.nom, pitch: x.description });
+        };
+        sh.querySelector('[data-gard]').onclick = () => {
+          Store.add('places', { nom: x.nom, kind: kindOf(sec.k), adresse: x.adresse || '',
+            city: slug(city), source: 'guide' });
+          UI.haptic('success'); UI.toast('Gardé dans tes adresses');
+        };
+      }
+    });
   }
 
   function header() {

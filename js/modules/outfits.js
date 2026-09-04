@@ -110,22 +110,46 @@
 
   /* Une carte par style. Modèle des maquettes : visuel, dégradé,
      surtitre, nom, puces, action. */
+  /* ============================================================
+     L'image d'une tenue
+
+     Une mosaique de quatre bouts de vetements ne donne pas envie de
+     cliquer : on voit un patchwork, pas une tenue. Une carte doit
+     montrer UNE image, celle de la tenue portee.
+
+     Trois niveaux, du meilleur au dernier recours :
+       1. l'apercu genere avec le visage de Corentin, s'il existe ;
+       2. sinon une image de la tenue sur un mannequin, dessinee a
+          partir de la liste des pieces. Gratuite, sans cle, stable
+          dans le temps : la meme tenue rend toujours la meme image ;
+       3. sinon seulement, la photo d'une piece.
+     ============================================================ */
+  function resumePieces(t) {
+    const p = (t.pieces || []).map((g) => (typeof g === 'string' ? g : g.nom)).filter(Boolean);
+    return p.slice(0, 5).join(', ');
+  }
+
+  function visuelTenue(t, m) {
+    if (t.apercu) return '<img src="' + UI.attr(t.apercu) + '" alt="" loading="lazy">';
+    if (t.image)  return '<img src="' + UI.attr(t.image) + '" alt="" loading="lazy">';
+
+    const desc = resumePieces(t) || t.resume || (m && m.nom) || 'tenue';
+    if (global.Stock) {
+      return '<img src="' + UI.attr(Stock.genere('tenue', desc, { l: 600, h: 800 })) +
+        '" alt="" loading="lazy" class="fondu">';
+    }
+    const g0 = (t.pieces || []).find((x) => x && (x.photo || x.photoUrl));
+    return g0 ? Photos.img(g0, 'photo', 'width:100%;height:100%;object-fit:cover')
+              : Imagerie.vignette('vetement', desc, { classe: 'large' });
+  }
+
   function carteStyle(t, i) {
     const m = SEED.MOODS.find((x) => x.id === t.mood) || SEED.MOODS[0];
     const teinte = TEINTES_MOOD[t.mood] || TEINTES_MOOD.chill;
     const pieces = t.pieces || [];
 
     return '<div class="cartestyle" data-style="' + UI.attr(t.mood) + '" style="--g1:' + teinte[0] + ';--g2:' + teinte[1] + '">' +
-      '<div class="visuel">' +
-        (t.image
-          ? '<img src="' + UI.attr(t.image) + '" alt="">'
-          : (t.source === 'penderie'
-              ? '<div class="mosaique">' + pieces.slice(0, 4).map((g) =>
-                  '<span class="case">' + (g.photo || g.photoUrl
-                    ? Photos.img(g, 'photo', 'width:100%;height:100%;object-fit:cover')
-                    : Icon('shirt', 20)) + '</span>').join('') + '</div>'
-              : Imagerie.vignette('vetement', t.resume || m.nom, { classe: 'large', cle: Imagerie.cleDe('tenue', t.mood + '-' + (t.nom || '')) }))) +
-      '</div>' +
+      '<div class="visuel">' + visuelTenue(t, m) + '</div>' +
       '<div class="voile"></div>' +
       '<div class="txt">' +
         '<div class="sur">' + Icon(m.icon, 12) + UI.esc(m.nom) + '</div>' +
@@ -300,30 +324,137 @@
   /* ============================================================
      Penderie
      ============================================================ */
+  /* ============================================================
+     La penderie
+
+     Avant : sept sections empilees, chacune une grille de vignettes
+     de cent pixels. Il fallait defiler pour trouver ses chaussures.
+
+     Maintenant : une carte par categorie. On touche « Hauts », la
+     pop-up s'ouvre avec le carrousel de tous les hauts, on touche
+     une piece, la pop-up se met a jour sur cette piece, et la
+     fleche en haut a gauche ramene a la categorie.
+
+     Un bouton « Tout voir » garde l'ancien affichage complet, pour
+     les fois ou on veut embrasser toute la penderie d'un coup.
+     ============================================================ */
+  const PHOTO_SLOT = {
+    haut: 'folded shirts stack', bas: 'folded jeans trousers',
+    chaussures: 'sneakers pair shoes', veste: 'jacket coat hanger',
+    sousvetement: 'folded underwear basics', chaussettes: 'folded socks',
+    accessoire: 'watch belt accessories flat lay'
+  };
+
+  const cartePiece = (g) => ({
+    id: g.id,
+    titre: g.nom,
+    sous: [slotName(g.slot), g.matiere].filter(Boolean).join(' · '),
+    img: (g.photo || g.photoUrl) ? null : null,
+    ph: g.nom, type: 'vetement'
+  });
+
+  /* Une piece avec sa vraie photo quand elle existe. */
+  function carteVetement(g) {
+    const aPhoto = g.photo || g.photoUrl;
+    return '<button class="kart" data-kart="' + UI.attr(g.id) + '">' +
+      '<span class="vis">' + (aPhoto
+        ? Photos.img(g, 'photo', 'width:100%;height:100%;object-fit:cover')
+        : (global.Stock ? Stock.ic(g.nom, { classe: 'fond', type: 'vetement' }) : '')) + '</span>' +
+      '<span class="voile"></span>' +
+      (g.couleurs && g.couleurs.length
+        ? '<span class="pts">' + g.couleurs.slice(0, 3).map((c) =>
+            '<i style="background:' + UI.attr(safeHex(c)) + '"></i>').join('') + '</span>'
+        : '') +
+      '<span class="tx"><b>' + UI.esc(g.nom) + '</b>' +
+      '<small>' + UI.esc(slotName(g.slot)) + '</small></span>' +
+      '</button>';
+  }
+
   function wardrobeView() {
     const all = garments();
+    const cats = SEED.GARMENT_SLOTS.map((sl) => {
+      const l = bySlot(sl.id);
+      if (!l.length) return null;
+      const avecPhoto = l.find((g) => g.photo || g.photoUrl);
+      return {
+        id: sl.id, titre: sl.nom,
+        sous: l.length + (l.length > 1 ? ' pièces' : ' pièce'),
+        ph: PHOTO_SLOT[sl.id] || sl.nom, type: 'vetement',
+        badge: String(l.length),
+        photo: avecPhoto
+      };
+    }).filter(Boolean);
+
     return '<div class="section">' +
-      '<div class="row-between" style="margin-bottom:12px">' +
-        '<b style="font-size:17px">' + all.length + ' pièce' + (all.length > 1 ? 's' : '') + '</b>' +
-        '<button class="btn sm primary" data-act="addGarment">' + Icon('camera', 15) + 'Ajouter</button>' +
+      '<div class="secbar">' +
+        '<h2>' + all.length + ' pièce' + (all.length > 1 ? 's' : '') + '</h2>' +
+        '<div class="btnrow">' +
+          (all.length ? '<button class="lientout" data-act="toutePenderie">Tout voir</button>' : '') +
+          '<button class="btn sm primary" data-act="addGarment">' + Icon('camera', 15) + 'Ajouter</button>' +
+        '</div>' +
       '</div>' +
       photoSyncBlock(all) +
-      (all.length ? SEED.GARMENT_SLOTS.map((s) => {
-        const list = bySlot(s.id);
-        if (!list.length) return '';
-        return '<div class="section" style="padding-top:8px"><div class="sechead"><h2 style="font-size:15px">' + UI.esc(s.nom) + '</h2><span>' + list.length + '</span></div>' +
-          '<div class="grid tight" style="grid-template-columns:repeat(auto-fill,minmax(104px,1fr))">' +
-          list.map((g) => '<div class="card" data-g="' + UI.attr(g.id) + '">' +
-            '<div class="ph" style="position:relative;aspect-ratio:1">' +
-            '<div style="position:absolute;inset:0;display:grid;place-items:center;color:var(--faint)">' + Icon('shirt', 24) + '</div>' +
-            Photos.img(g, 'photo', 'position:relative;width:100%;height:100%;object-fit:cover') +
-            '</div><div class="bd" style="padding:8px 9px 10px"><h3 style="font-size:12.5px">' + UI.esc(g.nom) + '</h3>' +
-            (g.couleurs ? '<div class="row" style="gap:3px;margin-top:5px">' + (g.couleurs || []).slice(0, 4).map((c) =>
-              '<span style="width:11px;height:11px;border-radius:50%;background:' + UI.attr(c) + ';box-shadow:inset 0 0 0 1px rgba(0,0,0,.15)"></span>').join('') + '</div>' : '') +
-            '</div></div>').join('') + '</div></div>';
-      }).join('') : UI.empty('shirt', 'Penderie vide', 'Prends tes vêtements en photo : l\'IA reconnaît le type, les couleurs et le style.')) +
+      (cats.length
+        ? '<div class="kgrille">' + cats.map((c) =>
+            '<button class="kart" data-cat="' + UI.attr(c.id) + '">' +
+              '<span class="vis">' + (c.photo
+                ? Photos.img(c.photo, 'photo', 'width:100%;height:100%;object-fit:cover')
+                : (global.Stock ? Stock.ic(c.ph, { classe: 'fond', type: 'vetement' }) : '')) + '</span>' +
+              '<span class="voile"></span>' +
+              '<span class="badge">' + c.badge + '</span>' +
+              '<span class="tx"><b>' + UI.esc(c.titre) + '</b><small>' + UI.esc(c.sous) + '</small></span>' +
+            '</button>').join('') + '</div>'
+        : UI.empty('shirt', 'Penderie vide',
+            'Prends tes vêtements en photo : l\'IA reconnaît le type, les couleurs et le style.')) +
       '</div>';
   }
+
+  /* Toutes les pieces d'une categorie, en carrousel. */
+  function ouvrirCategorie(slotId) {
+    const sl = SEED.GARMENT_SLOTS.find((x) => x.id === slotId);
+    const l = bySlot(slotId);
+    if (!sl || !l.length) return;
+
+    Cartes.ouvrir({
+      tete: Cartes.tete(sl.nom, l.length + (l.length > 1 ? ' pièces' : ' pièce'),
+        ['#3E4A63', '#7C8CA8'], 'chemise'),
+      corps: '<div class="kcarrousel">' + l.map(carteVetement).join('') + '</div>' +
+        '<button class="btn block" style="margin-top:10px" data-tout>' + Icon('grid', 16) + 'Tout voir en grille</button>' +
+        '<button class="btn primary block lg" style="margin-top:8px" data-add>' +
+          Icon('camera', 17) + 'Ajouter dans ' + UI.esc(sl.nom.toLowerCase()) + '</button>',
+      onMount: async (sh) => {
+        await Photos.hydrate(sh);
+        sh.querySelector('[data-add]').onclick = () => { UI.closeSheet(); addGarment(slotId); };
+        sh.querySelector('[data-tout]').onclick = () => {
+          Cartes.empiler({
+            tete: Cartes.tete(sl.nom, 'Tout, d\'un coup', ['#3E4A63', '#7C8CA8'], 'chemise'),
+            corps: '<div class="kgrille">' + l.map(carteVetement).join('') + '</div>',
+            onMount: (s2) => { Photos.hydrate(s2); },
+            onCarte: (id) => { UI.closeSheet(); openGarment(id); }
+          });
+        };
+      },
+      onCarte: (id) => { UI.closeSheet(); openGarment(id); }
+    });
+  }
+
+  /* Toute la penderie, sans passer par les categories. */
+  function toutePenderie() {
+    const all = garments();
+    if (!all.length) return;
+    Cartes.ouvrir({
+      tete: Cartes.tete('Toute la penderie', all.length + ' pièces', ['#3E4A63', '#7C8CA8'], 'chemise'),
+      corps: SEED.GARMENT_SLOTS.map((sl) => {
+        const l = bySlot(sl.id);
+        if (!l.length) return '';
+        return '<h4 class="ftitre">' + UI.esc(sl.nom) + ' · ' + l.length + '</h4>' +
+          '<div class="kgrille trois">' + l.map(carteVetement).join('') + '</div>';
+      }).join(''),
+      onMount: (sh) => { Photos.hydrate(sh); },
+      onCarte: (id) => { UI.closeSheet(); openGarment(id); }
+    });
+  }
+
 
   /* Les photos ne suivent pas toutes seules : IndexedDB est propre à
      un appareil. Ce bloc dit franchement où en est la penderie et
@@ -433,6 +564,11 @@
       visuel = '<img src="' + UI.attr(o.apercu) + '" alt="" loading="lazy">';
     } else if (o.apercuId) {
       visuel = '<img data-photo-id="' + UI.attr(o.apercuId) + '" alt="" loading="lazy">';
+    } else if (global.Stock) {
+      /* Une image de la tenue portee, pas un bout de vetement. */
+      const desc = items.map((g) => g.nom).slice(0, 5).join(', ') || o.nom || moodName(o.mood);
+      visuel = '<img src="' + UI.attr(Stock.genere('tenue', desc, { l: 600, h: 800 })) +
+        '" alt="" loading="lazy">';
     } else if (avecPhoto) {
       visuel = Photos.img(avecPhoto, 'photo', 'width:100%;height:100%;object-fit:cover');
     } else {
@@ -647,7 +783,10 @@
     return 'haut';
   }
 
-  function addGarment() {
+  /* `slotVoulu` force la categorie quand on ajoute depuis une
+     categorie precise : sans ca, l'IA reclassait la piece ailleurs
+     et elle disparaissait de la liste qu'on venait d'ouvrir. */
+  function addGarment(slotVoulu) {
     /* Photos.pick corrige la premiere photo qui ne declenchait rien. */
     Photos.pick(async (files) => {
       files = [].concat(files || []);
@@ -660,10 +799,11 @@
              que le modele distingue une maille d'un tissage. */
           const small = await AI.shrink(f, 1400, 0.86);
           const saved = await Photos.save(small, 'garments');
-          let meta = { nom: 'Pièce ' + (garments().length + 1), slot: 'haut', couleurs: ['#888888'], styles: ['chill'], chaleur: 3 };
+          let meta = { nom: 'Pièce ' + (garments().length + 1), slot: slotVoulu || 'haut', couleurs: ['#888888'], styles: ['chill'], chaleur: 3 };
           if (AI.available()) {
             try { meta = await reconnaitre(small); } catch (e) { console.warn(e); }
           }
+          if (slotVoulu) meta.slot = slotVoulu;
           Store.add('garments', Object.assign({ photo: saved.id, photoUrl: saved.url || null }, meta));
           n++;
         } catch (e) { console.warn(e); }
@@ -1326,14 +1466,57 @@
           { onMount: (sh) => { sh.querySelector('[data-refaire]').onclick = () => { UI.closeSheet(); porte(t); }; },
             onClose: () => { if (t.id) render(); } });
       } else {
-        UI.openSheet('<div class="mbody"><h2 style="font-size:20px">Aperçu indisponible</h2>' +
-          '<p class="mdesc">Le modèle a refusé de représenter une personne réelle, ou il n\'est pas ' +
-          'disponible sur ta clé. C\'est une restriction côté Google, pas un réglage de l\'application.</p></div>');
+        replier(t, "Le modèle n'a rien renvoyé.");
       }
     } catch (e) {
-      UI.closeSheet();
-      UI.toast(AI.humanError(e) || 'Aperçu impossible');
+      replier(t, AI.humanError(e) || 'Aperçu impossible');
     }
+  }
+
+  /* ============================================================
+     Quand Gemini refuse
+
+     La generation d'images a un quota minuscule sur une cle
+     gratuite, bien plus petit que celui du texte : l'IA continue de
+     fonctionner partout ailleurs et seule l'image echoue. Dire
+     « reessaie plus tard » et s'arreter la ne sert a rien.
+
+     On rend donc quand meme une image de la tenue, dessinee sur un
+     mannequin par un service libre et sans cle. Ce n'est pas le
+     visage de Corentin, et on le dit franchement.
+     ============================================================ */
+  function replier(t, pourquoi) {
+    if (!global.Stock) {
+      UI.closeSheet();
+      UI.toast(pourquoi);
+      return;
+    }
+    const desc = resumePieces(t) || t.nom || 'tenue';
+    const img = Stock.genere('tenue', desc, { l: 700, h: 900 });
+    if (t.id) Store.put('outfits', t.id, { apercu: img, apercuGen: 1 });
+
+    UI.openSheet(
+      '<div class="mimg cover"><img src="' + UI.attr(img) + '" alt=""></div>' +
+      '<div class="mbody">' +
+        '<h2 style="font-size:21px">' + UI.esc(t.nom || 'La tenue') + '</h2>' +
+        '<p class="mdesc">Voici la tenue portée par un mannequin. ' +
+        'Ce n\'est pas ton visage : Google a refusé la génération avec ta photo.</p>' +
+        '<div class="banner" style="margin-top:12px">' + Icon('info', 18) +
+          '<span>' + UI.esc(pourquoi) + '</span></div>' +
+        '<div class="btnrow" style="margin-top:14px">' +
+          '<button class="btn grow" data-refaire>' + Icon('refresh', 16) + 'Autre image</button>' +
+          '<button class="btn primary grow" data-reessai>' + Icon('sparkle', 16) + 'Réessayer avec ma tête</button>' +
+        '</div>' +
+      '</div>',
+      { onMount: (sh) => {
+          sh.querySelector('[data-refaire]').onclick = () => {
+            const autre = Stock.genere('tenue', desc + ' ' + Math.random().toString(36).slice(2, 6), { l: 700, h: 900 });
+            if (t.id) Store.put('outfits', t.id, { apercu: autre, apercuGen: 1 });
+            sh.querySelector('.mimg img').src = autre;
+          };
+          sh.querySelector('[data-reessai]').onclick = () => { UI.closeSheet(); porte(t); };
+        },
+        onClose: () => { if (t.id && root) render(); } });
   }
 
   function extraireImage(out) {
@@ -1354,6 +1537,7 @@
   function bind() {
     root.querySelectorAll('[data-view]').forEach((b) => b.onclick = () => { view = b.dataset.view; render(); });
     root.querySelectorAll('[data-g]').forEach((b) => b.onclick = () => openGarment(b.dataset.g));
+    root.querySelectorAll('[data-cat]').forEach((b) => b.onclick = () => ouvrirCategorie(b.dataset.cat));
     root.querySelectorAll('[data-rmoutfit]').forEach((b) => b.onclick = () => { Store.del('outfits', b.dataset.rmoutfit); render(); });
     root.querySelectorAll('[data-act]').forEach((b) => b.onclick = () => acts[b.dataset.act] && acts[b.dataset.act]());
 
@@ -1388,6 +1572,7 @@
     composeOutfit: composeOutfit,
     aiOutfits: aiOutfits,
     regenererTout: () => { UI.haptic('light'); composerLeJour(true); },
+    toutePenderie: () => toutePenderie(),
     portrait: definirPortrait
   };
 

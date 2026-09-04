@@ -149,6 +149,34 @@
   }
 
   /* ---------- Heros ---------- */
+  /* ============================================================
+     L'appel a creer
+
+     Le bouton de creation etait une pastille a cote de la barre de
+     recherche : minuscule, sans libelle, on ne le voyait pas et il
+     ne donnait pas envie. Il devient une grande carte posee sous
+     le carrousel, avec son illustration et sa promesse.
+     ============================================================ */
+  const CREER = {
+    sb: ['Inventer une boisson', 'Dis ton envie, l\'IA compose la recette', 'tasse', ['#0E6E4B', '#31A876']],
+    ck: ['Inventer un cocktail', 'Avec ce que tu as sous la main',        'verre', ['#6B2A4E', '#AE4A80']],
+    mm: ['Inventer un plat',     'Trois idées, tu choisis',               'marmite', ['#8A4B1E', '#C98A4A']]
+  };
+
+  function boutonCreer() {
+    const c = CREER[S.tab] || CREER.mm;
+    return '<div class="section">' +
+      '<button class="appel" data-creer style="--a1:' + c[3][0] + ';--a2:' + c[3][1] + '">' +
+        (global.Art ? '<span class="ill">' + Art(c[2], 56) + '</span>' : '') +
+        '<span class="tx"><b>' + UI.esc(c[0]) + '</b><small>' + UI.esc(c[1]) + '</small></span>' +
+        '<span class="go">' + Icon('sparkle', 22) + '</span>' +
+      '</button></div>';
+  }
+
+  function bindCreer(el) {
+    el.querySelectorAll('[data-creer]').forEach((b) => b.onclick = () => createFlow());
+  }
+
   function renderHero() {
     const h = HERO[S.tab];
     UI.$('#codexHero').innerHTML =
@@ -172,19 +200,20 @@
     if (S.q) {
       const l = searchHits();
       app.innerHTML = '<div class="section"><div class="sechead"><h2>Recherche</h2><span>' + l.length + ' résultat' + (l.length > 1 ? 's' : '') + '</span></div>' +
-        (l.length ? '<div class="grid" style="margin-top:14px">' + l.map(card).join('') + '</div>'
-                  : UI.empty('search', 'Rien trouve', "Essaie un ingredient, un nom d'alcool, ou vide la barre.")) + '</div>';
-      bindCards(app); renderFoot(); return;
+        (l.length ? '<div class="rail" style="margin-top:14px">' + l.map(card).join('') + '</div>'
+                  : UI.empty('search', 'Rien trouvé', "Essaie un ingrédient, un nom d'alcool, ou vide la barre.")) +
+        '</div>' + boutonCreer();
+      bindCards(app); bindCreer(app); Imagerie.peupler(app, { generer: false }); renderFoot(); return;
     }
 
     if (S.all) {
-      app.innerHTML = allView(); bindCards(app); Imagerie.peupler(app, { generer: false });
+      app.innerHTML = allView(); bindCards(app); bindCreer(app); Imagerie.peupler(app, { generer: false });
       app.querySelectorAll('[data-c]').forEach((b) => b.onclick = () => { S.cat[S.tab] = b.dataset.c; render(); });
       renderFoot(); return;
     }
 
     app.innerHTML = wizView();
-    bindCards(app); bindWiz(); renderFoot();
+    bindCards(app); bindWiz(); bindCreer(app); renderFoot();
     Imagerie.peupler(app, { generer: false });
   }
 
@@ -196,18 +225,25 @@
       const n = all.filter((d) => d.cat === x.id).length;
       chips += '<button class="chip ' + (c === x.id ? 'on' : '') + '" data-c="' + UI.attr(x.id) + '">' + x.ico + ' ' + UI.esc(x.nom) + ' <span class="n">' + n + '</span></button>';
     });
+    /* Une categorie = un carrousel. Sur telephone on voit une carte
+       en grand, la suivante deborde a peine ; sur grand ecran la
+       carte grandit avec la fenetre au lieu de laisser du vide a
+       droite. Avant, c'etait une grille de vignettes de deux cent
+       dix pixels : minuscules sur ordinateur, illisibles. */
     let body = '';
     if (c === 'all') {
       CATLIST[S.tab]().forEach((x) => {
         const s = all.filter((d) => d.cat === x.id); if (!s.length) return;
         body += '<div class="section"><div class="sechead"><h2>' + x.ico + ' ' + UI.esc(x.nom) + '</h2><span>' + s.length + '</span></div>' +
-          '<p class="secdesc">' + UI.esc(x.desc) + '</p><div class="grid">' + s.map(card).join('') + '</div></div>';
+          '<p class="secdesc">' + UI.esc(x.desc) + '</p>' +
+          '<div class="rail">' + s.map(card).join('') + '</div></div>';
       });
     } else {
       body = '<div class="section"><div class="sechead"><h2>' + CATOBJ[c].ico + ' ' + UI.esc(CATNAME[c]) + '</h2><span>' + list.length + '</span></div>' +
-        '<p class="secdesc">' + UI.esc(CATOBJ[c].desc) + '</p><div class="grid">' + list.map(card).join('') + '</div></div>';
+        '<p class="secdesc">' + UI.esc(CATOBJ[c].desc) + '</p>' +
+        '<div class="rail">' + list.map(card).join('') + '</div></div>';
     }
-    return '<div style="padding-top:16px"><div class="chips">' + chips + '</div></div>' + body;
+    return '<div style="padding-top:16px"><div class="chips">' + chips + '</div></div>' + body + boutonCreer();
   }
 
   function countFor(idx, val) {
@@ -256,9 +292,10 @@
     return '<div class="wiz"><div class="crumbs">' + crumbs + '<button class="crumb ghost" data-reset="1">recommencer</button></div>' +
       '<div class="wizhead"><div class="num">Résultat</div><h2>' + shown.length + ' propositions pour toi</h2>' +
       '<p>' + (S.tab === 'ck' ? 'Le badge indique si ton bar suffit.' : 'Classees par pertinence.') + '</p></div>' +
-      relax + more + '<div class="grid">' + shown.map(card).join('') + '</div>' +
+      relax + more + '<div class="rail">' + shown.map(card).join('') + '</div>' +
       '<div class="wizact" style="margin-top:18px"><button class="btn sm" data-back="1">' + Icon('back', 15) + 'Changer le dernier choix</button>' +
-      '<button class="btn sm primary" data-reset="1">Recommencer</button></div></div>';
+      '<button class="btn sm primary" data-reset="1">Recommencer</button></div>' +
+      boutonCreer() + '</div>';
   }
 
   function bindWiz() {
