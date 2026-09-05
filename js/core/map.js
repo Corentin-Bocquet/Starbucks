@@ -341,5 +341,45 @@
     } catch (e) { /* pas de carte, pas de trou : la boite reste vide */ }
   }
 
-  global.MapPick = { pick, load, reverse, fiche, geocode, liens, mini, epingle };
+  /* ============================================================
+     La carte en tout petit, sans bibliotheque
+
+     Poser une vraie carte Leaflet sur chaque ligne d'une liste de
+     vingt lieux, c'est vingt instances a animer : le telephone
+     rame. Mais une carte, a un zoom donne, est decoupee en tuiles
+     de 256 pixels dont l'adresse se calcule directement depuis la
+     latitude et la longitude. Une seule image, aucun script.
+
+     C'est la projection de Mercator, en trois lignes :
+       x = (lon + 180) / 360 * 2^z
+       y = (1 - ln(tan(lat) + sec(lat)) / PI) / 2 * 2^z
+
+     Resultat : la vraie carte du quartier, en vignette, a la place
+     de la petite epingle grise qui ne disait rien.
+     ============================================================ */
+  function tuile(lat, lon, z) {
+    const n = Math.pow(2, z || 13);
+    const rad = Number(lat) * Math.PI / 180;
+    const x = Math.floor((Number(lon) + 180) / 360 * n);
+    const y = Math.floor((1 - Math.log(Math.tan(rad) + 1 / Math.cos(rad)) / Math.PI) / 2 * n);
+    return 'https://tile.openstreetmap.org/' + (z || 13) + '/' + x + '/' + y + '.png';
+  }
+
+  /* La vignette complete : la tuile, un voile pour l'adoucir, et
+     l'epingle au centre. Faute de coordonnees, on prend celles de
+     la ville en cours : mieux vaut le bon quartier que rien. */
+  function vignette(lieu, opts) {
+    opts = opts || {};
+    let lat = Number(lieu && lieu.lat), lon = Number(lieu && lieu.lon);
+    if (!isFinite(lat) || !isFinite(lon)) {
+      const v = global.Ctx ? Ctx.place() : null;
+      if (v && isFinite(v.lat)) { lat = v.lat; lon = v.lon; }
+    }
+    if (!isFinite(lat) || !isFinite(lon)) return '';
+    return '<span class="vigncarte' + (opts.classe ? ' ' + opts.classe : '') + '">' +
+      '<img loading="lazy" src="' + UI.attr(tuile(lat, lon, opts.zoom || 13)) + '" alt="">' +
+      '<i></i></span>';
+  }
+
+  global.MapPick = { pick, load, reverse, fiche, geocode, liens, mini, epingle, tuile, vignette };
 })(window);

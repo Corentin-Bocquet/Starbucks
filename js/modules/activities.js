@@ -319,7 +319,7 @@
      sans blanc entre les deux. */
   function teteSheet(titre, sous, g, art) {
     return '<div class="mtete" style="--t1:' + g[0] + ';--t2:' + g[1] + '">' +
-      (art && global.Art ? '<span class="ill">' + Art(art, 46) + '</span>' : '') +
+      (art && global.Anime ? '<span class="ill">' + Anime.art(art, 46) + '</span>' : '') +
       '<h2>' + UI.esc(titre) + '</h2>' +
       (sous ? '<p>' + UI.esc(sous) + '</p>' : '') + '</div>';
   }
@@ -375,7 +375,7 @@
         '<div class="row" style="gap:9px;align-items:flex-start">' +
           '<span style="color:' + mol.teinte + ';flex:none">' + Icon(mol.icon, 19) + '</span>' +
           '<div><b style="font-size:15px;display:block">' + UI.esc(e.sub) + '</b>' +
-          '<small class="muted" style="display:block;margin-top:2px">' + UI.esc(mol.nom) + ' · ' + UI.esc(mol.role) + '</small>' +
+          '<small class="muted" style="display:block;margin-top:2px">' + UI.esc(mol.court || mol.nom) + ' · ' + UI.esc(mol.role) + '</small>' +
           '<p style="font-size:13.5px;line-height:1.5;margin-top:8px">' + UI.esc(e.phrase) + '</p></div>' +
         '</div>' +
       '</div>' +
@@ -570,7 +570,7 @@
       (a.isEvent && !a.fiable ? '<div class="warn" style="margin-top:10px">Date et lieu à vérifier avant de te déplacer.</div>' : '') +
       (a.isMood && a.note ? '<div class="rwhy">' + UI.esc(a.note) + '</div>' : '') +
       (a.isMood && a.avecQuelquun
-        ? '<div class="warn" style="margin-top:10px">Celle-là ne compte que si quelqu\'un est là. Seul, la tasse reste vide.</div>'
+        ? '<div class="warn" style="margin-top:10px">Celle-là ne marche qu\'à plusieurs. Seul, elle ne t\'apportera rien.</div>'
         : '') +
       (why ? '<div class="rwhy"><b>Pourquoi ? </b>' + UI.esc(why) + '</div>' : '') +
       '<div data-venue>' + (loading && !a.isEvent && needsVenue(a.kind) && AI.available() ? UI.thinking('Recherche des adresses…') : '') + '</div>' +
@@ -640,7 +640,8 @@
       UI.closeSheet();
       Cal.add({
         title: a.nom + (nom ? ' avec ' + nom : ''),
-        description: 'Proposé par EVER pour combler : ' + (Mood.molecule(a.molecule) || {}).nom,
+        description: 'Proposé pour nourrir : ' +
+          ((Mood.molecule(a.molecule) || {}).court || (Mood.molecule(a.molecule) || {}).nom || ''),
         kind: 'activite', minutes: duree,
         date: UI.day.key(quand),
         time: String(quand.getHours()).padStart(2, '0') + ':' + String(quand.getMinutes()).padStart(2, '0')
@@ -944,7 +945,7 @@
             out.innerHTML = '<div class="list">' + r.map((c, i) => {
               const id = slug(c.name);
               return '<div class="rowitem villeligne" data-i="' + i + '">' +
-                '<span class="ic">' + Icon('location', 17) + '</span>' +
+                (global.MapPick && MapPick.vignette(c) || '<span class="ic">' + Icon('location', 17) + '</span>') +
                 '<span class="tx"><b>' + UI.esc(c.name) + '</b><small>' + UI.esc(c.label) + '</small></span>' +
                 '<button class="etoilebtn" data-fav="' + UI.attr(id) + '" data-favnom="' + UI.attr(c.name) + '" aria-label="Favori">' +
                   etoile(estFav(id)) + '</button>' +

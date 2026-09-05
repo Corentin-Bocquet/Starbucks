@@ -81,115 +81,266 @@
      qui fait qu'on lit une planche et pas une tache de couleur.
      ============================================================ */
 
+  /* ============================================================
+     Le contour, calcule et non dessine
+
+     Trois tentatives a la main, trois echecs : ecrire des points
+     de controle de Bezier au clavier donne des epaules carrees et
+     des jambes qui se decrochent. Le probleme n'etait pas le gout,
+     c'etait la methode.
+
+     Ici on ne pose que des reperes anatomiques, en clair : le creux
+     de la taille est a telle hauteur et telle largeur, le mollet
+     bombe la. Une spline de Catmull-Rom passe exactement par tous
+     ces points et fabrique les courbes elle-meme. Deplacer la
+     taille de deux pixels devient une seule valeur a changer, et le
+     trace reste lisse par construction.
+
+     Grille, en huit tetes sur 440 :
+       tete    6 a 66     epaule   demi-largeur 40 a y = 96
+       cou    58 a 88     taille   demi-largeur 25 a y = 184
+       buste  88 a 230    hanche   demi-largeur 26 a y = 214
+       cuisse 230 a 312   genou    demi-largeur 18 a y = 314
+       mollet 320 a 400   cheville demi-largeur 14 a y = 402
+     ============================================================ */
+
+  /* Catmull-Rom vers Bezier : la courbe passe PAR les points, ce
+     qu'une Bezier ordinaire ne fait pas. */
+  function lisser(pts) {
+    if (pts.length < 2) return '';
+    let d = 'M' + pts[0][0] + ' ' + pts[0][1];
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p0 = pts[i - 1] || pts[i], p1 = pts[i];
+      const p2 = pts[i + 1], p3 = pts[i + 2] || p2;
+      const c1x = p1[0] + (p2[0] - p0[0]) / 6, c1y = p1[1] + (p2[1] - p0[1]) / 6;
+      const c2x = p2[0] - (p3[0] - p1[0]) / 6, c2y = p2[1] - (p3[1] - p1[1]) / 6;
+      d += 'C' + c1x.toFixed(1) + ' ' + c1y.toFixed(1) + ',' +
+                 c2x.toFixed(1) + ' ' + c2y.toFixed(1) + ',' +
+                 p2[0].toFixed(1) + ' ' + p2[1].toFixed(1);
+    }
+    return d;
+  }
+
+  /* Les reperes, du creux du cou jusqu'a l'entrejambe, en passant
+     par le bras. Le retour se fait tout droit sur l'axe. */
+  /* Le tronc et les jambes : du cou au pied, referme sur l'axe. */
+  const REPERES = [
+    [100, 58], [89, 62], [87, 80],             /* cou */
+    [78, 86], [68, 92],                        /* trapeze, dessus d'epaule */
+    [65, 110],                                 /* aisselle */
+    [67, 128], [69, 146],                      /* grand dorsal */
+    [71, 168], [72, 186],                      /* taille */
+    [69, 200], [68, 214],                      /* hanche */
+    [70, 234], [73, 266],                      /* cuisse, dehors */
+    [79, 300], [81, 316],                      /* genou */
+    [77, 340], [77, 360],                      /* mollet */
+    [84, 388], [87, 404],                      /* cheville */
+    [86, 416], [76, 427], [80, 433], [96, 433],/* pied */
+    [95, 406], [94, 388],                      /* cheville, dedans */
+    [93, 360], [92, 334], [92, 316],           /* mollet et genou, dedans */
+    [94, 288], [96, 258], [99, 232]            /* cuisse, dedans */
+  ];
+
+  /* Le bras, dessine a part et pose PAR-DESSUS le tronc.
+
+     Le confondre avec le contour du corps donnait un bonhomme en
+     pain d'epices : bras et buste fondus en une seule masse, sans
+     la moindre ligne entre les deux. Un bras qui pend touche
+     vraiment le buste, alors on ne l'ecarte pas artificiellement,
+     on le superpose : son propre trait dessine la separation, et
+     l'epaule reste attachee. */
+  const BRAS = [
+    [66, 88], [52, 97], [45, 116], [44, 136],  /* deltoide */
+    [45, 156], [48, 174],                      /* bras, coude */
+    [52, 194], [55, 214], [57, 232],           /* avant-bras */
+    [56, 250], [60, 263],                      /* main */
+    [68, 259], [70, 240],                      /* dos de la main */
+    [68, 216], [65, 194],                      /* avant-bras, dedans */
+    [63, 174], [62, 152], [64, 126],           /* bras, dedans */
+    [67, 110]                                  /* aisselle */
+  ];
+
   /* Le support neutre : peau et volumes, jamais colore. */
   const CORPS = [
-    /* Tete, oreille, cou */
-    'M100 8c-10.4 0-18.6 11.2-18.6 25s8.2 25 18.6 25Z',
-    'M81.8 30c-3 0-5.2 2.6-5.2 5.8s2.2 5.8 5.2 5.8Z',
-    'M100 54c-5.8 0-9 1.6-10 5.2-.9 3.2-1.2 6.8-1.2 10.8H100Z',
-    /* Buste : epaules, taille marquee, hanches */
-    'M100 66c-17 0-29.6 4.4-38 13-6.4 6.6-9.4 15-8.8 25.4.5 9.6 2.1 19 3.7 28.4 1.7 10 2.7 19.6 2.7 29 0 9.4-.6 18.4-1.7 27.2-.9 7.4-.4 13.8 1.5 19 2.5 7 7.4 12 14.9 15.2 6.8 2.9 15.3 4.4 26.7 4.4Z',
-    /* Cuisse */
-    'M100 218c-13.8 0-24.4 1.1-31.8 3.2-4.9 10.6-7.2 23.4-7.2 38.2 0 14.9 1.7 29.8 3.8 43.6 2.1 13.8 4.2 25.5 6.4 34H100Z',
-    /* Genou */
-    'M100 317H78.6c.4 6.4 1.3 11.7 2.3 16H100Z',
-    /* Mollet */
-    'M100 331H80.2c-2.3 9.6-3.2 20.2-2.6 31.9.6 11 2.3 21.3 4.5 30.6H100Z',
-    /* Cheville et pied */
-    'M100 390H86c.4 4.5 1 8.3 1.7 11.3H100Z',
-    'M100 399H87.4c-.5 4.5-2.8 7.9-6.2 10-2.8 1.7-3.9 3.9-3.4 6.2.6 2.1 2.9 3.3 5.6 3.3H100Z'
+    /* Tete : une demi-ellipse, pas un ovale pose a cote du cou. */
+    'M100 10c-12.4 0-22.4 12.6-22.4 28.2S87.6 66.4 100 66.4Z',
+    /* Oreille */
+    'M79.6 34c-3.2 0-5.6 2.8-5.6 6.2s2.4 6.2 5.6 6.2Z',
+    /* Tronc et jambes, referme sur l'axe. */
+    lisser(REPERES) + 'L100 232L100 58Z',
+    /* Le bras, pose par-dessus. */
+    lisser(BRAS) + 'Z'
   ];
 
-  /* Le bras, avec ses deux bords, deja ecarte du buste. */
-  const MEMBRE = [
-    /* Deltoide */
-    'M66 70c-10.6 4-17.4 12-20.4 24-1.6 6.4-2.2 12-1.8 16.8l18.4 1.8c0-9.4 1.1-18 3.4-25.8 1.1-3.8 2.4-7.4 4-10.6Z',
-    /* Bras */
-    'M43.8 110.8c-.6 12-.6 24.4.2 37 .3 5 .7 9.8 1.2 14.2l17-1.6c-.4-4.6-.7-9.4-.9-14.4-.5-12.4-.4-24.6.3-36Z',
-    /* Coude et avant-bras */
-    'M45.2 162c1 9.6 2.2 19.4 3.6 29 .8 5.4 1.6 10.4 2.4 15l16-3.2c-.7-4.4-1.4-9.2-2.1-14.2-1.3-9.4-2.4-19-3.1-28.4Z',
-    /* Main */
-    'M51.4 206c-2.8 2-4.4 5.4-4.4 9.6 0 5.2 1.2 10.8 3.2 15.2 1.8 4 4.2 6.4 6.8 6.2 2.6-.2 4.6-2.8 5.4-6.8.8-4 .8-9.6 0-15.4Z'
-  ];
+  /* Le bras est deja dans CORPS : plus rien a recoller. */
+  const MEMBRE = [];
 
-  /* [identifiant, trace]. L'identifiant renvoie a SPORT.MUSCLES. */
+  /* [identifiant, trace]. L'identifiant renvoie a SPORT.MUSCLES.
+     Les formes suivent les fibres : un pectoral est un eventail,
+     un abdominal est un carre bombe, un quadriceps est une larme.
+     C'est ce qui distingue une planche d'un damier. */
   const MUSCLES_TRONC = {
     avant: [
-      ['trap',   'M100 66c-13.6.4-24 3-31.4 8.4l5.6 13.4c6.4-3.8 14-6 25.8-7Z'],
-      ['pect',   'M100 88l-30 5.2c-3.2 2.2-5.8 5.8-7.4 11L100 110Z'],
-      ['pect',   'M100 111L62.6 105c-.5 6.4 1.1 11.7 4.8 16.5L100 130Z'],
-      ['serr',   'M66.5 124.5l-2.2 4 8.8 3 1.7-4.2Zm-2.8 9.4l-1.8 4.2 8.8 2.8 1.5-4.2Zm-2.2 9.6l-1.5 4.2 8.8 2.6 1.3-4.2Z'],
-      ['abdo',   'M99 132H85.4c-.6 5.4-1 10.8-1.2 16.2H99Z'],
-      ['abdo',   'M99 152H83.8c-.4 5.4-.7 10.8-.7 16.2H99Z'],
-      ['abdo',   'M99 172H82.9c0 5.4.2 10.8.6 16.2H99Z'],
-      ['abdo',   'M99 192H83.8c.4 5.2 1.1 9.9 2 14.2H99Z'],
-      ['obl',    'M82.4 130c-6.2 3-9.8 10-10.8 20.6-1 10.6 0 21.2 2.6 29.6l6.2.6c-1.6-16.9-1.6-33.8 2-50.8Z'],
-      ['flechh', 'M99 210l-12.4-.6c.7 4.2 1.6 7.8 2.7 10.7l9.7.6Z'],
-      ['quad',   'M78 232c-6.4 10.6-9.6 23.4-10.1 38.2-.5 14.8 1.1 29.6 3.2 41.3l8.5 1.1c-2.1-26.6-3.2-54.1-1.6-80.6Z'],
-      ['quad',   'M97 230l-16.6 1.6c-2.7 26.6-1.6 54.1.5 80.6l16.1.5Z'],
-      ['quad',   'M97 300l-13.9-.5c1.1 10.6 2.7 19.6 4.3 26.5l9.6.5Z'],
-      ['add',    'M97 230l-9.6.5c-1.6 20.2-1.6 40.4 0 59.5l9.6.5Z'],
-      ['tib',    'M97 348l-11.7.5c-1.6 16-1.6 31.9 0 46.8l11.7.5Z'],
-      ['mol',    'M84.6 349c-3.2 8-4.3 18.2-3.7 28.2.3 6.6 1 12.8 2.1 17.6l3.2.5c-1.6-15.4-2.1-30.8-1.6-46.3Z']
+      ['trap',   'M100 66c-8.6.4-15.6 2.4-21 6-3.6 2.4-6 5.6-7.2 9.6L100 90Z'],
+      ['delt-a', 'M70 82c-8.6 3-15 8-19.2 15-3.4 5.6-5.2 12-5.4 19.2l16.8 1.6c.4-8 2-15 4.8-21 2-4.4 4.4-8 7-10.8Z'],
+      ['pect',   'M100 92l-27.4-1.6c-3.4 4-5.6 9-6.6 15L100 114Z'],
+      ['pect',   'M100 116l-33.6-7.6c-.4 6.6 1.6 12.2 6 16.8L100 136Z'],
+      ['serr',   'M67.6 128.8l-1.8 4.4 9.4 3.2 1.4-4.6Zm-2.4 10.4l-1.4 4.6 9.4 3 1.2-4.6Zm-1.8 10.6l-1.2 4.6 9.4 2.8 1-4.6Z'],
+      ['abdo',   'M99 140H86.6c-1 4.6-1.6 9.4-1.8 14.4H99Z'],
+      ['abdo',   'M99 158H85c-.6 4.8-1 9.6-1 14.4H99Z'],
+      ['abdo',   'M99 176H84c0 4.8.2 9.6.6 14.4H99Z'],
+      ['abdo',   'M99 194H84.8c.4 4.6 1 8.8 1.8 12.6H99Z'],
+      ['obl',    'M84 138c-6 3.4-9.6 10.4-10.8 21-1.2 10.6-.4 21.2 2 31.6l6.4.8c-1.8-17.8-1.4-35.6 2.4-53.4Z'],
+      ['flechh', 'M99 210l-11.8-.6c.8 4 1.8 7.4 3 10.2l8.8.6Z'],
+      /* Vaste externe : le renflement du dehors de la cuisse. */
+      ['quad',   'M80 232c-6.6 9.4-10.4 21.6-11.4 36.6-1 15 .2 30 3 43l8.8 1c-2.4-27-2.6-54.6-.4-80.6Z'],
+      /* Droit anterieur : la larme centrale. */
+      ['quad',   'M97 230l-15.4 1.4c-2.2 26.4-2 53.8.4 80.4l15 .6Z'],
+      /* Vaste interne : la goutte juste au-dessus du genou. */
+      ['quad',   'M97 292l-13 .6c.4 8.6 1.4 15.8 3 21.4l10 .6Z'],
+      ['add',    'M97 230l-9.4.6c-2 19.8-2 39.6 0 59.4l9.4.6Z'],
+      ['tib',    'M97 336l-10.6 1c-2.4 15.8-2.6 31.6-.6 47.4l11.2.6Z'],
+      ['mol',    'M85.4 338c-3.4 7.8-4.8 17.8-4.4 27.8.3 6.6 1.2 12.8 2.6 17.6l3 .5c-1.8-15.2-2.2-30.4-1.2-45.9Z']
     ],
     arriere: [
-      ['trap',   'M100 66c-14.4.5-26 3.8-33.5 9.9 0 12.2 2.9 22.4 8.6 30.6L100 112Z'],
-      ['rhom',   'M100 88l-19.2 3.2c-.5 6 0 11.5 2.1 16.5L100 111Z'],
-      ['dors',   'M100 113l-24.6-4.3c-6.4 8.8-8.5 20.4-6.4 33.2 1.1 6 3.2 11.5 6.4 15.9L100 164Z'],
-      ['lomb',   'M100 166l-21.3-2.1c-1.1 9.4-.9 18.6.6 26.9L100 194Z'],
-      ['fess',   'M100 196l-26.6.5c-3.7 9.9-3.7 21 0 30.3 1.9 5.2 4.3 9.2 7.4 12.2L100 242Z'],
-      ['fess-m', 'M73.4 196c-3.7 7.4-4.8 16.8-3.2 24.8.6 3.5 1.8 6.4 3.2 8.1l3.7.5c-1.8-11-2.4-22.6-1.2-33.4Z'],
-      ['isch',   'M97 248l-16 .5c-2.1 10.4-2.7 22.4-1.9 34.1.6 6.9 1.9 13.3 3.2 18.6l14.7.5Z'],
-      ['isch',   'M79.4 249l-6.9.5c-2.1 10.4-2.7 22-1.3 32.9.6 5.9 1.9 11 3.2 15l5.3.5c-1.9-16-1.9-32.9 0-48.9Z'],
-      ['mol',    'M97 348l-10.1.5c-2.1 9.1-2.7 19.4-1.9 29.1.4 5.9 1.3 11 2.1 15.4l9.9.5Z'],
-      ['mol',    'M84.8 349c-3.2 7.4-4.3 17.2-3.7 26.8.4 6.4 1.3 12 2.5 16.5l3.2.5c-1.9-14.9-2.4-29.6-2-43.8Z'],
-      ['sol',    'M97 396l-11.7-.5c.6 5.9 1.5 10.4 2.5 13.8l9.2.5Z']
+      ['trap',   'M100 66c-9.4.6-17 3.4-22.8 8.4-4.4 3.8-7.2 8.6-8.4 14.4l-2.4 14.6c8 4.6 19.2 7.6 33.6 8.6Z'],
+      ['delt-p', 'M68 84c-8.6 3.4-14.8 8.6-18.8 15.8-3.2 5.8-4.8 12.2-4.8 19.2l16.8 1.4c.2-7.8 1.6-14.6 4.2-20.4 1.8-4 3.6-7.4 5.6-10.2Z'],
+      ['rhom',   'M100 92l-18.4 3c-.6 5.8 0 11 2 15.8L100 114Z'],
+      ['dors',   'M100 116l-23.6-4.2c-6.6 8.6-9 20-7 32.6 1 5.8 3.2 11.2 6.4 15.6L100 166Z'],
+      ['lomb',   'M100 168l-20.4-2c-1.2 9-1 18 .6 26.4L100 196Z'],
+      ['fess',   'M100 198l-25.4.6c-4.2 9.4-4.6 20.4-1.2 29.8 1.8 5 4.4 8.8 7.6 11.4L100 244Z'],
+      ['fess-m', 'M74.6 198c-3.8 7.2-5 16.4-3.4 24.2.6 3.4 1.8 6.2 3.4 8l3.6.6c-1.8-10.8-2.4-22-1.4-32.8Z'],
+      ['isch',   'M97 250l-15.4.6c-2.2 10.2-3 21.8-2.2 33.2.6 6.8 1.8 13 3 18.2l14.6.6Z'],
+      ['isch',   'M79.8 251l-6.6.6c-2.2 10-2.8 21.4-1.4 32 .6 5.8 1.8 10.8 3 14.6l5.2.6c-1.8-15.8-1.8-32.2-.2-47.8Z'],
+      ['mol',    'M97 336l-9.8.6c-2.4 9-3 19-2.2 28.6.4 5.8 1.2 10.8 2.2 15.2l9.8.6Z'],
+      ['mol',    'M85.6 338c-3.4 7.2-4.8 16.8-4.2 26.2.4 6.2 1.4 11.8 2.6 16.2l3 .6c-1.8-14.6-2.2-29-1.4-43Z'],
+      ['sol',    'M97 386l-11.2-.6c.6 5.8 1.4 10.2 2.4 13.6l8.8.6Z']
     ]
   };
 
   const MUSCLES_BRAS = {
     avant: [
-      ['delt-a', 'M66 70c-10.6 4-17.4 12-20.4 24-1.6 6.4-2.2 12-1.8 16.8l18.4 1.8c0-9.4 1.1-18 3.4-25.8 1.1-3.8 2.4-7.4 4-10.6Z'],
-      ['bi',     'M44 112c-.6 11.4-.5 22.9.2 34.4l17-1.5c-.5-11.4-.5-22.7 0-33.5Z'],
-      ['avb',    'M44.6 148c.8 8.2 1.9 16.6 3.2 24.8l16.4-2.4c-1.1-8-2-16.2-2.6-24.2Z'],
-      ['avb',    'M48.2 175c1 6.2 2.1 12.2 3.2 17.6l16-3.2c-1-5.2-1.9-11-2.7-17.2Z']
+      ['bi',  'M52 122c-2.4 6.4-3.6 14-3.6 22.8 0 8.8.8 17.8 2.4 27l15.2-2c-1.4-8.6-2-17-2-25.2 0-8.2.8-15.4 2.4-21.6Z'],
+      ['avb', 'M51.6 174c1.2 8.6 2.6 17.2 4.2 25.8l15.2-3c-1.4-8.2-2.6-16.6-3.6-25Z'],
+      ['avb', 'M56.4 202c1.2 6.4 2.4 12.4 3.6 18l14.8-3.4c-1-5.4-2.2-11.2-3.2-17.4Z']
     ],
     arriere: [
-      ['delt-p', 'M66 70c-10.6 4-17.4 12-20.4 24-1.6 6.4-2.2 12-1.8 16.8l18.4 1.8c0-9.4 1.1-18 3.4-25.8 1.1-3.8 2.4-7.4 4-10.6Z'],
-      ['rond',   'M67 96c-3.2 4.2-5 9.6-5.6 15.9l8.8 1.8 3.2-15.1Z'],
-      ['tri',    'M44 112c-.6 11.4-.5 22.9.2 34.4l17-1.5c-.5-11.4-.5-22.7 0-33.5Z'],
-      ['avb',    'M44.6 148c.8 8.2 1.9 16.6 3.2 24.8l16.4-2.4c-1.1-8-2-16.2-2.6-24.2Z'],
-      ['avb',    'M48.2 175c1 6.2 2.1 12.2 3.2 17.6l16-3.2c-1-5.2-1.9-11-2.7-17.2Z']
+      ['rond', 'M69 98c-3.4 4.4-5.4 10-6 16.6l9.2 1.8 3.4-15.8Z'],
+      ['tri',  'M52 122c-2.4 6.4-3.6 14-3.6 22.8 0 8.8.8 17.8 2.4 27l15.2-2c-1.4-8.6-2-17-2-25.2 0-8.2.8-15.4 2.4-21.6Z'],
+      ['avb',  'M51.6 174c1.2 8.6 2.6 17.2 4.2 25.8l15.2-3c-1.4-8.2-2.6-16.6-3.6-25Z'],
+      ['avb',  'M56.4 202c1.2 6.4 2.4 12.4 3.6 18l14.8-3.4c-1-5.4-2.2-11.2-3.2-17.4Z']
     ]
   };
 
-  /* Un score de 0 (jamais) a 1 (beaucoup) donne une teinte. */
+  /* ============================================================
+     La couleur d'un muscle
+
+     Un simple mélange vers la couleur d'accent donnait six nuances
+     de la même teinte : impossible de distinguer « un peu » de
+     « beaucoup » d'un coup d'oeil. Les planches d'anatomie
+     utilisent toutes la même échelle depuis un siècle, parce
+     qu'elle se lit sans légende :
+
+       rien        gris chair
+       un peu      sable
+       moyen       ambre
+       beaucoup    orange
+       à fond      rouge
+
+     On la reprend telle quelle, en interpolant entre les paliers
+     pour que la progression reste continue.
+     ============================================================ */
+  const ECHELLE = [
+    [0.00, [214, 202, 190]],
+    [0.25, [232, 196, 130]],
+    [0.50, [226, 158,  72]],
+    [0.75, [211, 106,  48]],
+    [1.00, [178,  42,  38]]
+  ];
+
   function teinte(v) {
     if (!v) return 'var(--silhouette)';
-    const t = Math.min(1, v);
-    return 'color-mix(in srgb, var(--accent) ' + Math.round(20 + t * 80) + '%, var(--silhouette))';
+    const t = Math.max(0, Math.min(1, v));
+    let i = 0;
+    while (i < ECHELLE.length - 2 && t > ECHELLE[i + 1][0]) i++;
+    const [a0, c0] = ECHELLE[i], [a1, c1] = ECHELLE[i + 1];
+    const k = (t - a0) / (a1 - a0 || 1);
+    const c = c0.map((x, j) => Math.round(x + (c1[j] - x) * k));
+    return 'rgb(' + c[0] + ',' + c[1] + ',' + c[2] + ')';
   }
 
+  /* ============================================================
+     Le corps
+
+     Ce qui manquait n'était pas le tracé mais le relief : des
+     aplats posés côte à côte se lisent comme un patron de couture,
+     pas comme un corps. Trois ajouts, tous en SVG pur :
+
+       un dégradé de chair          la lumière vient d'en haut à gauche
+       un halo clair sur chaque muscle actif   le muscle bombe
+       une ombre portée sous la figure          elle se décolle du fond
+
+     Et une seule silhouette est dessinée, puis reflétée : le corps
+     reste parfaitement symétrique, ce qu'aucun tracé à la main
+     n'obtient.
+     ============================================================ */
+  let nCorps = 0;
+
   function silhouette(face, scores, max) {
+    const u = 'c' + (++nCorps);
     const trait = ' stroke="var(--trait-corps)" stroke-width=".8" stroke-linejoin="round"';
+
     const peindre = (paires) => paires.map(([m, d]) => {
       const v = (scores[m] || 0) / (max || 1);
-      return '<path d="' + d + '" fill="' + teinte(v) + '"' + trait + '/>';
+      const actif = v > 0.02;
+      return '<path d="' + d + '" fill="' + teinte(v) + '"' + trait +
+        (actif ? ' filter="url(#' + u + 'r)"' : '') + '/>';
     }).join('');
-    const neutre = (traces) => traces.map((d) =>
-      '<path d="' + d + '" fill="var(--silhouette)"' + trait + '/>').join('');
 
-    const moitie =
+    const neutre = (traces) => traces.map((d) =>
+      '<path d="' + d + '" fill="url(#' + u + 'p)"' + trait + '/>').join('');
+
+    /* Les muscles sont decoupes dans la silhouette : un trace un
+       peu large ne peut plus deborder du bras ou de la cuisse,
+       ce qui donnait ces plaques flottant a cote du corps. */
+    const moitie = (u2) =>
       neutre(CORPS) +
-      '<g transform="translate(5,0)">' + neutre(MEMBRE) + '</g>' +
-      peindre(MUSCLES_TRONC[face]) +
-      '<g transform="translate(5,0)">' + peindre(MUSCLES_BRAS[face]) + '</g>';
+      '<g clip-path="url(#' + u2 + 'd)">' +
+        peindre(MUSCLES_TRONC[face]) +
+        peindre(MUSCLES_BRAS[face]) +
+      '</g>';
+
+    const contour = CORPS.map((d) => '<path d="' + d + '"/>').join('');
+    const defs =
+      '<defs>' +
+        '<clipPath id="' + u + 'd">' + contour + '</clipPath>' +
+        '<linearGradient id="' + u + 'p" x1="40" y1="20" x2="150" y2="410" gradientUnits="userSpaceOnUse">' +
+          '<stop offset="0" stop-color="var(--silhouette-clair, #E6DED6)"/>' +
+          '<stop offset="1" stop-color="var(--silhouette)"/>' +
+        '</linearGradient>' +
+        /* Le relief : la forme est décalée vers le bas à droite et
+           floutée, puis posée en multiplication sous la couleur.
+           C'est un bas-relief, pas un contour. */
+        '<filter id="' + u + 'r" x="-30%" y="-30%" width="160%" height="160%">' +
+          '<feGaussianBlur in="SourceAlpha" stdDeviation="1.6" result="f"/>' +
+          '<feOffset in="f" dx="1.1" dy="1.6" result="o"/>' +
+          '<feComposite in="o" in2="SourceAlpha" operator="arithmetic" k2="-1" k3="1" result="creux"/>' +
+          '<feFlood flood-color="#000" flood-opacity=".34"/>' +
+          '<feComposite in2="creux" operator="in" result="ombre"/>' +
+          '<feMerge><feMergeNode in="SourceGraphic"/><feMergeNode in="ombre"/></feMerge>' +
+        '</filter>' +
+        '<filter id="' + u + 'o" x="-20%" y="-10%" width="140%" height="130%">' +
+          '<feDropShadow dx="0" dy="6" stdDeviation="7" flood-color="#000" flood-opacity=".16"/>' +
+        '</filter>' +
+      '</defs>';
 
     /* Les deux moities se chevauchent d'un demi-point : posees bord
        a bord, un lisere de fond restait visible au milieu. */
-    return '<svg viewBox="30 0 140 424" class="corps" aria-hidden="true">' +
-      '<g>' + moitie + '</g>' +
-      '<g transform="translate(199.4,0) scale(-1,1)">' + moitie + '</g>' +
+    return '<svg viewBox="26 0 148 442" class="corps" aria-hidden="true">' + defs +
+      '<g filter="url(#' + u + 'o)">' +
+        '<g>' + moitie(u) + '</g>' +
+        '<g transform="translate(199.4,0) scale(-1,1)">' + moitie(u) + '</g>' +
+      '</g>' +
     '</svg>';
   }
 
@@ -282,7 +433,7 @@
   function enteteBlock(s7) {
     return '<div class="section" style="padding-top:14px">' +
       '<div class="panel entete-sport">' +
-        '<div class="illu">' + Art('haltere', 74) + '</div>' +
+        '<div class="illu">' + Anime.art('haltere', 74) + '</div>' +
         '<div class="chiffres">' +
           '<div><b>' + s7.seances + '</b><span>séance' + (s7.seances > 1 ? 's' : '') + '</span></div>' +
           '<div><b>' + UI.fmt.n(s7.kcal) + '</b><span>kcal</span></div>' +

@@ -57,7 +57,7 @@
   function tete(titre, sous, teinte, art) {
     const g = teinte || ['#3E4A63', '#7C8CA8'];
     return '<div class="mtete" style="--t1:' + UI.attr(g[0]) + ';--t2:' + UI.attr(g[1]) + '">' +
-      (art && global.Art ? '<span class="ill">' + Art(art, 46) + '</span>' : '') +
+      (art && global.Art ? '<span class="ill">' + Anime.art(art, 46) + '</span>' : '') +
       '<h2>' + UI.esc(titre) + '</h2>' +
       (sous ? '<p>' + UI.esc(sous) + '</p>' : '') + '</div>';
   }

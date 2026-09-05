@@ -24,35 +24,44 @@
 (function (global) {
   'use strict';
 
-  /* ---------- Les six molécules ---------- */
+  /* ---------- Les six sources ----------
+     Chacune porte deux noms. `court` est celui qu'on affiche :
+     un mot de tous les jours, qui se comprend sans rien savoir.
+     `nom` est le nom scientifique, gardé pour la fiche détaillée,
+     parce qu'il est juste et qu'il permet d'aller lire ailleurs.
+
+     Six cartes intitulées « Cannabinoïdes » et « Opioïdes », c'est
+     exactement le problème des anciennes « tasses » : un vocabulaire
+     interne servi comme titre. On lit maintenant « Le rire » et
+     « Le réconfort », et la chimie attend derrière. */
   const MOLECULES = {
     dopamine: {
-      nom: 'Dopamine', role: 'Motivation, concentration, envie de faire',
+      court: "L'élan", nom: 'Dopamine', role: 'Motivation, concentration, envie de faire',
       manque: 'Manque de direction, plus de moteur',
       solo: true, icon: 'flame', teinte: '#C2410C'
     },
     serotonine: {
-      nom: 'Sérotonine', role: 'Fierté, statut, sentiment de compter',
+      court: 'La fierté', nom: 'Sérotonine', role: 'Fierté, statut, sentiment de compter',
       manque: 'Le sentiment de ne pas être vu, de ne rien accomplir',
       solo: true, icon: 'trophy', teinte: '#A2801F'
     },
     cannabinoides: {
-      nom: 'Cannabinoïdes', role: 'Détente profonde, connexion, rire',
+      court: 'Le rire', nom: 'Cannabinoïdes', role: 'Détente profonde, connexion, rire',
       manque: 'Manque de potes, de liens simples et légers',
       solo: false, icon: 'users', teinte: '#2F6B5A'
     },
     opioides: {
-      nom: 'Opioïdes', role: 'Apaisement, réconfort, la douleur qui baisse',
+      court: 'Le réconfort', nom: 'Opioïdes', role: 'Apaisement, réconfort, la douleur qui baisse',
       manque: 'Une douleur, physique ou mentale, qu\'on cherche à taire',
       solo: false, icon: 'heart', teinte: '#7B2D56'
     },
     testosterone: {
-      nom: 'Testostérone', role: 'Confiance, cran, envie d\'aller chercher',
+      court: 'Le cran', nom: 'Testostérone', role: 'Confiance, cran, envie d\'aller chercher',
       manque: 'Plus d\'audace, on n\'ose plus rien tenter',
       solo: true, icon: 'dumbbell', teinte: '#1F4E79'
     },
     ocytocine: {
-      nom: 'Ocytocine', role: 'Attachement, tendresse, sécurité',
+      court: 'La tendresse', nom: 'Ocytocine', role: 'Attachement, tendresse, sécurité',
       manque: 'Manque de chaleur humaine intime',
       solo: false, icon: 'heart', teinte: '#B0264F'
     }

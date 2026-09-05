@@ -286,5 +286,69 @@
     inp.click();
   }
 
-  global.Photos = { put, get, del, save, upload, sync, hydrate, img, usage, pendingUploads, pick, versDataUrl, pourIA };
+  /* ============================================================
+     Choisir COMMENT on donne la photo
+
+     `pick` ouvre le sélecteur du système, et selon le téléphone
+     celui-ci part droit sur l'appareil photo ou droit sur la
+     photothèque, sans qu'on puisse le prévoir. Quand on veut se
+     prendre en photo, tomber sur la photothèque est agaçant ;
+     quand on veut reprendre une photo déjà faite, l'inverse l'est
+     tout autant.
+
+     Alors on demande d'abord, en trois boutons clairs, et on
+     règle l'input en conséquence :
+       appareil photo   capture, caméra arrière ou avant
+       photothèque      aucun capture, images seulement
+       fichiers         tous les fichiers, pour un scan ou un PDF
+
+     Un seul choix possible : on ne bloque rien, on rend juste la
+     décision visible au lieu de la laisser au hasard du système.
+     ============================================================ */
+  const SOURCES = [
+    { k: 'photo',  n: 'Prendre une photo', s: 'Ouvre l\'appareil photo', a: 'appareil' },
+    { k: 'biblio', n: 'Choisir dans mes photos', s: 'La photothèque du téléphone', a: 'image' },
+    { k: 'fichier', n: 'Parcourir mes fichiers', s: 'Un fichier déjà enregistré', a: 'dossier' }
+  ];
+
+  function choisir(onFile, opts) {
+    opts = opts || {};
+    /* Sur un ordinateur, l'appareil photo intégré passe déjà par
+       le même sélecteur que les fichiers : proposer trois portes
+       vers la même pièce n'aiderait personne. */
+    const tactile = matchMedia('(pointer: coarse)').matches;
+    if (!tactile || opts.direct) return pick(onFile, opts);
+
+    const lancer = (k) => {
+      UI.closeSheet();
+      setTimeout(() => {
+        const m = !!opts.multiple;
+        /* L'appareil photo ne rend qu'un cliché à la fois : lui
+           passer `multiple` n'apporte rien et embrouille iOS. */
+        if (k === 'photo') pick(onFile, { capture: opts.capture || 'environment', accept: 'image/*' });
+        else if (k === 'biblio') pick(onFile, { accept: 'image/*', multiple: m });
+        else pick(onFile, { accept: opts.accept || 'image/*,.heic,.heif', multiple: m });
+      }, 180);
+    };
+
+    UI.openSheet(
+      '<div class="mtete" style="--t1:#3D5A80;--t2:#7FA6C9">' +
+        (global.Anime ? '<span class="ill">' + Anime.art('appareil', 46) + '</span>' : '') +
+        '<h2>' + UI.esc(opts.titre || 'Ajouter une photo') + '</h2>' +
+        '<p>' + UI.esc(opts.sous || 'Trois façons, au choix.') + '</p>' +
+      '</div>' +
+      '<div class="mbody"><div class="list">' +
+        SOURCES.map((o) => '<button class="rowitem" data-src="' + o.k + '">' +
+          (global.Anime ? '<span class="ic">' + Anime.art(o.a, 20) + '</span>'
+                        : '<span class="ic">' + Icon('camera', 17) + '</span>') +
+          '<span class="tx"><b>' + o.n + '</b><small>' + o.s + '</small></span>' +
+          '<span class="rt">' + Icon('next', 15) + '</span></button>').join('') +
+      '</div></div>',
+      { onMount: (sh) => {
+        sh.querySelectorAll('[data-src]').forEach((b) => b.onclick = () => lancer(b.dataset.src));
+      } }
+    );
+  }
+
+  global.Photos = { put, get, del, save, upload, sync, hydrate, img, usage, pendingUploads, pick, choisir, versDataUrl, pourIA };
 })(window);

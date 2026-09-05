@@ -87,7 +87,7 @@
       '</div>' +
       (mode === 'penderie' && garments().length < 3
         ? '<div class="panel" style="text-align:center;margin-top:14px;padding:24px 18px">' +
-          '<div style="margin-bottom:10px">' + Art('cible', 52) + '</div>' +
+          '<div style="margin-bottom:10px">' + Anime.art('cible', 52) + '</div>' +
           '<b style="display:block;margin-bottom:6px;font-size:17px">Ta penderie est vide</b>' +
           '<p class="muted" style="font-size:13px;margin-bottom:14px">Ajoute des vêtements, ou passe sur « Inventer » pour voir des idées.</p>' +
           '<button class="btn primary" data-act="addGarment">' + Icon('camera', 16) + 'Prendre en photo</button></div>'
@@ -787,8 +787,10 @@
      categorie precise : sans ca, l'IA reclassait la piece ailleurs
      et elle disparaissait de la liste qu'on venait d'ouvrir. */
   function addGarment(slotVoulu) {
-    /* Photos.pick corrige la premiere photo qui ne declenchait rien. */
-    Photos.pick(async (files) => {
+    /* Photos.choisir demande d'abord la source : appareil photo,
+       photothèque ou fichiers. Avant, le système tranchait seul et
+       on tombait rarement là où on voulait. */
+    Photos.choisir(async (files) => {
       files = [].concat(files || []);
       if (!files.length) return;
       UI.openSheet('<div class="mbody">' + UI.thinking('Analyse de ' + files.length + ' photo' + (files.length > 1 ? 's' : '') + '…') + '</div>');
@@ -968,7 +970,7 @@
       };
 
       sh.querySelector('[data-rephoto]').onclick = () => {
-        Photos.pick(async (f) => {
+        Photos.choisir(async (f) => {
           if (!f) return;
           UI.toast('Enregistrement…');
           const petite = await AI.shrink(f, 1400, 0.85);
@@ -1392,7 +1394,7 @@
      ============================================================ */
   async function definirPortrait() {
     return new Promise((resolve) => {
-      Photos.pick(async (f) => {
+      Photos.choisir(async (f) => {
         if (!f) { resolve(null); return; }
         UI.toast('Enregistrement…');
         const saved = await Photos.save(f, 'garments', 900);

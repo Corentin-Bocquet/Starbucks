@@ -318,8 +318,13 @@
 .trackwrap { position: relative; margin: 0 calc(-1 * var(--gut)); }
 .track { display: flex; gap: 14px; overflow-x: auto; scroll-snap-type: x mandatory; padding: 44px var(--gut) 22px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
 .track::-webkit-scrollbar { display: none; }
+/* 168 px de large, c'était une vignette, pas une carte : sur un
+   téléphone de 390 px on en voyait deux et demie, minuscules. On
+   la dimensionne désormais sur l'écran (une par vue sur mobile,
+   deux ou trois sur ordinateur) et on fige la hauteur pour que
+   deux cartes côte à côte ne soient jamais de tailles différentes. */
 .opt {
-  flex: none; width: 168px; scroll-snap-align: center;
+  flex: none; width: min(74vw, 300px); min-height: 300px; scroll-snap-align: center;
   border-radius: var(--r-xl); padding: 0 14px 18px; text-align: center;
   position: relative; display: flex; flex-direction: column; align-items: center;
   box-shadow: var(--sh-1);
@@ -334,6 +339,11 @@
 .opt.mid .im { width: 148px; margin-top: -50px; }
 .opt.mid .disc { width: 124px; height: 124px; opacity: .4; }
 .opt.sel { outline: 3px solid var(--accent); outline-offset: 3px; }
+@media (min-width: 760px) {
+  .opt { width: 268px; min-height: 328px; }
+  .opt .im { width: 150px; height: 150px; }
+  .opt .disc { width: 128px; height: 128px; }
+}
 .arrows { display: none; }
 @media (min-width: 900px) {
   .arrows { display: flex; position: absolute; top: 50%; left: 0; right: 0; justify-content: space-between; pointer-events: none; padding: 0 4px; z-index: 5; }
@@ -986,10 +996,16 @@ footer#codexFoot { padding: 22px var(--gut) 34px; display: flex; justify-content
 
    La silhouette, les series, le bilan d'une seance.
    ============================================================ */
-:root { --silhouette: #DDD8D4; }
-:root:not([data-theme="light"]) { --silhouette: #DDD8D4; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --silhouette: #322C2C; } }
-:root[data-theme="dark"] { --silhouette: #322C2C; }
+/* Deux tons de chair : le clair reçoit la lumière en haut à
+   gauche, le foncé referme la forme en bas à droite. C'est ce
+   dégradé qui fait la différence entre une silhouette et un
+   gabarit découpé. */
+:root { --silhouette: #DDD8D4; --silhouette-clair: #F1ECE7; }
+:root:not([data-theme="light"]) { --silhouette: #DDD8D4; --silhouette-clair: #F1ECE7; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --silhouette: #322C2C; --silhouette-clair: #4A4140; }
+}
+:root[data-theme="dark"] { --silhouette: #322C2C; --silhouette-clair: #4A4140; }
 
 .corps-duo { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .corps-duo .etiq {
@@ -2521,3 +2537,184 @@ footer#codexFoot { padding: 22px var(--gut) 34px; display: flex; justify-content
   width: 15px; height: 15px; border-radius: 50%; display: block;
   box-shadow: inset 0 0 0 1.5px rgba(255,255,255,.85), 0 2px 6px -2px rgba(0,0,0,.5);
 }
+
+/* ============================================================
+   37. ILLUSTRATIONS ANIMÉES
+
+   Une application qui ne bouge jamais a l'air morte. Une qui bouge
+   partout fatigue. Les illustrations respirent donc doucement, et
+   chacune selon ce qu'elle est : une flamme vacille, une roue
+   tourne, un cœur bat.
+
+   Tout est en CSS et s'annule si le système demande des animations
+   réduites. Le décalage aléatoire évite l'effet mécanique de six
+   objets qui bougent en même temps.
+   ============================================================ */
+.anime { display: inline-block; line-height: 0; will-change: transform; }
+.anime svg { display: block; }
+
+.m-flotte  { animation: aFlotte 3.6s ease-in-out infinite; animation-delay: var(--dec, 0ms); }
+.m-respire { animation: aRespire 2.4s ease-in-out infinite; animation-delay: var(--dec, 0ms); transform-origin: 50% 80%; }
+.m-tourne  { animation: aTourne 5s linear infinite; animation-delay: var(--dec, 0ms); transform-origin: 50% 52%; }
+.m-tourne-lent { animation: aTourne 14s linear infinite; transform-origin: 50% 52%; }
+.m-bat     { animation: aBat 1.9s ease-in-out infinite; animation-delay: var(--dec, 0ms); transform-origin: 50% 55%; }
+.m-brille  { animation: aBrille 3.2s ease-in-out infinite; animation-delay: var(--dec, 0ms); }
+.m-saute   { animation: aSaute 3.8s ease-in-out infinite; animation-delay: var(--dec, 0ms); transform-origin: 50% 90%; }
+.m-touche  { animation: aTouche 600ms cubic-bezier(.3,1.5,.5,1); transform-origin: 50% 88%; }
+
+@keyframes aFlotte  { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-4px) } }
+@keyframes aRespire { 0%,100% { transform: scale(1) } 50% { transform: scale(1.07) } }
+@keyframes aTourne  { to { transform: rotate(360deg) } }
+@keyframes aBat {
+  0%, 70%, 100% { transform: scale(1) }
+  12% { transform: scale(1.14) }
+  26% { transform: scale(1) }
+  38% { transform: scale(1.08) }
+}
+@keyframes aBrille {
+  0%, 100% { transform: scale(1) rotate(0); filter: none }
+  46% { transform: scale(1.06) rotate(-4deg); filter: brightness(1.18) }
+  54% { transform: scale(1.06) rotate(4deg); filter: brightness(1.18) }
+}
+@keyframes aSaute {
+  0%, 62%, 100% { transform: translateY(0) scaleY(1) }
+  70% { transform: translateY(0) scaleY(.9) }
+  80% { transform: translateY(-8px) scaleY(1.05) }
+  90% { transform: translateY(0) scaleY(.96) }
+}
+@keyframes aTouche {
+  0%   { transform: scale(1) }
+  35%  { transform: scale(.86) translateY(2px) }
+  70%  { transform: scale(1.1) translateY(-3px) }
+  100% { transform: scale(1) }
+}
+@media (prefers-reduced-motion: reduce) {
+  .anime, .m-flotte, .m-respire, .m-tourne, .m-tourne-lent,
+  .m-bat, .m-brille, .m-saute, .m-touche { animation: none !important; }
+}
+
+/* ============================================================
+   38. LA COULEUR
+
+   Le reproche était juste : tout était gris, blanc et photo. Les
+   sections ont désormais une identité de couleur, prise sur
+   l'onglet en cours, et les titres portent un filet coloré. Assez
+   pour que ça vive, pas assez pour que ça crie.
+   ============================================================ */
+.secbar h2 { position: relative; padding-left: 13px; }
+.secbar h2::before {
+  content: ''; position: absolute; left: 0; top: 50%;
+  width: 4px; height: 17px; margin-top: -8.5px; border-radius: 2px;
+  background: linear-gradient(180deg, var(--accent), color-mix(in srgb, var(--accent) 45%, transparent));
+}
+.sechead h2 { position: relative; padding-left: 13px; }
+.sechead h2::before {
+  content: ''; position: absolute; left: 0; top: 50%;
+  width: 4px; height: 16px; margin-top: -8px; border-radius: 2px;
+  background: linear-gradient(180deg, var(--accent), color-mix(in srgb, var(--accent) 45%, transparent));
+}
+.ftitre { position: relative; padding-left: 12px; }
+.ftitre::before {
+  content: ''; position: absolute; left: 0; top: 50%;
+  width: 3px; height: 12px; margin-top: -6px; border-radius: 2px;
+  background: var(--accent);
+}
+
+/* Un panneau reprend une trace de la couleur de l'onglet, au lieu
+   du gris uniforme d'avant. */
+.panel {
+  background: linear-gradient(165deg,
+    color-mix(in srgb, var(--accent) 4%, var(--surface)),
+    var(--surface) 62%);
+}
+.banner { border-left: 3px solid var(--accent); }
+.banner.warn { border-left-color: var(--warn); }
+.banner.danger { border-left-color: var(--danger); }
+
+/* Les puces de filtre : la sélectionnée prend la couleur pleine. */
+.chip.on {
+  background: linear-gradient(140deg,
+    color-mix(in srgb, var(--accent) 88%, white),
+    var(--accent));
+  color: #fff;
+  box-shadow: 0 5px 14px -8px var(--accent);
+}
+.chip.on svg { color: #fff; }
+
+/* ============================================================
+   39. PLUS DE BLANC SUR LE CÔTÉ
+
+   Les carrousels débordent volontairement des marges pour aller
+   toucher le bord. Sans cette règle, ce débordement rend la PAGE
+   entière défilable de quelques pixels vers la droite, et on voit
+   une bande claire apparaître au bord.
+   ============================================================ */
+html, body { overflow-x: hidden; max-width: 100%; }
+.view, .wrap, .section { max-width: 100%; }
+.wrap { overflow-x: clip; }
+
+/* ============================================================
+   40. LA CARTE EN VIGNETTE
+
+   Une seule tuile OpenStreetMap, calculée depuis les coordonnées :
+   pas de bibliothèque, pas d'instance à animer, et on reconnaît le
+   quartier. Remplace la petite épingle grise qui ne disait rien.
+   ============================================================ */
+.vigncarte {
+  position: relative; display: block; flex: none;
+  width: 46px; height: 46px; border-radius: 12px; overflow: hidden;
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+.vigncarte img {
+  position: absolute; inset: -30%; width: 160%; height: 160%;
+  object-fit: cover; filter: saturate(.85) contrast(.95);
+}
+.vigncarte i {
+  position: absolute; left: 50%; top: 50%; z-index: 2;
+  width: 10px; height: 10px; margin: -5px 0 0 -5px;
+  border-radius: 50%; background: var(--danger);
+  box-shadow: 0 0 0 2.5px #fff, 0 2px 5px -1px rgba(0,0,0,.5);
+}
+.vigncarte.gr { width: 100%; height: auto; aspect-ratio: 16 / 9; border-radius: 18px; }
+.vigncarte.gr i { width: 14px; height: 14px; margin: -7px 0 0 -7px; }
+
+/* La vignette de ligne : même gabarit que l'ancienne pastille
+   d'icône, mais remplie par une vraie image ou une vraie carte.
+   Taille figée pour que rien ne pousse le texte hors de l'écran. */
+.list .rowitem > .vigncarte,
+.list .rowitem > .phic.vignligne {
+  width: 38px; height: 38px; flex: none;
+  border-radius: 11px; margin-right: 2px;
+}
+.list .rowitem > .phic.vignligne {
+  background-image: linear-gradient(135deg, var(--p1), var(--p2));
+  background-size: cover; background-position: center;
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+
+/* ============================================================
+   41. UNE RANGÉE HORS LISTE
+
+   Toute la mise en forme d'une rangée était écrite sous `.list`.
+   Une rangée posée seule (la case « Seulement avec ce que j'ai »,
+   par exemple) perdait donc son `flex: 1; min-width: 0` : le texte
+   ne pouvait plus se replier et débordait de la boîte. On sort la
+   règle de la liste, elle vaut désormais partout.
+   ============================================================ */
+.rowitem {
+  display: flex; align-items: center; gap: 12px;
+  padding: 13px 15px; width: 100%; max-width: 100%; text-align: left;
+}
+.rowitem .tx { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.rowitem .tx b { display: block; font-weight: 650; font-size: 14.5px; }
+.rowitem .tx small {
+  display: block; color: var(--muted); font-size: 12.5px;
+  margin-top: 1px; line-height: 1.35;
+}
+.rowitem .rt { flex: none; color: var(--faint); display: flex; align-items: center; gap: 6px; }
+
+/* L'écran vide illustré : le dessin remplace la pastille grise,
+   posé au centre avec la même respiration au-dessus du titre. */
+.empty.illustre > .anime { display: block; margin: 0 auto 12px; }
+.empty.illustre > .anime svg { display: block; }

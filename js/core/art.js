@@ -745,10 +745,48 @@
       size, defs);
   }
 
+  /* ---------- Photothèque ----------
+     Deux tirages empilés, l'un légèrement de biais : on lit
+     « plusieurs photos déjà prises » sans avoir à l'écrire. */
+  function image(size) {
+    const a = uid(), b = uid();
+    const defs =
+      lin(a, 12, 12, 52, 52, [[0, '#FFFFFF'], [1, '#D6DCE5']]) +
+      lin(b, 16, 30, 48, 48, [[0, '#5FBF8E'], [.55, '#2F8F63'], [1, '#1D6446']]);
+    return wrap(
+      sol(32, 57, 20, 3, .18) +
+      '<rect x="9" y="12" width="42" height="34" rx="6" fill="#AEB6C2" transform="rotate(-8 30 29)"/>' +
+      '<rect x="14" y="16.5" width="42" height="34" rx="6" fill="#8E96A4"/>' +
+      '<rect x="14" y="14" width="42" height="34" rx="6" fill="url(#' + a + ')"/>' +
+      '<clipPath id="' + a + 'c"><rect x="17" y="17" width="36" height="28" rx="4"/></clipPath>' +
+      '<g clip-path="url(#' + a + 'c)">' +
+        '<rect x="17" y="17" width="36" height="28" fill="url(#' + b + ')"/>' +
+        '<circle cx="26" cy="25" r="4" fill="#FFE08A"/>' +
+        '<path d="M17 45l11-13 8 9 6-6 11 10Z" fill="#123D2C" opacity=".55"/>' +
+      '</g>',
+      size, defs);
+  }
+
+  /* ---------- Dossier ----------
+     Le rabat avant est plus clair que le fond : la chemise
+     s'ouvre, elle n'est pas un rectangle plat. */
+  function dossier(size) {
+    const a = uid(), b = uid();
+    const defs =
+      lin(a, 8, 16, 56, 34, [[0, '#E0A52C'], [1, '#B37814']]) +
+      lin(b, 8, 26, 56, 54, [[0, '#FFD066'], [1, '#E0A52C']]);
+    return wrap(
+      sol(32, 55, 21, 3, .18) +
+      '<path d="M8 20a5 5 0 0 1 5-5h11l5 6h22a5 5 0 0 1 5 5v22a5 5 0 0 1-5 5H13a5 5 0 0 1-5-5Z" fill="url(#' + a + ')"/>' +
+      '<path d="M8 29h48v19a5 5 0 0 1-5 5H13a5 5 0 0 1-5-5Z" fill="url(#' + b + ')"/>' +
+      '<path d="M12 33h20" stroke="#FFFFFF" stroke-opacity=".55" stroke-width="2.6" stroke-linecap="round"/>',
+      size, defs);
+  }
+
   const CATALOGUE = { haltere, eclair, flamme, coupe, pomme, goutte, coeur, cible, etoile, tasse,
     chemise, marmite, cadeau, carte, verre, gens, clap, roue,
     lieu, de, refaire, coche, personne, sync, cle, sortie, corbeille, pas, lune,
-    proteine, ballon, velo, livre, calendrier, loupe, codebarre, appareil, balance };
+    proteine, ballon, velo, livre, calendrier, loupe, codebarre, appareil, balance, image, dossier };
 
   function art(nom, size) {
     if (nom === 'medaille') return medaille('or', size);

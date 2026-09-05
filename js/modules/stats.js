@@ -37,22 +37,40 @@
       cupsBlock() +
 
       '<div class="section"><div class="sechead"><h2 style="font-size:16px">Cette semaine</h2></div>' +
-        '<div class="quests">' + Game.quests().map(quest).join('') + '</div></div>' +
+        Cartes.carrousel(Game.quests().map((q) => ({
+          id: q.id,
+          titre: q.nom,
+          sous: q.value >= q.target ? 'Terminé' : q.value + ' sur ' + q.target,
+          ph: q.ph, type: 'activite',
+          badge: q.value >= q.target ? null : (q.target - q.value) + ' à faire',
+          coche: q.value >= q.target
+        })), { classe: 'petit' }) + '</div>' +
 
-      (food.some((f) => f.kcal) ? '<div class="section"><div class="sechead"><h2 style="font-size:16px">Calories, 14 jours</h2></div>' +
-        '<div class="panel">' + UI.sparkline(food.map((f) => f.kcal)) +
-        '<div class="row-between" style="margin-top:6px;font-size:12px;color:var(--muted)">' +
-        '<span>moyenne ' + UI.fmt.n(avg(food.map((f) => f.kcal))) + ' kcal</span>' +
-        '<span>objectif ' + UI.fmt.n(Food.goals().kcal) + '</span></div></div></div>' : '') +
+      /* Les deux courbes cote a cote : on les compare d'un regard
+         au lieu de defiler de l'une a l'autre. */
+      ((food.some((f) => f.kcal) || health.some((h) => h.steps))
+        ? '<div class="section"><div class="secbar"><h2>Sur 14 jours</h2></div><div class="gduo">' +
+          (food.some((f) => f.kcal) ? Graph.tuile({
+            nom: 'Calories', art: 'flamme', teinte: '#E0653C',
+            valeur: UI.fmt.n(avg(food.map((f) => f.kcal))), unite: 'kcal en moyenne',
+            graph: Graph.courbe({ valeurs: food.map((f) => f.kcal), c1: '#E0653C' })
+          }) : '') +
+          (health.some((h) => h.steps) ? Graph.tuile({
+            nom: 'Pas', art: 'pas', teinte: '#3FAE79',
+            valeur: UI.fmt.n(avg(health.map((h) => h.steps || 0))), unite: 'pas en moyenne',
+            graph: Graph.courbe({ valeurs: health.map((h) => h.steps || 0), c1: '#3FAE79' })
+          }) : '') +
+          '</div></div>'
+        : '') +
 
-      (health.some((h) => h.steps) ? '<div class="section"><div class="sechead"><h2 style="font-size:16px">Pas, 14 jours</h2></div>' +
-        '<div class="panel">' + UI.sparkline(health.map((h) => h.steps || 0)) +
-        '<div class="row-between" style="margin-top:6px;font-size:12px;color:var(--muted)">' +
-        '<span>moyenne ' + UI.fmt.n(avg(health.map((h) => h.steps || 0))) + ' pas</span>' +
-        '<span>objectif ' + UI.fmt.n(Health.goals().steps) + '</span></div></div></div>' : '') +
-
-      '<div class="section"><div class="sechead"><h2 style="font-size:16px">Historique</h2></div>' +
-        historyBlock() + '</div>' +
+      /* L'historique prenait le tiers de la page. C'est maintenant
+         une carte qui ouvre le detail. */
+      '<div class="section">' + Cartes.grille([
+        { id: '__histo', titre: 'Mon historique', sous: 'Tout ce que j\'ai fait',
+          ph: 'vintage photo album', type: 'icone' },
+        { id: '__ligue', titre: 'Ma ligue', sous: 'Le classement entre amis',
+          ph: 'gens', type: 'icone' }
+      ]) + '</div>' +
 
       '<div class="section"><p class="muted" style="font-size:11.5px;line-height:1.55">' +
       'Les points ne servent à rien d\'autre qu\'à se situer. Aucune fonctionnalité n\'est verrouillée derrière un palier, ' +
@@ -65,7 +83,15 @@
       Store.set('actPrefs', Object.assign(Store.get('actPrefs', {}), { mood: 'seul', category: 'all' }));
       App.go('#/activities');
     });
-    root.querySelectorAll('[data-kart]').forEach((b) => b.onclick = () => ouvrirSource(b.dataset.kart));
+    root.querySelectorAll('[data-kart]').forEach((b) => b.onclick = () => {
+      const k = b.dataset.kart;
+      if (k === '__histo') return ouvrirHistorique();
+      if (k === '__ligue') return gererLigue();
+      /* Un objectif de la semaine renvoie la ou on le remplit. */
+      const q = (Game.quests() || []).find((x) => x.id === k);
+      if (q) return ouvrirObjectif(q);
+      ouvrirSource(k);
+    });
     if (global.Stock) Stock.peupler(root);
     const q = (sel) => root.querySelector(sel);
     if (q('[data-creer]')) q('[data-creer]').onclick = creerLigue;
@@ -94,7 +120,7 @@
           '<span class="titre">' + UI.esc(r.complet.toUpperCase()) + '</span>' +
           '<span class="lp">' + r.lp + ' LP</span>' +
         '</div>' +
-        '<div class="med">' + Art.medaille(r.matiere, 124) + '</div>' +
+        '<div class="med">' + Anime.art('medaille', 124, { matiere: r.matiere, mouvement: 'brille' }) + '</div>' +
         '<div class="jauge"><div class="rempli" style="width:' + r.lp + '%"></div></div>' +
         '<div class="bas">' +
           '<span>' + UI.fmt.n(g.xp) + ' points</span>' +
@@ -113,7 +139,7 @@
         const atteint = i <= Math.floor(r.index / 3);
         const courant = i === Math.floor(r.index / 3);
         return '<div class="pal' + (atteint ? '' : ' verrou') + (courant ? ' courant' : '') + '">' +
-          Art.medaille(m, 44) +
+          Anime.art('medaille', 44, { matiere: m, fixe: !courant }) +
           '<b>' + UI.esc(Rang.NOMS[m]) + '</b>' +
         '</div>';
       }).join('') + '</div></div>';
@@ -131,7 +157,7 @@
   function ligueBlock() {
     if (!global.Cloud || !Cloud.ready()) {
       return '<div class="section"><div class="panel" style="text-align:center">' +
-        '<div style="margin-bottom:8px">' + Art('coupe', 52) + '</div>' +
+        '<div style="margin-bottom:8px">' + Anime.art('coupe', 52) + '</div>' +
         '<b style="display:block;margin-bottom:6px">Se comparer entre amis</b>' +
         '<p class="muted" style="font-size:13px;margin-bottom:12px">Connecte-toi pour créer une ligue et suivre la progression de tes proches.</p>' +
         '<button class="btn" data-compte>' + Icon('user', 16) + 'Mon compte</button>' +
@@ -139,7 +165,7 @@
     }
     if (!ligues.length) {
       return '<div class="section"><div class="panel" style="text-align:center">' +
-        '<div style="margin-bottom:8px">' + Art('coupe', 52) + '</div>' +
+        '<div style="margin-bottom:8px">' + Anime.art('coupe', 52) + '</div>' +
         '<b style="display:block;margin-bottom:6px">Ta ligue</b>' +
         '<p class="muted" style="font-size:13px;margin-bottom:12px">Crée-la et partage le code, ou rejoins celle d\'un ami.</p>' +
         '<div class="btnrow" style="justify-content:center">' +
@@ -284,7 +310,7 @@
       const mol = MOODS.MOLECULES[m], v = Math.round(b[m]);
       return {
         id: m,
-        titre: mol.nom,
+        titre: mol.court || mol.nom,
         sous: v === 0 ? 'Rien cette semaine' : v + (v > 1 ? ' moments' : ' moment'),
         ph: PHOTO_MOL[m] || mol.nom,
         type: 'activite',
@@ -314,6 +340,45 @@
       'qu\'en présence de quelqu\'un : c\'est biologique, pas moral.</p></div>';
   }
 
+  /* La fiche d'un objectif : ou en est-on, et le bouton qui envoie
+     le remplir plutot que de le contempler. */
+  const OU = {
+    journal: ['#/m/foods', 'Ouvrir l\'alimentation'],
+    analyse: ['#/m/foods', 'Analyser ma journée'],
+    bouger: ['#/health', 'Voir ma santé'],
+    seance: ['#/m/sport', 'Ajouter une séance'],
+    roulette: ['#/activities', 'Tourner la roue'],
+    decouvrir: ['#/m/city', 'Ouvrir un guide']
+  };
+
+  function ouvrirObjectif(q) {
+    const fait = q.value >= q.target;
+    const dest = OU[q.id] || ['#/activities', 'Y aller'];
+    Cartes.ouvrir({
+      tete: Cartes.tete(q.nom, fait ? 'Terminé cette semaine' : q.value + ' sur ' + q.target,
+        fait ? ['#1F6E5A', '#3FAF8A'] : ['#6B5330', '#A98A55'], q.art),
+      corps:
+        '<div class="gduo" style="margin-bottom:16px">' +
+          Graph.tuile({ nom: 'Avancement', art: q.art, teinte: fait ? '#2E9E5B' : '#E0A52C',
+            valeur: q.value + ' / ' + q.target, unite: fait ? 'terminé' : 'cette semaine',
+            graph: Graph.anneau({ valeur: q.value, objectif: q.target,
+              c1: fait ? '#7FD8A8' : '#F2C97A', c2: fait ? '#2E9E5B' : '#D08A1E',
+              centre: Math.round(Math.min(1, q.value / q.target) * 100) + '%' }) }) +
+          Graph.tuile({ nom: 'Il reste', teinte: '#8492A6',
+            valeur: fait ? '0' : String(q.target - q.value),
+            unite: fait ? 'rien à faire' : 'à faire' }) +
+        '</div>' +
+        (fait
+          ? '<div class="banner" style="margin-bottom:14px">' + Icon('check', 18) +
+            '<span>C\'est fait pour cette semaine. Le compteur repart lundi.</span></div>'
+          : '<button class="btn primary block lg" data-go>' + Icon('next', 17) + UI.esc(dest[1]) + '</button>'),
+      onMount: (sh) => {
+        const b = sh.querySelector('[data-go]');
+        if (b) b.onclick = () => { UI.closeSheet(); App.go(dest[0]); };
+      }
+    });
+  }
+
   /* La fiche d'une source : ce qu'elle est, ce qui la remplit. */
   function ouvrirSource(m) {
     const mol = MOODS.MOLECULES[m];
@@ -323,7 +388,7 @@
     const sources = (MOODS.SOURCES || []).filter((x) => (x.m || [])[0] === m).slice(0, 12);
 
     Cartes.ouvrir({
-      tete: Cartes.tete(mol.nom, mol.role, [mol.teinte, mol.teinte], null),
+      tete: Cartes.tete(mol.court || mol.nom, mol.role, [mol.teinte, mol.teinte], null),
       corps:
         '<div class="gduo" style="margin-bottom:16px">' +
           Graph.tuile({ nom: 'Cette semaine', teinte: mol.teinte, valeur: String(v),
@@ -334,6 +399,10 @@
         '</div>' +
         (v === 0 ? '<div class="banner warn" style="margin-bottom:14px">' + Icon('info', 18) +
           '<span>' + UI.esc(mol.manque) + '</span></div>' : '') +
+        /* Le nom savant reste accessible, mais en bas et en petit :
+           il sert à aller lire ailleurs, pas à comprendre l'écran. */
+        '<p class="aide" style="margin:0 0 14px">Nom scientifique : ' + UI.esc(mol.nom) +
+        '. Vulgarisation, pas médecine.</p>' +
         (sources.length
           ? '<h4 class="ftitre">Ce qui la remplit</h4>' +
             Cartes.carrousel(sources.map((x, i) => ({
@@ -356,16 +425,52 @@
       '<span class="rt tabnum" style="font-size:12.5px;color:var(--muted)">' + q.value + '/' + q.target + '</span></div>';
   }
 
-  function historyBlock() {
-    const h = Store.history(null, 40);
-    const label = { activite: 'Activité', etablissement: 'Établissement', aliment: 'Aliment', cadeau: 'Cadeau',
-      media: 'Film ou série', meal: 'Repas', tenue: 'Tenue', calendrier: 'Calendrier', 'codex-open': 'Recette' };
-    if (!h.length) return UI.empty('clock', 'Rien encore', 'Utilisé l\'app un peu, tout se retrouve ici.');
-    return '<div class="list">' + h.map((x) =>
-      '<div class="rowitem"><span class="ic">' + Icon(iconFor(x.kind), 17) + '</span>' +
-      '<span class="tx"><b>' + UI.esc(x.payload.label || x.payload.nom || x.payload.title || label[x.kind] || x.kind) + '</b>' +
-      '<small>' + UI.esc(label[x.kind] || x.kind) + ' · ' + UI.esc(UI.fmt.dateShort(x.at)) + '</small></span></div>').join('') + '</div>';
+  /* ============================================================
+     L'historique, en cartes rangees par famille
+
+     Quarante lignes grises a la suite prenaient le tiers de la
+     page pour ne rien montrer. C'est maintenant une carte qui
+     ouvre une pop-up, ou chaque famille a son carrousel.
+     ============================================================ */
+  const LABELS = {
+    activite: 'Activités', etablissement: 'Adresses', aliment: 'Aliments',
+    cadeau: 'Cadeaux', media: 'Films et séries', meal: 'Repas',
+    tenue: 'Tenues', calendrier: 'Agenda', 'codex-open': 'Recettes'
+  };
+  const PHOTO_FAM = {
+    activite: 'activite', etablissement: 'restaurant', aliment: 'grocery shelf food',
+    cadeau: 'gift wrapped present', media: 'cinema seats screen', meal: 'plate of food',
+    tenue: 'clothing rack', calendrier: 'calendar planning', 'codex-open': 'cuisine'
+  };
+
+  function ouvrirHistorique() {
+    const h = Store.history(null, 200);
+    if (!h.length) {
+      Cartes.ouvrir({
+        tete: Cartes.tete('Mon historique', 'Rien encore', ['#6B5330', '#A98A55'], 'refaire'),
+        corps: UI.empty('clock', 'Rien encore', "Utilise l'application un peu, tout se retrouve ici.")
+      });
+      return;
+    }
+    const paquets = {};
+    h.forEach((x, i) => {
+      const fam = LABELS[x.kind] ? x.kind : 'activite';
+      (paquets[fam] = paquets[fam] || []).push({
+        id: 'h' + i,
+        titre: x.payload.label || x.payload.nom || x.payload.title || LABELS[fam],
+        sous: UI.fmt.dateShort(x.at),
+        ph: x.payload.label || x.payload.nom || PHOTO_FAM[fam],
+        type: 'activite'
+      });
+    });
+    Cartes.ouvrir({
+      tete: Cartes.tete('Mon historique', h.length + ' choses enregistrées', ['#6B5330', '#A98A55'], 'refaire'),
+      corps: Object.keys(paquets).map((fam) =>
+        '<h4 class="ftitre">' + UI.esc(LABELS[fam] || fam) + ' · ' + paquets[fam].length + '</h4>' +
+        Cartes.carrousel(paquets[fam].slice(0, 20), { classe: 'petit' })).join('')
+    });
   }
+
   const iconFor = (k) => ({ activite: 'activity', etablissement: 'pin', aliment: 'fork', cadeau: 'gift',
     media: 'film', meal: 'plate', tenue: 'shirt', calendrier: 'calendar', 'codex-open': 'coffee' })[k] || 'clock';
 

@@ -204,7 +204,7 @@
     return '<div class="gtuile" style="--t:' + UI.attr(o.teinte || '#4A9BE0') + '"' +
       (o.act ? ' data-act="' + UI.attr(o.act) + '"' : '') + '>' +
       '<div class="haut">' +
-        (o.art && global.Art ? '<span class="ill">' + Art(o.art, 26) + '</span>' : '') +
+        (o.art && global.Art ? '<span class="ill">' + Anime.art(o.art, 26) + '</span>' : '') +
         '<b>' + UI.esc(o.nom) + '</b>' +
       '</div>' +
       '<div class="bas">' +

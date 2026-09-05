@@ -129,11 +129,11 @@
         '<div class="hubgrid">' +
           MODULES.map((m) =>
             '<button class="hubtile" data-mod="' + m.id + '" style="--g1:' + m.g1 + ';--g2:' + m.g2 + '">' +
-              '<span class="ic">' + (m.art ? Art(m.art, 40) : Icon(m.icon, 25)) + '</span>' +
+              '<span class="ic">' + (m.art ? Anime.art(m.art, 40) : Icon(m.icon, 25)) + '</span>' +
               '<b>' + UI.esc(m.label) + '</b>' +
             '</button>').join('') +
           '<button class="hubtile" data-mod="settings" style="--g1:#5B5754;--g2:#918B86">' +
-            '<span class="ic">' + Art('roue', 40) + '</span><b>Réglages</b>' +
+            '<span class="ic">' + Anime.art('roue', 40) + '</span><b>Réglages</b>' +
           '</button>' +
         '</div>' +
       '</div>';

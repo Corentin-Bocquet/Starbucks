@@ -120,7 +120,7 @@
     return '<div class="section" style="padding-top:14px">' +
       '<div class="panel bloc-sport">' +
         '<div class="row" style="gap:14px;align-items:center">' +
-          '<div class="illu">' + Art('haltere', 54) + '</div>' +
+          '<div class="illu">' + Anime.art('haltere', 54) + '</div>' +
           '<div class="grow">' +
             '<b style="font-size:16px;display:block">Mon sport</b>' +
             '<small class="muted" style="font-size:12.5px">' +

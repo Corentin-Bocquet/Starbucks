@@ -214,7 +214,7 @@
 
   /* Une illustration 3D a la place de l'icone de trait : une icone
      bleue sur un fond bleu ne se voit pas, un objet dessine si. */
-  const art3d = (nom) => '<span class="ic art">' + Art(nom, 30) + '</span>';
+  const art3d = (nom) => '<span class="ic art">' + Anime.art(nom, 30) + '</span>';
 
   const acts = {
     /* --- Ma photo, pour « Me voir avec » --- */

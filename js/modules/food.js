@@ -554,9 +554,10 @@
 
   function scanFlow() {
     if (!AI.available()) return needKey();
-    /* Passe par Photos.pick : c'est lui qui corrige la premiere
-       photo qui ne declenchait rien sur iPhone. */
-    Photos.pick(async (f) => {
+    /* On demande la source : une assiette se photographie sur le
+       moment, mais on veut aussi pouvoir reprendre une photo déjà
+       faite au restaurant hier soir. */
+    Photos.choisir(async (f) => {
       if (!f) return;
       UI.openSheet('<div class="mbody">' + UI.thinking('Analyse de la photo…') + '</div>');
       try {
@@ -901,7 +902,7 @@
 
     UI.openSheet(
       '<div class="mtete" style="--t1:#1F5E93;--t2:#4E93CE">' +
-        (global.Art ? '<span class="ill">' + Art('codebarre', 46) + '</span>' : '') +
+        (global.Anime ? '<span class="ill">' + Anime.art('codebarre', 46) + '</span>' : '') +
         '<h2>Vise le code-barres</h2>' +
         '<p>Approche jusqu\'à ce que les barres remplissent le cadre.</p></div>' +
       '<div class="mbody">' +

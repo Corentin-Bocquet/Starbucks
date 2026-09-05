@@ -34,28 +34,84 @@
     toastTimer = setTimeout(() => el.classList.remove('on'), ms || 1900);
   }
 
-  /* --- Feuille modale --- */
+  /* ============================================================
+     La feuille modale, et le retour en arrière
+
+     Une pop-up en ouvrait une autre en écrasant son contenu : la
+     croix refermait tout et on repartait de la page. Impossible de
+     revenir d'un cran.
+
+     `openSheet` retient donc l'écran précédent. Dès qu'il y en a
+     un, une flèche apparaît en haut à gauche et y ramène. Ça vaut
+     pour TOUTES les pop-up de l'application, quel que soit le
+     module qui les ouvre : le mécanisme est ici, pas chez eux.
+
+     Le bouton retour du téléphone fait la même chose, et la touche
+     Échap aussi.
+     ============================================================ */
   const sheetStack = [];
+  const historique = [];   /* les écrans précédents, pour y revenir */
+  let sautHistorique = false;
+
   function openSheet(html, opts) {
     opts = opts || {};
     const ov = $('#ov'), sheet = $('#sheet');
+
+    /* On empile l'écran courant avant de le remplacer, sauf quand
+       c'est justement un retour qui redessine. */
+    if (!sautHistorique && ov.classList.contains('on') && sheet.innerHTML) {
+      historique.push({ html: sheet.innerHTML, remonter: sheet.__remonter || null });
+      if (historique.length > 12) historique.shift();
+    }
+
+    const peutRevenir = historique.length > 0 && !opts.racine;
     sheet.innerHTML =
       '<div class="grabber"><i></i></div>' +
+      (peutRevenir
+        ? '<button class="retourpop" data-sheet-back aria-label="Retour">' + Icon('back', 18) + '</button>'
+        : '') +
       '<button class="close" data-sheet-close aria-label="Fermer">' + Icon('close', 16) + '</button>' +
       html;
+    sheet.classList.toggle('a-retour', peutRevenir);
+
     ov.classList.add('on');
     document.body.style.overflow = 'hidden';
     sheet.scrollTop = 0;
     if (global.Feedback) global.Feedback.fire('sheetOpen');
     sheetStack.push(opts.onClose || null);
+    /* Le module peut fournir sa propre façon de se redessiner : on
+       la rappelle au retour, ce qui rebranche ses évènements. */
+    sheet.__remonter = opts.onMount || null;
     if (opts.onMount) opts.onMount(sheet);
     return sheet;
   }
+
+  /* Revient d'un cran. Le HTML précédent est réinjecté tel quel et
+     son `onMount` rejoué, donc les boutons refonctionnent. */
+  function backSheet() {
+    if (!historique.length) { closeSheet(); return; }
+    const p = historique.pop();
+    const sheet = $('#sheet');
+    sautHistorique = true;
+    sheet.innerHTML = p.html;
+    sheet.classList.toggle('a-retour', historique.length > 0);
+    /* La flèche du nouvel écran doit disparaître s'il n'y a plus
+       rien derrière lui. */
+    const fl = sheet.querySelector('[data-sheet-back]');
+    if (fl && !historique.length) fl.remove();
+    sheet.scrollTop = 0;
+    sheet.__remonter = p.remonter;
+    if (p.remonter) { try { p.remonter(sheet); } catch (e) {} }
+    sautHistorique = false;
+    haptic('tap');
+  }
+
   function closeSheet() {
     const ov = $('#ov');
     if (!ov || !ov.classList.contains('on')) return;
     ov.classList.remove('on');
     document.body.style.overflow = '';
+    historique.length = 0;
     if (global.Feedback) global.Feedback.fire('sheetClose');
     const cb = sheetStack.pop();
     if (cb) cb();
@@ -174,7 +230,7 @@
       const tete =
         '<div class="mtete' + (opts.teinte ? '' : '') + '"' +
         (opts.teinte ? ' style="--t1:' + attr(opts.teinte[0]) + ';--t2:' + attr(opts.teinte[1]) + '"' : '') + '>' +
-        '<span class="ill">' + (opts.art && global.Art ? Art(opts.art, 46)
+        '<span class="ill">' + (opts.art && global.Anime ? Anime.art(opts.art, 46)
           : (opts.photo && global.Stock ? Stock.ic(opts.photo, { classe: 'gr' }) : '')) + '</span>' +
         '<h2>' + esc(title) + '</h2>' +
         (opts.sub ? '<p>' + esc(opts.sub) + '</p>' : '') +
@@ -327,8 +383,26 @@
       '</svg>';
   }
 
+  /* Un écran vide est le moment où l'application a le moins à
+     montrer : c'est justement là qu'un trait gris de 26 pixels
+     donne l'impression d'un bug. On y met une vraie illustration
+     quand il en existe une pour le sujet. */
+  const ART_VIDE = {
+    users: 'gens', user: 'personne', shirt: 'chemise', key: 'cle',
+    pin: 'lieu', location: 'lieu', clock: 'calendrier', calendar: 'calendrier',
+    search: 'loupe', film: 'clap', list: 'livre', book: 'livre',
+    heart: 'coeur', star: 'etoile', gift: 'cadeau', dumbbell: 'haltere',
+    coffee: 'tasse', glass: 'verre', pot: 'marmite', apple: 'pomme',
+    camera: 'appareil', image: 'image', folder: 'dossier', trash: 'corbeille',
+    scale: 'balance', map: 'carte', dice: 'de'
+  };
+
   function empty(iconName, title, text) {
-    return '<div class="empty"><div class="ei">' + Icon(iconName || 'info', 26) + '</div>' +
+    const nom = ART_VIDE[iconName];
+    const dessin = (nom && global.Anime)
+      ? Anime.art(nom, 66)
+      : '<div class="ei">' + Icon(iconName || 'info', 26) + '</div>';
+    return '<div class="empty' + (nom ? ' illustre' : '') + '">' + dessin +
       '<b>' + esc(title) + '</b><p>' + esc(text || '') + '</p></div>';
   }
 
@@ -410,7 +484,7 @@
 
   global.UI = {
     $, $$, esc, attr, haptic, toast,
-    openSheet, closeSheet, confirmSheet, promptSheet,
+    openSheet, closeSheet, backSheet, confirmSheet, promptSheet,
     hint, showHint, hideHint, grandeCarte,
     fmt, day, uid, clamp, debounce, sleep, download, copy,
     ring, sparkline, empty, thinking
@@ -426,12 +500,29 @@
       return;
     }
     if (e.target.closest('[data-hint-close]') || e.target.id === 'hintpop') { hideHint(); return; }
+    if (e.target.closest('[data-sheet-back]')) { e.preventDefault(); backSheet(); return; }
     if (e.target.closest('[data-sheet-close]')) closeSheet();
   });
+  /* Échap : d'abord la précision, puis un cran en arrière, et
+     seulement si l'on est déjà au premier écran, on ferme. */
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
     const p = $('#hintpop');
     if (p && p.classList.contains('on')) { hideHint(); return; }
+    const ov = $('#ov');
+    if (ov && ov.classList.contains('on') && $('#sheet').classList.contains('a-retour')) {
+      backSheet(); return;
+    }
     closeSheet();
+  });
+
+  /* Le bouton retour du téléphone ferme la pop-up plutôt que de
+     quitter la page : c'est ce que tout le monde attend. */
+  global.addEventListener('popstate', () => {
+    const ov = $('#ov');
+    if (ov && ov.classList.contains('on')) {
+      if ($('#sheet').classList.contains('a-retour')) backSheet();
+      else closeSheet();
+    }
   });
 })(window);

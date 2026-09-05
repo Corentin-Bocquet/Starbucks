@@ -303,7 +303,7 @@
   }
 
   function choisirPhoto(id) {
-    Photos.pick(async (f) => {
+    Photos.choisir(async (f) => {
       if (!f) return;
       UI.toast('Enregistrement…');
       const saved = await Photos.save(f, 'people', 700);

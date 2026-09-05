@@ -320,6 +320,17 @@
     return enchainer(async () => {
       const encore = enCache(c);
       if (encore !== undefined) return encore;
+
+      /* Base specialisee d'abord : pour un plat, un cocktail ou un
+         ingredient, elle rend LA bonne photo, pas une photo
+         plausible. Elle ne connait pas tout, et c'est prevu. */
+      if (global.Banques) {
+        try {
+          const b = await Banques.chercher(type, sujet);
+          if (b) { Store.set(c, { u: b, at: Date.now(), src: 'bq' }); return b; }
+        } catch (e) { /* on continue */ }
+      }
+
       try {
         const u = await interroger(q);
         if (u) { Store.set(c, { u: u, at: Date.now() }); return u; }

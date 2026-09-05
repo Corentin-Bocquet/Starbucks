@@ -161,7 +161,7 @@
     const n = items().length, vus = items().filter((m) => m.status === 'vu').length;
     return '<div class="section" style="padding:16px 0 0">' +
       '<div class="bandeau-media">' +
-        '<div class="illu">' + Art('coupe', 46) + '</div>' +
+        '<div class="illu">' + Anime.art('coupe', 46) + '</div>' +
         '<div class="grow">' +
           '<b>Qu\'est-ce qu\'on regarde ?</b>' +
           '<small>' + n + ' titre' + (n > 1 ? 's' : '') + (vus ? ' · ' + vus + ' vu' + (vus > 1 ? 's' : '') : '') + '</small>' +
@@ -217,7 +217,7 @@
     const r = Store.all('mediaIdeas');
     if (!r.length) {
       return '<div class="section"><div class="panel" style="text-align:center">' +
-        '<div style="margin-bottom:8px">' + Art('eclair', 46) + '</div>' +
+        '<div style="margin-bottom:8px">' + Anime.art('eclair', 46) + '</div>' +
         '<b style="display:block;margin-bottom:6px">Des titres pour toi</b>' +
         '<p class="muted" style="font-size:13px;margin-bottom:12px">À partir de ce que tu as aimé, sans jamais reproposer ce que tu as déjà.</p>' +
         '<button class="btn primary" data-act="reco">' + Icon('sparkle', 17) + 'Me proposer</button>' +

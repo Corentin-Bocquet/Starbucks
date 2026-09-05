@@ -37,7 +37,7 @@
       '<span class="vis">' + visuel + '</span>' +
       '<span class="voile"></span>' +
       (d.badge ? '<span class="badge">' + UI.esc(d.badge) + '</span>' : '') +
-      (d.coche && global.Art ? '<span class="fait">' + Art('coche', 44) + '</span>' : '') +
+      (d.coche && global.Art ? '<span class="fait">' + Anime.art('coche', 44) + '</span>' : '') +
       '<span class="tx"><b>' + UI.esc(d.titre) + '</b>' +
       (d.sous ? '<small>' + UI.esc(d.sous) + '</small>' : '') + '</span>' +
       '</button>';
@@ -70,48 +70,35 @@
      ============================================================ */
   const pile = [];
 
-  function poser(vue) {
-    pile.push(vue);
-    dessiner();
-  }
-
-  function retour() {
-    if (pile.length <= 1) { UI.closeSheet(); pile.length = 0; return; }
-    pile.pop();
-    dessiner();
-  }
-
-  function dessiner() {
-    const v = pile[pile.length - 1];
-    if (!v) return;
-    const flecheRetour = pile.length > 1
-      ? '<button class="retourpop" data-retour aria-label="Retour">' + Icon('back', 18) + '</button>'
-      : '';
+  function dessiner(vue, racine) {
     UI.openSheet(
-      (v.tete || '') + flecheRetour + '<div class="mbody">' + (v.corps || '') + '</div>',
+      (vue.tete || '') + '<div class="mbody">' + (vue.corps || '') + '</div>',
       {
+        racine: !!racine,
         onMount: (sh) => {
-          const r = sh.querySelector('[data-retour]');
-          if (r) r.onclick = retour;
           if (global.Stock) Stock.peupler(sh);
+          if (global.Anime) Anime.animer(sh);
           sh.querySelectorAll('[data-kart]').forEach((b) => b.onclick = () => {
-            if (v.onCarte) v.onCarte(b.dataset.kart, b, sh);
+            if (vue.onCarte) vue.onCarte(b.dataset.kart, b, sh);
           });
           sh.querySelectorAll('[data-tout]').forEach((b) => b.onclick = () => {
-            if (v.onTout) v.onTout(b.dataset.tout, sh);
+            if (vue.onTout) vue.onTout(b.dataset.tout, sh);
           });
-          if (v.onMount) v.onMount(sh);
+          if (vue.onMount) vue.onMount(sh);
         },
-        onClose: () => { pile.length = 0; }
+        onClose: vue.onClose
       }
     );
   }
 
-  /* Ouvre une premiere pop-up (vide la pile). */
-  function ouvrir(vue) { pile.length = 0; poser(vue); }
+  /* Ouvre une premiere pop-up : elle n'a pas de fleche de retour. */
+  function ouvrir(vue) { pile.length = 0; dessiner(vue, true); }
 
-  /* Empile une pop-up par-dessus la courante. */
-  function empiler(vue) { poser(vue); }
+  /* Empile une pop-up par-dessus la courante : UI garde l'ecran
+     precedent et pose la fleche tout seul. */
+  function empiler(vue) { dessiner(vue, false); }
+
+  const retour = () => UI.backSheet();
 
   /* L'en-tete coloree, collee au bord haut de la feuille. */
   function tete(titre, sous, teinte, art, image) {
@@ -122,7 +109,7 @@
         (sous ? '<p>' + UI.esc(sous) + '</p>' : '') + '</div>';
     }
     return '<div class="mtete" style="--t1:' + UI.attr(g[0]) + ';--t2:' + UI.attr(g[1]) + '">' +
-      (art && global.Art ? '<span class="ill">' + Art(art, 46) + '</span>' : '') +
+      (art && global.Art ? '<span class="ill">' + Anime.art(art, 46) + '</span>' : '') +
       '<h2>' + UI.esc(titre) + '</h2>' +
       (sous ? '<p>' + UI.esc(sous) + '</p>' : '') + '</div>';
   }

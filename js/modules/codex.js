@@ -167,7 +167,7 @@
     const c = CREER[S.tab] || CREER.mm;
     return '<div class="section">' +
       '<button class="appel" data-creer style="--a1:' + c[3][0] + ';--a2:' + c[3][1] + '">' +
-        (global.Art ? '<span class="ill">' + Art(c[2], 56) + '</span>' : '') +
+        (global.Art ? '<span class="ill">' + Anime.art(c[2], 56) + '</span>' : '') +
         '<span class="tx"><b>' + UI.esc(c[0]) + '</b><small>' + UI.esc(c[1]) + '</small></span>' +
         '<span class="go">' + Icon('sparkle', 22) + '</span>' +
       '</button></div>';

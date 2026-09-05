@@ -230,7 +230,8 @@
     else if (s.type === 'list') body = '<ul style="padding-left:19px">' + v.map((x) => '<li style="margin-bottom:7px;font-size:13.8px;line-height:1.5">' + UI.esc(x) + '</li>').join('') + '</ul>';
     else body = '<div class="list">' + v.map((x) =>
       '<div class="rowitem" data-place="' + UI.attr(x.nom) + '" data-pitch="' + UI.attr(x.description || '') + '" data-adresse="' + UI.attr(x.adresse || '') + '" data-cat="' + UI.attr(s.nom) + '">' +
-      '<span class="ic">' + Icon(s.icon, 17) + '</span>' +
+      (global.Stock ? Stock.ic(x.nom + ' ' + s.nom, { classe: 'vignligne', type: 'lieu' })
+                    : '<span class="ic">' + Icon(s.icon, 17) + '</span>') +
       '<span class="tx"><b>' + UI.esc(x.nom) + '</b><small>' + UI.esc(x.description || '') + '</small></span>' +
       '<button class="rt" data-savep=\'' + UI.attr(JSON.stringify({ nom: x.nom, kind: kindOf(s.k), adresse: x.adresse || '' })) + '\'>' + Icon('star', 15) + '</button>' +
       '</div>').join('') + '</div>';
@@ -408,7 +409,8 @@
           out.innerHTML = UI.thinking('Recherche…');
           const r = await Ctx.searchCity(q.value.trim());
           out.innerHTML = r.length ? '<div class="list">' + r.map((c, i) =>
-            '<button class="rowitem" data-i="' + i + '"><span class="ic">' + Icon('pin', 17) + '</span>' +
+            '<button class="rowitem" data-i="' + i + '">' +
+            (global.MapPick && MapPick.vignette(c) || '<span class="ic">' + Icon('pin', 17) + '</span>') +
             '<span class="tx"><b>' + UI.esc(c.name) + '</b><small>' + UI.esc(c.label) + '</small></span></button>').join('') + '</div>'
             : '<p class="muted" style="font-size:13px">Aucun résultat.</p>';
           out.querySelectorAll('[data-i]').forEach((b) => b.onclick = () => {
