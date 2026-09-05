@@ -66,6 +66,61 @@
   let root = null;
   let range = 7;
 
+  /* ============================================================
+     Le catalogue des mesures
+
+     Avant, six champs figes, tous affiches, tous vides pour la
+     plupart : la page montrait surtout des trous. Le principe est
+     inverse maintenant. On propose beaucoup de mesures, on n'en
+     impose aucune, et l'application n'affiche QUE celles qui ont
+     ete renseignees. Une mesure jamais remplie n'existe pas.
+
+     `cle`      identifiant stocke dans la journee
+     `nom`      ce qu'on lit a l'ecran
+     `unite`    suffixe affiche sous le chiffre
+     `art`      l'illustration de la tuile
+     `fmt`      mise en forme du chiffre
+     `bas`      vrai quand baisser est un progres (FC, poids, tour de taille)
+     `pas`      le pas du champ numerique
+     `groupe`   pour ranger le formulaire de saisie
+     ============================================================ */
+  const METRIQUES = [
+    { cle: 'steps',    nom: 'Pas',            groupe: 'Activité', art: 'pas',      teinte: '#3FAE79', unite: '',     fmt: (v) => UI.fmt.n(v) },
+    { cle: 'exercise', nom: 'Exercice',       groupe: 'Activité', art: 'eclair',   teinte: '#D98324', unite: 'min',  fmt: (v) => Math.round(v) },
+    { cle: 'active',   nom: 'Énergie active', groupe: 'Activité', art: 'flamme',   teinte: '#E0653C', unite: 'kcal', fmt: (v) => UI.fmt.n(v) },
+    { cle: 'standing', nom: 'Heures debout',  groupe: 'Activité', art: 'personne', teinte: '#4F9D8C', unite: 'h',    fmt: (v) => Math.round(v) },
+    { cle: 'distance', nom: 'Distance',       groupe: 'Activité', art: 'lieu',     teinte: '#3D95D8', unite: 'km',   fmt: (v) => v.toFixed(1).replace('.', ','), pas: '0.1' },
+
+    { cle: 'sleep',    nom: 'Sommeil',        groupe: 'Récupération', art: 'lune', teinte: '#8F76D0', unite: 'h',    fmt: (v) => (v / 60).toFixed(1).replace('.', ','), champ: 'minutes' },
+    { cle: 'hrRest',   nom: 'FC au repos',    groupe: 'Récupération', art: 'coeur', teinte: '#C6402F', unite: 'bpm', fmt: (v) => Math.round(v), bas: true },
+    { cle: 'hrv',      nom: 'Variabilité',    groupe: 'Récupération', art: 'eclair', teinte: '#3D95D8', unite: 'ms', fmt: (v) => Math.round(v) },
+    { cle: 'spo2',     nom: 'Oxygène du sang', groupe: 'Récupération', art: 'goutte', teinte: '#4A9BE0', unite: '%', fmt: (v) => Math.round(v) },
+    { cle: 'energie',  nom: 'Énergie ressentie', groupe: 'Récupération', art: 'etoile', teinte: '#C8A22C', unite: 'sur 10', fmt: (v) => Math.round(v), max: 10 },
+    { cle: 'humeur',   nom: 'Moral',          groupe: 'Récupération', art: 'coeur',   teinte: '#B0264F', unite: 'sur 10', fmt: (v) => Math.round(v), max: 10 },
+    { cle: 'stress',   nom: 'Stress',         groupe: 'Récupération', art: 'flamme',  teinte: '#8A5A2B', unite: 'sur 10', fmt: (v) => Math.round(v), max: 10, bas: true },
+
+    { cle: 'weight',   nom: 'Poids',          groupe: 'Corps', art: 'balance',  teinte: '#43A86B', unite: 'kg', fmt: (v) => v.toFixed(1).replace('.', ','), pas: '0.1', bas: true },
+    { cle: 'bodyFat',  nom: 'Masse grasse',   groupe: 'Corps', art: 'balance',  teinte: '#B37814', unite: '%',  fmt: (v) => v.toFixed(1).replace('.', ','), pas: '0.1', bas: true },
+    { cle: 'muscle',   nom: 'Masse musculaire', groupe: 'Corps', art: 'haltere', teinte: '#1F4E79', unite: 'kg', fmt: (v) => v.toFixed(1).replace('.', ','), pas: '0.1' },
+    { cle: 'taille',   nom: 'Tour de taille', groupe: 'Corps', art: 'balance',  teinte: '#6B5330', unite: 'cm', fmt: (v) => v.toFixed(1).replace('.', ','), pas: '0.5', bas: true },
+    { cle: 'bras',     nom: 'Tour de bras',   groupe: 'Corps', art: 'haltere',  teinte: '#2F6B5A', unite: 'cm', fmt: (v) => v.toFixed(1).replace('.', ','), pas: '0.5' },
+    { cle: 'cuisse',   nom: 'Tour de cuisse', groupe: 'Corps', art: 'velo',     teinte: '#4F5D8C', unite: 'cm', fmt: (v) => v.toFixed(1).replace('.', ','), pas: '0.5' },
+
+    { cle: 'eau',      nom: 'Eau',            groupe: 'Autres', art: 'goutte',   teinte: '#3D95D8', unite: 'L',  fmt: (v) => v.toFixed(1).replace('.', ','), pas: '0.1' },
+    { cle: 'cafe',     nom: 'Cafés',          groupe: 'Autres', art: 'tasse',    teinte: '#8A4B1E', unite: '',   fmt: (v) => Math.round(v), bas: true },
+    { cle: 'alcool',   nom: 'Verres d\'alcool', groupe: 'Autres', art: 'verre',  teinte: '#6B2A4E', unite: '',   fmt: (v) => Math.round(v), bas: true },
+    { cle: 'ecrans',   nom: 'Temps d\'écran', groupe: 'Autres', art: 'appareil', teinte: '#5A6371', unite: 'h',  fmt: (v) => v.toFixed(1).replace('.', ','), pas: '0.5', bas: true }
+  ];
+
+  const metrique = (k) => METRIQUES.find((m) => m.cle === k) || null;
+  const GROUPES = ['Activité', 'Récupération', 'Corps', 'Autres'];
+
+  /* La liste des mesures qui ont au moins une valeur enregistree.
+     C'est elle qui decide de ce que la page affiche. */
+  function metriquesRenseignees(jours) {
+    return METRIQUES.filter((m) => jours.some((d) => d[m.cle] != null && d[m.cle] !== ''));
+  }
+
   const daily = () => Store.all('healthDays');
   const dayOf = (k) => daily().find((d) => d.day === k) || null;
   const goals = () => Object.assign({ steps: 10000, exercise: 30, active: 500, sleep: 450 }, Store.get('healthGoals', {}));
@@ -85,9 +140,14 @@
      ============================================================ */
   function mount(el) { root = el; render(); }
 
+  /* Le jour affiche. Comme dans l'alimentation, on peut remonter :
+     on oublie souvent de saisir le soir meme, et les donnees sont
+     encore la le lendemain. */
+  let jour = UI.day.today();
+
   function render() {
     const days = lastDays(range);
-    const today = dayOf(UI.day.today()) || days[days.length - 1] || {};
+    const today = dayOf(jour) || { day: jour };
     const has = daily().length > 0;
 
     /* L'ordre suit ce qu'on vient chercher : le sport du jour parce
@@ -95,13 +155,57 @@
        qu'elle repond a la question qu'on se pose en ouvrant la
        page. Les tendances et l'import viennent apres. Avant,
        l'analyse etait tout en bas. */
+    /* L'ordre suit la frequence d'usage. Saisir sa journee et
+       regler ses objectifs sont les deux gestes qu'on refait sans
+       arret : ils passent tout en haut, avant meme le bilan.
+       Les tendances et l'import, qu'on consulte, restent apres. */
     root.innerHTML = '<div class="wrap">' +
+      barreJour() +
+      blocSaisie() +
       blocSport() +
       (has ? todayBlock(today) + insightBlock(days) + rangeBar() + trendBlock(days) + workoutsBlock() : onboarding()) +
       (global.Sport ? Sport.carteDuCorps(7) : '') +
       sourcesBlock() +
       '</div>';
     bind();
+  }
+
+  /* ============================================================
+     La barre de jour
+
+     Le sport et la sante n'avaient aucun moyen de revenir en
+     arriere : une journee oubliee etait perdue, alors que les
+     donnees, elles, sont encore la le lendemain. On reprend la
+     barre de l'alimentation, a l'identique, pour que le geste
+     soit le meme partout.
+     ============================================================ */
+  function barreJour() {
+    const demain = UI.day.add(jour, 1);
+    const futur = demain > UI.day.today();
+    return '<div class="barrejour">' +
+      '<button data-jour="-1" aria-label="Jour précédent">' + Icon('back', 17) + '</button>' +
+      '<span class="tx"><b>' + UI.esc(UI.day.label(jour)) + '</b>' +
+        (dayOf(jour) ? '<small>Journée renseignée</small>' : '<small>Rien de noté</small>') + '</span>' +
+      '<button data-jour="1" aria-label="Jour suivant"' + (futur ? ' disabled' : '') + '>' + Icon('next', 17) + '</button>' +
+      '</div>';
+  }
+
+  /* Les deux gestes du quotidien, en grand, tout en haut. */
+  function blocSaisie() {
+    const rempli = dayOf(jour);
+    return '<div class="section" style="padding-top:10px">' +
+      Cartes.grille([
+        { id: 'manual', titre: rempli ? 'Modifier ce jour' : 'Saisir ce jour',
+          /* On compte les MESURES, pas les champs techniques que le
+             stockage ajoute (identifiant, horodatage). */
+          sous: rempli ? (function () {
+            const n = METRIQUES.filter((m) => rempli[m.cle] != null && rempli[m.cle] !== '').length;
+            return n + (n > 1 ? ' mesures notées' : ' mesure notée');
+          }()) : 'Pas, sommeil, poids…',
+          ph: 'notebook pen writing desk', type: 'icone' },
+        { id: 'goals', titre: 'Mes objectifs', sous: 'Ce que tu vises chaque jour',
+          ph: 'target archery bullseye', type: 'icone' }
+      ]) + '</div>';
   }
 
   /* ============================================================
@@ -212,47 +316,47 @@
      telephone, quatre sur grand ecran, avec la valeur du jour en
      gros et la courbe de la periode dessous.
      ============================================================ */
-  const SUIVIS = [
-    { k: 'steps',  nom: 'Pas',       art: 'pas',      teinte: '#3FAE79', unite: '',      fmt: (v) => UI.fmt.n(v) },
-    { k: 'active', nom: 'Énergie',   art: 'flamme',   teinte: '#E0653C', unite: 'kcal',  fmt: (v) => UI.fmt.n(v) },
-    { k: 'sleep',  nom: 'Sommeil',   art: 'lune',     teinte: '#8F76D0', unite: 'h',     fmt: (v) => (v / 60).toFixed(1).replace('.', ',') },
-    { k: 'hrRest', nom: 'FC repos',  art: 'coeur',    teinte: '#C6402F', unite: 'bpm',   fmt: (v) => Math.round(v) },
-    { k: 'hrv',    nom: 'Variabilité', art: 'eclair', teinte: '#3D95D8', unite: 'ms',    fmt: (v) => Math.round(v) },
-    { k: 'weight', nom: 'Poids',     art: 'balance',  teinte: '#43A86B', unite: 'kg',    fmt: (v) => v.toFixed(1).replace('.', ',') }
-  ];
-
   function trendBlock(days) {
-    const tuiles = SUIVIS.map((s2) => {
-      const vals = days.map((d) => d[s2.k]).filter((v) => v != null);
+    /* On ne dessine que ce qui existe. Une mesure jamais saisie ne
+       produit ni tuile vide, ni zero, ni « pas de donnees » : elle
+       n'apparait pas du tout. Deux points sont le minimum pour
+       qu'une tendance veuille dire quelque chose. */
+    const tuiles = metriquesRenseignees(days).map((m) => {
+      const vals = days.map((d) => d[m.cle]).filter((v) => v != null && v !== '');
       if (vals.length < 2) return '';
       const dernier = vals[vals.length - 1];
       const moitie = Math.floor(vals.length / 2);
       const a1 = vals.slice(0, moitie).reduce((a, b) => a + b, 0) / (moitie || 1);
       const a2 = vals.slice(moitie).reduce((a, b) => a + b, 0) / (vals.length - moitie || 1);
       const ecart = a1 ? ((a2 - a1) / a1) * 100 : 0;
-      /* Pour la frequence cardiaque au repos, baisser est bon. */
-      const bon = s2.k === 'hrRest' ? ecart < 0 : ecart > 0;
       const sens = Math.abs(ecart) < 2 ? 'stable'
         : (ecart > 0 ? '+' : '') + ecart.toFixed(0) + ' %';
 
-      const graph = s2.k === 'sleep'
-        ? Graph.barres({ valeurs: vals.slice(-7), c2: s2.teinte })
-        : Graph.courbe({ valeurs: vals.slice(-14), c1: s2.teinte });
+      /* Barres pour ce qui se compte par jour, courbe pour ce qui
+         se suit dans le temps. Meme hauteur dans les deux cas. */
+      const parJour = ['sleep', 'cafe', 'alcool', 'eau'].indexOf(m.cle) >= 0;
+      const graph = parJour
+        ? Graph.barres({ valeurs: vals.slice(-7), c2: m.teinte })
+        : Graph.courbe({ valeurs: vals.slice(-14), c1: m.teinte });
 
       return Graph.tuile({
-        nom: s2.nom, art: s2.art, teinte: s2.teinte,
-        valeur: s2.fmt(dernier), unite: s2.unite + (sens === 'stable' ? '' : ' · ' + sens),
+        nom: m.nom, art: m.art, teinte: m.teinte,
+        valeur: m.fmt(dernier), unite: m.unite + (sens === 'stable' ? '' : ' · ' + sens),
         graph: graph
       });
     }).filter(Boolean);
 
-    if (!tuiles.length) {
-      return '<div class="section">' +
-        UI.empty('chart', 'Pas assez de données', 'Importe un export plus large pour voir les tendances.') + '</div>';
-    }
+    /* Une seule mesure suivie ne merite pas une grille de quatre
+       colonnes a moitie vide : la grille s'adapte au nombre. */
+    if (!tuiles.length) return '';
+    const classe = tuiles.length === 1 ? 'gsolo' : (tuiles.length % 3 === 0 ? 'gtrois' : 'gquatre');
     return '<div class="section">' +
-      '<div class="secbar"><h2>Tendances</h2></div>' +
-      '<div class="gquatre">' + tuiles.join('') + '</div></div>';
+      '<div class="secbar"><h2>Tendances</h2>' +
+      '<span class="muted" style="font-size:12px">' + tuiles.length +
+      (tuiles.length > 1 ? ' mesures suivies' : ' mesure suivie') + '</span></div>' +
+      '<div class="' + classe + '">' + tuiles.join('') + '</div>' +
+      '<p class="aide">Seules les mesures que tu remplis apparaissent ici. ' +
+      'Ajoute-en depuis « Saisir ce jour », elles s\'afficheront toutes seules.</p></div>';
   }
 
 
@@ -341,8 +445,6 @@
       Cartes.grille([
         { id: 'import', titre: 'Apple Santé', ph: 'iphone health app screen', type: 'icone',
           sous: meta ? UI.fmt.n(meta.records) + ' mesures' : 'Importer l\'export' },
-        { id: 'manual', titre: 'Saisir un jour', sous: 'À la main', ph: 'notebook pen writing', type: 'icone' },
-        { id: 'goals',  titre: 'Mes objectifs', sous: 'Pas, sommeil, énergie', ph: 'target archery', type: 'icone' },
         daily().length ? { id: 'clear', titre: 'Tout effacer', sous: daily().length + ' journées', ph: 'empty cardboard box', type: 'icone' } : null
       ].filter(Boolean)) + '</div>' +
     '<div class="section" style="padding-top:0"><p class="muted" style="font-size:11.5px;line-height:1.5">' +
@@ -354,6 +456,11 @@
     root.querySelectorAll('[data-kart]').forEach((b) => b.onclick = () => acts[b.dataset.kart] && acts[b.dataset.kart]());
     if (global.Stock) Stock.peupler(root);
     root.querySelectorAll('[data-range]').forEach((b) => b.onclick = () => { range = +b.dataset.range; render(); });
+    root.querySelectorAll('[data-jour]').forEach((b) => b.onclick = () => {
+      const suivant = UI.day.add(jour, +b.dataset.jour);
+      if (suivant > UI.day.today()) return;
+      jour = suivant; UI.haptic('tap'); render();
+    });
     root.querySelectorAll('[data-act]').forEach((b) => b.onclick = () => acts[b.dataset.act] && acts[b.dataset.act]());
   }
 
@@ -571,23 +678,52 @@
   /* ============================================================
      Saisie manuelle et objectifs
      ============================================================ */
+  /* ============================================================
+     Saisir une journee
+
+     Vingt-deux mesures proposees, zero obligatoire. On laisse vide
+     ce qu'on ne mesure pas, et rien de vide ne sera jamais affiche
+     ailleurs. Les champs sont ranges par groupe pour qu'on trouve
+     le sien sans lire les vingt autres.
+     ============================================================ */
   async function manualDay() {
-    const k = UI.day.today();
+    const k = jour;
     const cur = dayOf(k) || {};
-    const res = await UI.promptSheet('Journée du ' + UI.day.label(k), [
-      { name: 'steps', label: 'Pas', type: 'number', inputmode: 'numeric', value: cur.steps || '' },
-      { name: 'exercise', label: 'Minutes d\'exercice', type: 'number', inputmode: 'numeric', value: cur.exercise || '' },
-      { name: 'active', label: 'Calories actives', type: 'number', inputmode: 'numeric', value: cur.active || '' },
-      { name: 'sleep', label: 'Sommeil (minutes)', type: 'number', inputmode: 'numeric', value: cur.sleep || '' },
-      { name: 'hrRest', label: 'FC au repos', type: 'number', inputmode: 'numeric', value: cur.hrRest || '' },
-      { name: 'weight', label: 'Poids (kg)', type: 'number', step: '0.1', inputmode: 'decimal', value: cur.weight || '' }
-    ], 'Enregistrer');
+    const champs = [];
+    GROUPES.forEach((g) => {
+      const dedans = METRIQUES.filter((m) => m.groupe === g);
+      if (!dedans.length) return;
+      champs.push({ type: 'titre', label: g });
+      dedans.forEach((m) => {
+        const val = cur[m.cle];
+        champs.push({
+          name: m.cle,
+          label: m.nom + (m.champ === 'minutes' ? ' (minutes)' : (m.unite ? ' (' + m.unite + ')' : '')),
+          type: 'number',
+          step: m.pas || '1',
+          max: m.max,
+          inputmode: m.pas ? 'decimal' : 'numeric',
+          value: val != null ? val : ''
+        });
+      });
+    });
+
+    const res = await UI.promptSheet('Journée du ' + UI.day.label(k), champs, 'Enregistrer');
     if (!res) return;
+    /* On repart de la journee existante : modifier le poids ne doit
+       pas effacer les pas notes hier soir. Un champ vide efface
+       explicitement la mesure, c'est le seul moyen de se corriger. */
     const row = { day: k };
-    Object.keys(res).forEach((f) => { if (res[f] !== '') row[f] = Number(res[f]); });
+    METRIQUES.forEach((m) => {
+      const v = res[m.cle];
+      if (v !== undefined && v !== '' && isFinite(Number(v))) row[m.cle] = Number(v);
+    });
     if (cur.id) Store.put('healthDays', cur.id, row); else Store.add('healthDays', row);
     Store.set('healthInsight', null);
-    render(); UI.toast('Enregistré');
+    const n = Object.keys(row).length - 1;
+    render();
+    UI.toast(n ? n + (n > 1 ? ' mesures enregistrées' : ' mesure enregistrée') : 'Journée vidée');
+    if (n && global.Anim) Anim.confettis(24);
   }
 
   async function editGoals() {

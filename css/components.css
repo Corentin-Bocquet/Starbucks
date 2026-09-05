@@ -2344,14 +2344,29 @@ footer#codexFoot { padding: 22px var(--gut) 34px; display: flex; justify-content
   line-height: 1; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .gtuile .chiffre { min-width: 0; }
 .gtuile .chiffre small { display: block; font-size: 11.5px; color: var(--muted); margin-top: 3px; }
-.gtuile .gchart { width: 92px; flex: none; }
+/* Le graphique etait fige a 92 px et interdit de retrecir. Dans une
+   colonne de 170 px sur iPhone, le chiffre et la courbe demandaient
+   ensemble plus de place que la tuile : la grille debordait et toute
+   la page glissait vers la droite. Il se contracte maintenant. */
+.gtuile .gchart { width: 92px; max-width: 46%; flex: 0 1 auto; min-width: 0; }
+.gtuile .gchart svg { width: 100%; display: block; }
 .gtuile .gchart.anneau { max-width: 62px; }
 .gtuile .gchart.barres, .gtuile .gchart.barres svg { height: 46px; }
 .gtuile .gchart.courbe { height: 52px; }
 
-.gduo { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.gquatre { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-@media (min-width: 700px) { .gquatre { grid-template-columns: repeat(4, 1fr); } }
+/* Toutes les tuiles d'une meme grille font exactement la meme
+   hauteur : `stretch` est le defaut de la grille, encore faut-il
+   que rien a l'interieur ne force une largeur. */
+.gduo, .gquatre, .gtrois {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+  align-items: stretch; width: 100%;
+}
+.gduo > *, .gquatre > *, .gtrois > * { min-width: 0; }
+.gtuile { min-width: 0; overflow: hidden; }
+@media (min-width: 700px) {
+  .gquatre { grid-template-columns: repeat(4, 1fr); }
+  .gtrois { grid-template-columns: repeat(3, 1fr); }
+}
 
 /* Le trait qui cerne chaque muscle de la planche anatomique. */
 :root { --trait-corps: color-mix(in srgb, var(--ink) 22%, transparent); }
@@ -2718,3 +2733,32 @@ html, body { overflow-x: hidden; max-width: 100%; }
    posé au centre avec la même respiration au-dessus du titre. */
 .empty.illustre > .anime { display: block; margin: 0 auto 12px; }
 .empty.illustre > .anime svg { display: block; }
+
+/* ============================================================
+   42. LA BARRE DE JOUR
+
+   Le même geste que dans l'alimentation : deux flèches, la date au
+   milieu. Sans elle, une journée oubliée était perdue alors que
+   les données sont encore là le lendemain.
+   ============================================================ */
+.barrejour {
+  display: flex; align-items: center; gap: 10px;
+  margin: 10px var(--gut) 0; padding: 8px 8px;
+  background: var(--surface); border-radius: var(--r-md);
+  box-shadow: var(--sh-inset);
+}
+.barrejour > button {
+  flex: none; width: 38px; height: 38px; border-radius: 12px;
+  display: grid; place-items: center; color: var(--ink);
+  background: var(--surface-2); transition: transform var(--d-fast);
+}
+.barrejour > button:active { transform: scale(.9); }
+.barrejour > button[disabled] { opacity: .3; pointer-events: none; }
+.barrejour .tx { flex: 1; min-width: 0; text-align: center; }
+.barrejour .tx b { display: block; font-size: 14.5px; font-weight: 700; }
+.barrejour .tx small { display: block; font-size: 11.5px; color: var(--muted); margin-top: 1px; }
+
+/* Une mesure seule ne remplit pas quatre colonnes : elle prend
+   toute la largeur, avec la même hauteur que les autres tuiles. */
+.gsolo { display: grid; grid-template-columns: 1fr; gap: 12px; width: 100%; }
+.gsolo > * { min-width: 0; }

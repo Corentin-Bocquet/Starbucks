@@ -124,52 +124,122 @@
   /* Les reperes, du creux du cou jusqu'a l'entrejambe, en passant
      par le bras. Le retour se fait tout droit sur l'axe. */
   /* Le tronc et les jambes : du cou au pied, referme sur l'axe. */
+  /* Le tronc et les jambes. Les bras partent a part, ouverts.
+
+     Debout bras le long du corps, on ne voit ni le grand dorsal, ni
+     les obliques, ni le triceps : le bras les recouvre. C'est
+     exactement pour ca que toutes les planches d'anatomie du monde
+     dessinent le sujet bras ecartes. On fait pareil. */
   const REPERES = [
-    [100, 58], [89, 62], [87, 80],             /* cou */
-    [78, 86], [68, 92],                        /* trapeze, dessus d'epaule */
-    [65, 110],                                 /* aisselle */
-    [67, 128], [69, 146],                      /* grand dorsal */
-    [71, 168], [72, 186],                      /* taille */
-    [69, 200], [68, 214],                      /* hanche */
-    [70, 234], [73, 266],                      /* cuisse, dehors */
-    [79, 300], [81, 316],                      /* genou */
-    [77, 340], [77, 360],                      /* mollet */
-    [84, 388], [87, 404],                      /* cheville */
-    [86, 416], [76, 427], [80, 433], [96, 433],/* pied */
-    [95, 406], [94, 388],                      /* cheville, dedans */
-    [93, 360], [92, 334], [92, 316],           /* mollet et genou, dedans */
-    [94, 288], [96, 258], [99, 232]            /* cuisse, dedans */
+    [100, 58], [89, 62], [86, 80],             /* cou */
+    [78, 84], [66, 88],                        /* trapeze, dessus d'epaule */
+    [63, 106],                                 /* aisselle : le bras part d'ici */
+    [66, 126], [68, 146],                      /* grand dorsal */
+    [71, 170], [72, 188],                      /* taille */
+    [69, 202], [68, 216],                      /* hanche */
+    [70, 236], [73, 268],                      /* cuisse, dehors */
+    [79, 302], [81, 318],                      /* genou */
+    [77, 342], [77, 362],                      /* mollet */
+    [84, 390], [87, 406],                      /* cheville */
+    [86, 418], [76, 429], [80, 435], [96, 435],/* pied */
+    [95, 408], [94, 390],                      /* cheville, dedans */
+    [93, 362], [92, 336], [92, 318],           /* mollet et genou, dedans */
+    [94, 290], [96, 260], [99, 234]            /* cuisse, dedans */
   ];
 
-  /* Le bras, dessine a part et pose PAR-DESSUS le tronc.
+  /* ============================================================
+     Le bras, genere depuis son axe
 
-     Le confondre avec le contour du corps donnait un bonhomme en
-     pain d'epices : bras et buste fondus en une seule masse, sans
-     la moindre ligne entre les deux. Un bras qui pend touche
-     vraiment le buste, alors on ne l'ecarte pas artificiellement,
-     on le superpose : son propre trait dessine la separation, et
-     l'epaule reste attachee. */
-  const BRAS = [
-    [66, 88], [52, 97], [45, 116], [44, 136],  /* deltoide */
-    [45, 156], [48, 174],                      /* bras, coude */
-    [52, 194], [55, 214], [57, 232],           /* avant-bras */
-    [56, 250], [60, 263],                      /* main */
-    [68, 259], [70, 240],                      /* dos de la main */
-    [68, 216], [65, 194],                      /* avant-bras, dedans */
-    [63, 174], [62, 152], [64, 126],           /* bras, dedans */
-    [67, 110]                                  /* aisselle */
+     Lister les deux bords d'un membre a la main donne une massue :
+     un bord s'evase pendant que l'autre se resserre, sans qu'on
+     s'en rende compte avant de regarder le dessin.
+
+     On ne decrit donc que l'AXE du bras et son EPAISSEUR a chaque
+     articulation. Le contour se calcule : en chaque point on prend
+     la perpendiculaire a la direction locale, on s'ecarte de la
+     demi-largeur des deux cotes, et on referme. Le bras s'affine
+     forcement du deltoide au poignet, et coller un muscle dessus
+     revient a decouper une tranche du meme ruban.
+
+     Axe, en [x, y, demi-largeur] : epaule, bras, coude, avant-bras,
+     poignet, main, a quarante-cinq degres vers le bas.
+     ============================================================ */
+  const AXE_BRAS = [
+    [68, 96, 17],    /* tete de l'epaule, le deltoide */
+    [57, 114, 15],
+    [46, 134, 12.5], /* milieu du bras */
+    [36, 156, 10.5], /* coude */
+    [27, 178, 10],
+    [19, 200, 8.5],  /* avant-bras */
+    [12, 222, 6.4],  /* poignet */
+    [7, 238, 7.4],   /* paume */
+    [4, 250, 5]      /* bout des doigts */
+  ];
+
+  /* Le contour d'un ruban d'epaisseur variable. */
+  function ruban(axe) {
+    const g = [], d = [];
+    for (let i = 0; i < axe.length; i++) {
+      const a = axe[Math.max(0, i - 1)], b = axe[Math.min(axe.length - 1, i + 1)];
+      let dx = b[0] - a[0], dy = b[1] - a[1];
+      const n = Math.hypot(dx, dy) || 1;
+      dx /= n; dy /= n;
+      const w = axe[i][2];
+      g.push([axe[i][0] - dy * w, axe[i][1] + dx * w]);
+      d.push([axe[i][0] + dy * w, axe[i][1] - dx * w]);
+    }
+    return lisser(g.concat(d.reverse())) + 'Z';
+  }
+
+  /* Une tranche du ruban, entre deux fractions de sa longueur, et
+     eventuellement amincie : c'est ainsi qu'on pose un biceps sur
+     le bras sans jamais qu'il en deborde. */
+  function tranche(axe, de, a, facteur) {
+    const n = axe.length - 1;
+    const pts = [];
+    for (let i = 0; i <= n; i++) {
+      const t = i / n;
+      if (t < de - 1e-6 || t > a + 1e-6) continue;
+      /* Un muscle est un fuseau : fin aux deux tendons, epais au
+         milieu. Sans ce profil en cloche, la tranche se lit comme
+         une manchette posee autour du membre. */
+      const u = (t - de) / ((a - de) || 1);
+      const cloche = 0.45 + 0.55 * Math.sin(Math.PI * Math.max(0, Math.min(1, u)));
+      pts.push([axe[i][0], axe[i][1], axe[i][2] * (facteur || 1) * cloche]);
+    }
+    if (pts.length < 2) return '';
+    return ruban(pts);
+  }
+
+  /* ============================================================
+     La jambe, sur le meme principe
+
+     Les cuisses etaient des bandes verticales a bords paralleles :
+     un quadriceps ne descend pas droit, il se noue au-dessus du
+     genou. Meme axe, meme ruban, memes fuseaux que pour le bras.
+     ============================================================ */
+  const AXE_JAMBE = [
+    [82, 236, 15],   /* haut de cuisse */
+    [84, 260, 15.5],
+    [85, 286, 13],   /* bas de cuisse */
+    [86, 306, 10.5],
+    [87, 320, 9],    /* genou */
+    [85, 342, 11],   /* mollet, son renflement */
+    [86, 366, 9],
+    [88, 390, 6.6],
+    [90, 406, 5.6]   /* cheville */
   ];
 
   /* Le support neutre : peau et volumes, jamais colore. */
   const CORPS = [
-    /* Tete : une demi-ellipse, pas un ovale pose a cote du cou. */
+    /* Tete */
     'M100 10c-12.4 0-22.4 12.6-22.4 28.2S87.6 66.4 100 66.4Z',
     /* Oreille */
     'M79.6 34c-3.2 0-5.6 2.8-5.6 6.2s2.4 6.2 5.6 6.2Z',
     /* Tronc et jambes, referme sur l'axe. */
-    lisser(REPERES) + 'L100 232L100 58Z',
-    /* Le bras, pose par-dessus. */
-    lisser(BRAS) + 'Z'
+    lisser(REPERES) + 'L100 234L100 58Z',
+    /* Le bras ouvert, pose par-dessus le tronc. */
+    ruban(AXE_BRAS)
   ];
 
   /* Le bras est deja dans CORPS : plus rien a recoller. */
@@ -193,14 +263,17 @@
       ['obl',    'M84 138c-6 3.4-9.6 10.4-10.8 21-1.2 10.6-.4 21.2 2 31.6l6.4.8c-1.8-17.8-1.4-35.6 2.4-53.4Z'],
       ['flechh', 'M99 210l-11.8-.6c.8 4 1.8 7.4 3 10.2l8.8.6Z'],
       /* Vaste externe : le renflement du dehors de la cuisse. */
-      ['quad',   'M80 232c-6.6 9.4-10.4 21.6-11.4 36.6-1 15 .2 30 3 43l8.8 1c-2.4-27-2.6-54.6-.4-80.6Z'],
+      /* Vaste externe : le renflement du dehors de la cuisse. */
+      ['quad',   tranche(AXE_JAMBE, 0, 0.42, 0.52) ],
       /* Droit anterieur : la larme centrale. */
-      ['quad',   'M97 230l-15.4 1.4c-2.2 26.4-2 53.8.4 80.4l15 .6Z'],
+      /* Droit anterieur : le fuseau central. */
+      ['quad',   tranche(AXE_JAMBE, 0.02, 0.48, 0.72) ],
       /* Vaste interne : la goutte juste au-dessus du genou. */
-      ['quad',   'M97 292l-13 .6c.4 8.6 1.4 15.8 3 21.4l10 .6Z'],
-      ['add',    'M97 230l-9.4.6c-2 19.8-2 39.6 0 59.4l9.4.6Z'],
-      ['tib',    'M97 336l-10.6 1c-2.4 15.8-2.6 31.6-.6 47.4l11.2.6Z'],
-      ['mol',    'M85.4 338c-3.4 7.8-4.8 17.8-4.4 27.8.3 6.6 1.2 12.8 2.6 17.6l3 .5c-1.8-15.2-2.2-30.4-1.2-45.9Z']
+      /* Vaste interne : la goutte juste au-dessus du genou. */
+      ['quad',   tranche(AXE_JAMBE, 0.30, 0.50, 0.46) ],
+      ['add',    tranche(AXE_JAMBE, 0, 0.38, 0.34) ],
+      ['tib',    tranche(AXE_JAMBE, 0.58, 0.92, 0.44) ],
+      ['mol',    tranche(AXE_JAMBE, 0.56, 0.86, 0.72) ]
     ],
     arriere: [
       ['trap',   'M100 66c-9.4.6-17 3.4-22.8 8.4-4.4 3.8-7.2 8.6-8.4 14.4l-2.4 14.6c8 4.6 19.2 7.6 33.6 8.6Z'],
@@ -210,25 +283,31 @@
       ['lomb',   'M100 168l-20.4-2c-1.2 9-1 18 .6 26.4L100 196Z'],
       ['fess',   'M100 198l-25.4.6c-4.2 9.4-4.6 20.4-1.2 29.8 1.8 5 4.4 8.8 7.6 11.4L100 244Z'],
       ['fess-m', 'M74.6 198c-3.8 7.2-5 16.4-3.4 24.2.6 3.4 1.8 6.2 3.4 8l3.6.6c-1.8-10.8-2.4-22-1.4-32.8Z'],
-      ['isch',   'M97 250l-15.4.6c-2.2 10.2-3 21.8-2.2 33.2.6 6.8 1.8 13 3 18.2l14.6.6Z'],
-      ['isch',   'M79.8 251l-6.6.6c-2.2 10-2.8 21.4-1.4 32 .6 5.8 1.8 10.8 3 14.6l5.2.6c-1.8-15.8-1.8-32.2-.2-47.8Z'],
-      ['mol',    'M97 336l-9.8.6c-2.4 9-3 19-2.2 28.6.4 5.8 1.2 10.8 2.2 15.2l9.8.6Z'],
-      ['mol',    'M85.6 338c-3.4 7.2-4.8 16.8-4.2 26.2.4 6.2 1.4 11.8 2.6 16.2l3 .6c-1.8-14.6-2.2-29-1.4-43Z'],
-      ['sol',    'M97 386l-11.2-.6c.6 5.8 1.4 10.2 2.4 13.6l8.8.6Z']
+      ['isch',   tranche(AXE_JAMBE, 0.04, 0.44, 0.74) ],
+      ['isch',   tranche(AXE_JAMBE, 0.02, 0.40, 0.42) ],
+      ['mol',    tranche(AXE_JAMBE, 0.54, 0.84, 0.78) ],
+      ['mol',    tranche(AXE_JAMBE, 0.58, 0.80, 0.46) ],
+      ['sol',    tranche(AXE_JAMBE, 0.82, 0.96, 0.50) ]
     ]
   };
 
+  /* Chaque muscle du bras est une tranche du meme ruban : il suit
+     l'axe, il s'affine avec lui, il ne peut pas en sortir.
+       0 a 0.22   deltoide, la boule de l'epaule
+       0.20 a 0.48  biceps ou triceps, le corps du bras
+       0.42 a 0.55  le coude, laisse nu
+       0.50 a 0.82  avant-bras
+       0.82 a 1     la main, laissee nue */
   const MUSCLES_BRAS = {
     avant: [
-      ['bi',  'M52 122c-2.4 6.4-3.6 14-3.6 22.8 0 8.8.8 17.8 2.4 27l15.2-2c-1.4-8.6-2-17-2-25.2 0-8.2.8-15.4 2.4-21.6Z'],
-      ['avb', 'M51.6 174c1.2 8.6 2.6 17.2 4.2 25.8l15.2-3c-1.4-8.2-2.6-16.6-3.6-25Z'],
-      ['avb', 'M56.4 202c1.2 6.4 2.4 12.4 3.6 18l14.8-3.4c-1-5.4-2.2-11.2-3.2-17.4Z']
+      ['delt-a', tranche(AXE_BRAS, 0, 0.22, 0.98)],
+      ['bi',     tranche(AXE_BRAS, 0.20, 0.46, 0.80)],
+      ['avb',    tranche(AXE_BRAS, 0.52, 0.80, 0.84)]
     ],
     arriere: [
-      ['rond', 'M69 98c-3.4 4.4-5.4 10-6 16.6l9.2 1.8 3.4-15.8Z'],
-      ['tri',  'M52 122c-2.4 6.4-3.6 14-3.6 22.8 0 8.8.8 17.8 2.4 27l15.2-2c-1.4-8.6-2-17-2-25.2 0-8.2.8-15.4 2.4-21.6Z'],
-      ['avb',  'M51.6 174c1.2 8.6 2.6 17.2 4.2 25.8l15.2-3c-1.4-8.2-2.6-16.6-3.6-25Z'],
-      ['avb',  'M56.4 202c1.2 6.4 2.4 12.4 3.6 18l14.8-3.4c-1-5.4-2.2-11.2-3.2-17.4Z']
+      ['delt-p', tranche(AXE_BRAS, 0, 0.22, 0.98)],
+      ['tri',    tranche(AXE_BRAS, 0.20, 0.46, 0.80)],
+      ['avb',    tranche(AXE_BRAS, 0.52, 0.80, 0.84)]
     ]
   };
 
@@ -336,7 +415,7 @@
 
     /* Les deux moities se chevauchent d'un demi-point : posees bord
        a bord, un lisere de fond restait visible au milieu. */
-    return '<svg viewBox="26 0 148 442" class="corps" aria-hidden="true">' + defs +
+    return '<svg viewBox="-6 0 212 446" class="corps" aria-hidden="true">' + defs +
       '<g filter="url(#' + u + 'o)">' +
         '<g>' + moitie(u) + '</g>' +
         '<g transform="translate(199.4,0) scale(-1,1)">' + moitie(u) + '</g>' +
@@ -413,21 +492,49 @@
     render();
   }
 
+  /* Le jour affiche. Sans lui, une seance oubliee hier soir etait
+     definitivement perdue : on ne pouvait saisir qu'aujourd'hui. */
+  let leJour = UI.day.today();
+
   function render() {
     const s7 = semaine(7);
-    const jour = duJour();
+    const j = duJour(leJour);
 
     root.innerHTML = '<div class="wrap">' +
-      enteteBlock(s7) +
-      '<div class="grid tight two" style="margin-top:14px">' +
+      barreJour() +
+      '<div class="grid tight two" style="margin-top:12px">' +
         '<button class="btn primary lg" data-act="muscu">' + Icon('dumbbell', 19) + 'Musculation</button>' +
         '<button class="btn lg" data-act="sport">' + Icon('activity', 19) + 'Un sport</button>' +
       '</div>' +
-      (jour.seances ? jourBlock(jour) : '') +
+      (j.seances ? jourBlock(j) : videDuJour()) +
+      enteteBlock(s7) +
       carteDuCorps(7) +
       historiqueBlock() +
       '</div>';
     bind();
+  }
+
+  function barreJour() {
+    const demain = UI.day.add(leJour, 1);
+    const j = duJour(leJour);
+    return '<div class="barrejour">' +
+      '<button data-jour="-1" aria-label="Jour précédent">' + Icon('back', 17) + '</button>' +
+      '<span class="tx"><b>' + UI.esc(UI.day.label(leJour)) + '</b>' +
+        '<small>' + (j.seances ? j.seances + (j.seances > 1 ? ' séances · ' : ' séance · ') + UI.fmt.n(j.kcal) + ' kcal'
+                              : 'Aucune séance') + '</small></span>' +
+      '<button data-jour="1" aria-label="Jour suivant"' +
+        (demain > UI.day.today() ? ' disabled' : '') + '>' + Icon('next', 17) + '</button>' +
+      '</div>';
+  }
+
+  /* Un jour sans rien n'est pas une erreur : c'est un jour de repos
+     ou un oubli. On le dit, et on propose de le remplir. */
+  function videDuJour() {
+    const passe = leJour !== UI.day.today();
+    return '<div class="section">' +
+      UI.empty('dumbbell', passe ? 'Rien noté ce jour-là' : 'Rien encore aujourd\'hui',
+        passe ? 'Tu peux toujours l\'ajouter, les boutons au-dessus enregistrent sur ce jour.'
+              : 'Une séance de muscu ou un sport, les deux boutons au-dessus.') + '</div>';
   }
 
   function enteteBlock(s7) {
@@ -444,7 +551,8 @@
   }
 
   function jourBlock(j) {
-    return '<div class="section"><div class="sechead"><h2 style="font-size:16px">Aujourd\'hui</h2>' +
+    return '<div class="section"><div class="sechead"><h2 style="font-size:16px">' +
+      UI.esc(UI.day.label(leJour)) + '</h2>' +
       '<span>' + UI.fmt.n(j.kcal) + ' kcal</span></div>' +
       '<div class="list">' + j.liste.map(ligneSeance).join('') + '</div></div>';
   }
@@ -466,7 +574,7 @@
      ne disait pas ce qu'on avait fait ; une photo, si. */
   function historiqueBlock() {
     const passees = seances().slice()
-      .filter((s2) => s2.day !== UI.day.today())
+      .filter((s2) => s2.day !== leJour)
       .sort((a, b) => (b.day < a.day ? -1 : 1))
       .slice(0, 24);
     if (!passees.length) return '';
@@ -515,6 +623,11 @@
       if (b.dataset.act === 'sport') choisirSport();
       if (b.dataset.act === 'toutHisto') toutHistorique();
     });
+    root.querySelectorAll('[data-jour]').forEach((b) => b.onclick = () => {
+      const suivant = UI.day.add(leJour, +b.dataset.jour);
+      if (suivant > UI.day.today()) return;
+      leJour = suivant; UI.haptic('tap'); render();
+    });
     root.querySelectorAll('[data-kart]').forEach((b) => b.onclick = () => voirSeance(b.dataset.kart));
     if (global.Stock) Stock.peupler(root);
     root.querySelectorAll('[data-seance]').forEach((b) => b.onclick = (e) => {
@@ -531,7 +644,7 @@
      Saisie d'une séance de musculation
      ============================================================ */
   function nouvelleSeance() {
-    brouillon = { type: 'muscu', nom: 'Musculation', day: UI.day.today(), minutes: 60, series: [] };
+    brouillon = { type: 'muscu', nom: 'Musculation', day: leJour, minutes: 60, series: [] };
     ecranSeance();
   }
 
@@ -846,7 +959,7 @@
       { name: 'minutes', label: 'Durée (minutes)', type: 'number', inputmode: 'numeric', value: 45 },
       { name: 'intensite', label: 'Intensité', type: 'select', value: 'normale',
         options: SPORT.INTENSITES.map((i) => ({ v: i.id, n: i.nom })) },
-      { name: 'jour', label: 'Quand', type: 'select', value: UI.day.today(),
+      { name: 'jour', label: 'Quand', type: 'select', value: leJour,
         options: [0, 1, 2, 3, 4, 5, 6].map((n) => {
           const d = UI.day.add(UI.day.today(), -n);
           return { v: d, n: UI.day.label(d) };

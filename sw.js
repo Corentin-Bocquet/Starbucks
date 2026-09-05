@@ -11,7 +11,7 @@
    Les appels aux API (Gemini, Supabase, météo, Open Food Facts)
    ne sont jamais mis en cache.
    ============================================================ */
-const VERSION = 'ever-v9.0.0';
+const VERSION = 'ever-v9.1.0';
 const SHELL = VERSION + '-shell';
 const MEDIA = VERSION + '-media';
 

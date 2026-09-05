@@ -192,6 +192,10 @@
         (f.hint ? '<i class="hint">' + esc(f.hint) + '</i>' : '') + '</div>';
 
       const body = fields.map((f) => {
+        /* Un simple intertitre : vingt champs a la suite forment un
+           mur, ranges par groupe ils se parcourent. Il ne porte
+           aucune valeur et ne ressort pas dans le resultat. */
+        if (f.type === 'titre') return '<h4 class="ftitre">' + esc(f.label) + '</h4>';
         if (f.type === 'textarea') {
           return bloc(f, '<textarea name="' + attr(f.name) + '" rows="3" placeholder="' +
             attr(f.placeholder || '') + '">' + esc(f.value || '') + '</textarea>', true);
