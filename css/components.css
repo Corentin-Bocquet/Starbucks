@@ -526,9 +526,9 @@
 }
 /* Meme traitement que la banniere coloree : la poignee et la
    croix passent par-dessus l'image au lieu de la repousser. */
-.sheet:has(> .mimg) .grabber { position: absolute; left: 0; right: 0; background: none; z-index: 8; }
-.sheet:has(> .mimg) .grabber i { background: rgba(255,255,255,.6); }
-.sheet:has(> .mimg) .close { background: rgba(0,0,0,.3); color: #fff; box-shadow: none; }
+.sheet:has(> .mimg) .grabber, .sheet.bandeau-img .grabber { position: absolute; left: 0; right: 0; background: none; z-index: 8; }
+.sheet:has(> .mimg) .grabber i, .sheet.bandeau-img .grabber i { background: rgba(255,255,255,.6); }
+.sheet:has(> .mimg) .close, .sheet.bandeau-img .close { background: rgba(0,0,0,.3); color: #fff; box-shadow: none; }
 .mbody { padding: 20px var(--gut) 34px; }
 .mcat { font-size: var(--t-xs); font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); margin-bottom: 6px; }
 .mbody h2 { font-size: 27px; font-weight: 900; letter-spacing: -.03em; }
@@ -1896,9 +1896,9 @@ footer#codexFoot { padding: 22px var(--gut) 34px; display: flex; justify-content
 .mtete .ill { position: relative; z-index: 2; display: block; margin-bottom: 8px; }
 .mtete h2 { position: relative; z-index: 2; font-size: 23px; font-weight: 820; letter-spacing: -.02em; color: #fff; }
 .mtete p { position: relative; z-index: 2; font-size: 13.5px; opacity: .9; margin-top: 5px; line-height: 1.45; }
-.sheet:has(.mtete) .grabber { position: absolute; left: 0; right: 0; background: none; z-index: 8; }
-.sheet:has(.mtete) .grabber i { background: rgba(255,255,255,.55); }
-.sheet:has(.mtete) .close { background: rgba(0,0,0,.28); color: #fff; box-shadow: none; }
+.sheet:has(.mtete) .grabber, .sheet.bandeau .grabber { position: absolute; left: 0; right: 0; background: none; z-index: 8; }
+.sheet:has(.mtete) .grabber i, .sheet.bandeau .grabber i { background: rgba(255,255,255,.55); }
+.sheet:has(.mtete) .close, .sheet.bandeau .close { background: rgba(0,0,0,.28); color: #fff; box-shadow: none; }
 @media (min-width: 700px) { .mtete { border-radius: var(--r-2xl) var(--r-2xl) 0 0; } }
 
 /* ============================================================
@@ -2762,3 +2762,259 @@ html, body { overflow-x: hidden; max-width: 100%; }
    toute la largeur, avec la même hauteur que les autres tuiles. */
 .gsolo { display: grid; grid-template-columns: 1fr; gap: 12px; width: 100%; }
 .gsolo > * { min-width: 0; }
+
+/* ============================================================
+   43. LES ICÔNES 3D
+
+   Le fichier est cuit sur son fond, blanc ou noir : une icône en
+   verre posée sur un fond transparent perd ses reflets, et c'est
+   justement le reflet qui fait le verre. Le thème choisit le
+   fichier, la carte porte exactement le même fond, et la jointure
+   ne se voit pas.
+
+   `--icc` est la version claire, `--icd` la sombre. Les deux sont
+   passées en variables sur l'élément, la feuille tranche : aucun
+   JavaScript, et aucun clignotement quand on bascule de thème.
+   ============================================================ */
+.ic3d { display: block; width: 100%; height: 100%; background: #fff; }
+.ic3d > img {
+  display: block; width: 100%; height: 100%;
+  /* `img { background: var(--surface-2) }` de base.css sert de gris
+     d'attente aux photos qui arrivent du reseau. Ici l'image est
+     locale et deja la : ce gris ne sert a rien et se voit, parce
+     qu'avec `contain` la boite de l'image est plus large que
+     l'icone et le gris deborde de chaque cote. */
+  background: transparent;
+  /* `contain` et pas `cover` : l'icône doit se voir ENTIÈRE. Le
+     fond du fichier et celui de la carte étant identiques, les
+     bandes laissées sur les côtés sont invisibles. */
+  object-fit: contain; object-position: center;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .ic3d { background: #0B0C10; } }
+:root[data-theme="dark"] .ic3d { background: #0B0C10; }
+
+/* ---------- L'icône en fond de carte ----------
+   La carte prend le fond de l'icône, sinon on verrait une couture
+   sur les côtés. Le voile sombre du bas, fait pour poser du texte
+   blanc sur une photo, n'a plus lieu d'être sur un fond blanc : il
+   devient un dégradé de la même couleur que le fond, et le texte
+   repasse en sombre. Sur fond noir, rien ne change. */
+.kart:has(.ic3d) { background: #fff; }
+.kart:has(.ic3d) .ic3d.fond { position: absolute; inset: 0; }
+.kart:has(.ic3d) .ic3d.fond > img { object-position: center 38%; }
+.kart:has(.ic3d)::before { display: none; }
+.kart:has(.ic3d) .voile {
+  background: linear-gradient(180deg, transparent 46%, rgba(255,255,255,.72) 62%, #fff 78%);
+}
+.kart:has(.ic3d) .tx { color: var(--ink); }
+.kart:has(.ic3d) .tx b { color: #14151A; text-shadow: none; }
+.kart:has(.ic3d) .tx small { color: #5A5E68; opacity: 1; text-shadow: none; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .kart:has(.ic3d) { background: #0B0C10; }
+  :root:not([data-theme="light"]) .kart:has(.ic3d) .voile {
+    background: linear-gradient(180deg, transparent 46%, rgba(11,12,16,.72) 62%, #0B0C10 78%);
+  }
+  :root:not([data-theme="light"]) .kart:has(.ic3d) .tx b { color: #F4F5F7; }
+  :root:not([data-theme="light"]) .kart:has(.ic3d) .tx small { color: #A6ACB8; }
+}
+:root[data-theme="dark"] .kart:has(.ic3d) { background: #0B0C10; }
+:root[data-theme="dark"] .kart:has(.ic3d) .voile {
+  background: linear-gradient(180deg, transparent 46%, rgba(11,12,16,.72) 62%, #0B0C10 78%);
+}
+:root[data-theme="dark"] .kart:has(.ic3d) .tx b { color: #F4F5F7; }
+:root[data-theme="dark"] .kart:has(.ic3d) .tx small { color: #A6ACB8; }
+
+/* Les grandes portes d'entrée suivent la même règle.
+
+   Attention : `.porte` est une boite flex alignee en bas. Sans
+   `position: absolute`, l'icone reste dans le flux et se retrouve
+   en carre blanc pose sur le fond de la carte, avec une couture
+   visible sur trois cotes. Elle doit couvrir la tuile entiere,
+   exactement comme une photo.
+
+   Le `padding-bottom` sur l'image reserve la bande du texte : le
+   verre se pose au-dessus du titre au lieu de passer dessous. */
+.porte:has(.ic3d) { background: #fff; }
+.porte:has(.ic3d)::before { display: none; }
+.porte:has(.ic3d) .ic3d.fond { position: absolute; inset: 0; z-index: 1; }
+.porte:has(.ic3d) .ic3d.fond > img {
+  object-fit: contain; object-position: center top;
+  padding: 5px 12px 54px;
+}
+.porte:has(.ic3d) .voile {
+  background: linear-gradient(180deg, transparent 44%, rgba(255,255,255,.74) 62%, #fff 80%);
+}
+.porte:has(.ic3d) .tx b { color: #14151A; text-shadow: none; }
+.porte:has(.ic3d) .tx small { color: #5A5E68; opacity: 1; text-shadow: none; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .porte:has(.ic3d) { background: #0B0C10; }
+  :root:not([data-theme="light"]) .porte:has(.ic3d) .voile {
+    background: linear-gradient(180deg, transparent 44%, rgba(11,12,16,.74) 62%, #0B0C10 80%);
+  }
+  :root:not([data-theme="light"]) .porte:has(.ic3d) .tx b { color: #F4F5F7; }
+  :root:not([data-theme="light"]) .porte:has(.ic3d) .tx small { color: #A6ACB8; }
+}
+:root[data-theme="dark"] .porte:has(.ic3d) { background: #0B0C10; }
+:root[data-theme="dark"] .porte:has(.ic3d) .voile {
+  background: linear-gradient(180deg, transparent 44%, rgba(11,12,16,.74) 62%, #0B0C10 80%);
+}
+:root[data-theme="dark"] .porte:has(.ic3d) .tx b { color: #F4F5F7; }
+:root[data-theme="dark"] .porte:has(.ic3d) .tx small { color: #A6ACB8; }
+
+/* Hors carte (une ligne de liste, une pastille de bouton), elle
+   prend la place d'une icône et garde son coin arrondi. */
+.ic3d:not(.fond) { border-radius: 12px; overflow: hidden; }
+.list .rowitem > .ic3d { width: 38px; height: 38px; flex: none; }
+.porte .ic3d.fond { position: absolute; inset: 0; }
+.mtete .ic3d { width: 54px; height: 54px; border-radius: 15px; margin: 0 auto 8px; }
+
+/* La balise image, pour les endroits qui veulent un vrai <img>. */
+.ic3dimg { display: block; width: 100%; height: 100%; object-fit: contain; }
+
+/* ---------- Une carte d'assistant portée par son icône ----------
+   La carte prend le fond de l'icône, blanc ou noir. La couleur de
+   la palette (`--oa`) ne sert plus qu'aux accents : le nom, le
+   compteur, le liseré de sélection. Avant, un carré blanc flottait
+   au milieu d'un aplat vert et les deux se battaient. */
+.opt.opt3d {
+  background: #fff; color: var(--ink);
+  padding-top: 0; justify-content: flex-start;
+  min-height: 286px;
+}
+.opt.opt3d .im.ic3d {
+  width: 100%; height: 190px; margin: 0 0 4px; flex: none;
+  border-radius: 0; overflow: hidden; position: relative; z-index: 2;
+  background: transparent;
+}
+.opt.opt3d .im.ic3d > img { width: 100%; height: 100%; object-fit: contain; }
+.opt.opt3d .nm { color: var(--ink); font-size: 16px; }
+.opt.opt3d .sb { color: var(--muted); opacity: 1; }
+.opt.opt3d .cnt {
+  background: color-mix(in srgb, var(--oa) 16%, transparent);
+  color: var(--oa); font-weight: 800;
+}
+.opt.opt3d.sel { outline: 3px solid var(--oa); outline-offset: 3px; }
+.opt.opt3d.mid .im.ic3d { height: 214px; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .opt.opt3d { background: #0B0C10; }
+}
+:root[data-theme="dark"] .opt.opt3d { background: #0B0C10; }
+
+
+/* ============================================================
+   44. LE BANDEAU D'UNE POP-UP, VRAIMENT COLLÉ
+
+   La classe `bandeau` est posée par le JavaScript dès qu'une
+   pop-up commence par une image ou par un aplat coloré, même
+   emballé dans un conteneur. Les règles ci-dessous suppriment
+   alors tout ce qui pouvait laisser un liseré clair au-dessus :
+   la poignée sticky, une marge de conteneur, un coin arrondi.
+   ============================================================ */
+.sheet.bandeau > *:first-child { margin-top: 0; }
+.sheet.bandeau .result,
+.sheet.bandeau .result.plein { border-radius: 0; box-shadow: none; overflow: visible; }
+.sheet.bandeau .result > .mimg:first-child,
+.sheet.bandeau .result > .mtete:first-child { margin-top: 0; border-radius: 0; }
+.sheet.bandeau::before { display: none; }
+
+/* ---------- Le bandeau d'affiche d'un film ----------
+   L'affiche prend toute la largeur, le titre se pose dessus. */
+.mimg.affiche-tete { aspect-ratio: 3 / 2; max-height: 46vh; border-radius: 0; }
+.mimg.affiche-tete > img,
+.mimg.affiche-tete .ic3dimg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 2; }
+.mimg.affiche-tete .ombre {
+  position: absolute; inset: 0; z-index: 3;
+  background: linear-gradient(180deg, rgba(8,7,12,.34) 0%, transparent 34%, rgba(8,7,12,.52) 68%, rgba(8,7,12,.88) 100%);
+}
+.mimg.affiche-tete .dessus {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 4;
+  padding: 16px var(--gut); color: #fff;
+}
+.mimg.affiche-tete .sur {
+  font-size: 11px; font-weight: 800; letter-spacing: .09em;
+  text-transform: uppercase; opacity: .88; margin-bottom: 4px;
+}
+.mimg.affiche-tete .titreligne { display: flex; align-items: flex-end; gap: 10px; }
+.mimg.affiche-tete h3 {
+  font-size: 25px; font-weight: 850; letter-spacing: -.03em;
+  line-height: 1.12; flex: 1; min-width: 0; color: #fff;
+  text-shadow: 0 2px 14px rgba(0,0,0,.6);
+}
+.mimg.affiche-tete .valeur {
+  flex: none; font-size: 14px; font-weight: 800;
+  background: rgba(255,255,255,.16); backdrop-filter: blur(10px);
+  padding: 4px 10px; border-radius: var(--r-pill);
+}
+
+/* ---------- Les genres, en pastilles ---------- */
+.genres { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 12px; }
+.genre {
+  font-size: 11.5px; font-weight: 750; letter-spacing: .01em;
+  padding: 5px 11px; border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--accent) 13%, transparent);
+  color: color-mix(in srgb, var(--accent) 82%, var(--ink));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+/* Le « + » d'une ligne de résultat : une vraie cible, séparée du
+   reste de la ligne, pour qu'on puisse ouvrir sans ajouter. */
+.plusrond {
+  width: 34px; height: 34px; border-radius: 50%; flex: none;
+  display: grid; place-items: center;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+}
+.plusrond:active { transform: scale(.88); }
+
+/* ============================================================
+   45. Tuiles de graphique cliquables et vue de detail
+
+   Une tuile qui ouvre quelque chose doit le dire avant qu'on
+   la touche : le curseur, l'enfoncement au doigt et l'anneau
+   de focus suffisent, on ne rajoute pas de chevron qui
+   viendrait encombrer une tuile deja dense.
+
+   La vue de detail reprend exactement la tuile, en pleine
+   largeur et sans l'en-tete : c'est le meme objet, agrandi.
+   ============================================================ */
+.gtuile.cliquable { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.gtuile.cliquable:active { transform: scale(.975); }
+.gtuile.cliquable:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+
+.gtuile.pleine { width: 100%; }
+.gtuile.pleine .bas { margin-top: 0; display: block; }
+
+/* Dans une tuile, le graphique est bride a 92 px pour laisser la
+   place au chiffre. En detail il n'y a plus de chiffre a cote : il
+   reprend toute la largeur, et son SVG porte son propre ratio
+   (660 x 260) pour calculer sa hauteur tout seul. */
+.gtuile.pleine .gchart,
+.gtuile.pleine .gchart.courbe,
+.gtuile.pleine .gchart.barres {
+  width: 100%; max-width: none; flex: 1 1 auto; height: auto;
+}
+.gtuile.pleine .gchart svg { width: 100%; height: auto; display: block; }
+
+.gstats {
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px; margin-top: 12px;
+}
+.gstat {
+  min-width: 0; padding: 10px 8px; border-radius: 14px;
+  background: var(--surf-2, var(--surf)); box-shadow: var(--sh-inset);
+  text-align: center;
+}
+.gstat small {
+  display: block; font-size: 10px; font-weight: 700; letter-spacing: .02em;
+  text-transform: uppercase; color: var(--muted);
+}
+.gstat b {
+  display: block; margin-top: 3px; font-size: 15px; font-weight: 820;
+  letter-spacing: -.02em; font-variant-numeric: tabular-nums;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+@media (max-width: 380px) {
+  .gstats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

@@ -175,10 +175,11 @@
      ne voulait rien dire et rien ne donnait envie d'etre touche. */
   function addBlock() {
     return Portes.section('Ajouter', [
-      { act: 'scan',      nom: 'Scanner',   sub: 'Photo du plat',   ph: 'camera photo food' },
-      { act: 'search',    nom: 'Chercher',  sub: 'Dans la base',    ph: 'grocery shelf food' },
-      { act: 'manual',    nom: 'À la main', sub: 'Nom et calories', ph: 'notebook pen' },
-      { act: 'fromcodex', nom: 'Mes recettes', sub: 'Déjà enregistrées', ph: 'cuisine' }
+      { act: 'scan',      nom: 'Scanner',   sub: 'Photo du plat',   ph: 'scanner' },
+      { act: 'barcode',   nom: 'Code-barres', sub: 'Produit emballé', ph: 'codebarre' },
+      { act: 'search',    nom: 'Chercher',  sub: 'Dans la base',    ph: 'chercher' },
+      { act: 'manual',    nom: 'À la main', sub: 'Nom et calories', ph: 'a saisir ajouter' },
+      { act: 'fromcodex', nom: 'Mes recettes', sub: 'Déjà enregistrées', ph: 'recettes' }
     ]);
   }
 
@@ -405,6 +406,7 @@
     scan: () => scanFlow(),
     search: (slot) => searchFlow(typeof slot === 'string' ? slot : null),
     manual: () => manualFlow(),
+    barcode: (slot) => barcodeFlow(typeof slot === 'string' ? slot : null),
     fromcodex: () => codexFlow(),
     analyse: () => analyse(),
     reste: () => quoiManger()
@@ -1149,12 +1151,25 @@
     }
   }
 
-  function needKey() {
+  /* Le scan photo a besoin d'un modele de vision, et le seul
+     branche ici est Gemini. Plutot qu'un cul-de-sac, on explique
+     ce qui manque et on propose les deux routes qui marchent
+     sans cle : le code-barres et la saisie manuelle. */
+  function needKey(slot) {
     UI.openSheet('<div class="mbody" style="padding-top:6px">' +
-      '<h2 style="font-size:22px">Clé Gemini requise</h2>' +
-      '<p class="mdesc">Le scan et les analyses passent par Gemini. La clé reste sur cet appareil, elle n\'est jamais publiée.</p>' +
-      '<button class="btn primary block lg" style="margin-top:18px" data-go>Ouvrir les réglages</button></div>',
-      { onMount: (s) => s.querySelector('[data-go]').onclick = () => { UI.closeSheet(); App.go('#/m/settings/ia'); } });
+      '<h2 style="font-size:22px">Le scan photo a besoin d\'une clé IA</h2>' +
+      '<p class="mdesc">Reconnaître une assiette demande un modèle de vision. EVER utilise Gemini, et la clé est gratuite. Elle reste sur cet appareil, elle n\'est jamais publiée.</p>' +
+      '<button class="btn primary block lg" style="margin-top:18px" data-go>Ajouter ma clé (2 min)</button>' +
+      '<div style="height:1px;background:var(--hairline);margin:16px 0"></div>' +
+      '<p class="muted" style="font-size:12px;margin-bottom:10px">Sans clé, ça marche quand même :</p>' +
+      '<button class="btn soft block" style="margin-bottom:8px" data-bar>Scanner un code-barres</button>' +
+      '<button class="btn soft block" data-main>Saisir à la main</button>' +
+      '</div>',
+      { onMount: (s) => {
+        s.querySelector('[data-go]').onclick = () => { UI.closeSheet(); App.go('#/m/settings/ia'); };
+        s.querySelector('[data-bar]').onclick = () => { UI.closeSheet(); barcodeFlow(typeof slot === 'string' ? slot : null); };
+        s.querySelector('[data-main]').onclick = () => { UI.closeSheet(); manualFlow('', typeof slot === 'string' ? slot : null); };
+      } });
   }
 
   /* ============================================================

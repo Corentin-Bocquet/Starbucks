@@ -47,29 +47,40 @@
         })), { classe: 'petit' }) + '</div>' +
 
       /* Les deux courbes cote a cote : on les compare d'un regard
-         au lieu de defiler de l'une a l'autre. */
-      ((food.some((f) => f.kcal) || health.some((h) => h.steps))
-        ? '<div class="section"><div class="secbar"><h2>Sur 14 jours</h2></div><div class="gduo">' +
-          (food.some((f) => f.kcal) ? Graph.tuile({
+         au lieu de defiler de l'une a l'autre.
+
+         On ne garde que les journees reellement renseignees. Une
+         journee ou l'on n'a rien note n'est pas une journee a zero
+         calorie : la tracer ferait plonger la courbe et tirerait
+         la moyenne vers le bas pour une raison qui n'a rien a voir
+         avec ce qu'on a mange. */
+      (function () {
+        const kcal = food.map((f) => f.kcal).filter((v) => v != null && v > 0);
+        const pas  = health.map((h) => h.steps).filter((v) => v != null && v > 0);
+        if (!kcal.length && !pas.length) return '';
+        const manquants = (14 - Math.max(kcal.length, pas.length));
+        return '<div class="section"><div class="secbar"><h2>Sur 14 jours</h2>' +
+          (manquants > 0 ? '<span class="muted" style="font-size:12px">' + manquants +
+            (manquants > 1 ? ' jours sans saisie, ignorés' : ' jour sans saisie, ignoré') + '</span>' : '') +
+          '</div><div class="gduo">' +
+          (kcal.length ? Graph.tuile({
             nom: 'Calories', art: 'flamme', teinte: '#E0653C',
-            valeur: UI.fmt.n(avg(food.map((f) => f.kcal))), unite: 'kcal en moyenne',
-            graph: Graph.courbe({ valeurs: food.map((f) => f.kcal), c1: '#E0653C' })
+            valeur: UI.fmt.n(avg(kcal)), unite: 'kcal en moyenne',
+            graph: Graph.courbe({ valeurs: kcal, c1: '#E0653C' })
           }) : '') +
-          (health.some((h) => h.steps) ? Graph.tuile({
+          (pas.length ? Graph.tuile({
             nom: 'Pas', art: 'pas', teinte: '#3FAE79',
-            valeur: UI.fmt.n(avg(health.map((h) => h.steps || 0))), unite: 'pas en moyenne',
-            graph: Graph.courbe({ valeurs: health.map((h) => h.steps || 0), c1: '#3FAE79' })
+            valeur: UI.fmt.n(avg(pas)), unite: 'pas en moyenne',
+            graph: Graph.courbe({ valeurs: pas, c1: '#3FAE79' })
           }) : '') +
-          '</div></div>'
-        : '') +
+          '</div></div>';
+      }()) +
 
       /* L'historique prenait le tiers de la page. C'est maintenant
          une carte qui ouvre le detail. */
       '<div class="section">' + Cartes.grille([
-        { id: '__histo', titre: 'Mon historique', sous: 'Tout ce que j\'ai fait',
-          ph: 'vintage photo album', type: 'icone' },
-        { id: '__ligue', titre: 'Ma ligue', sous: 'Le classement entre amis',
-          ph: 'gens', type: 'icone' }
+        { id: '__histo', titre: 'Mon historique', sous: 'Tout ce que j\'ai fait', ic: 'historique' },
+        { id: '__ligue', titre: 'Ma ligue', sous: 'Le classement entre amis', ic: 'objectifs' }
       ]) + '</div>' +
 
       '<div class="section"><p class="muted" style="font-size:11.5px;line-height:1.55">' +
@@ -291,13 +302,17 @@
      compte de la semaine. Celles restees vides portent une pastille
      rouge : c'est exactement l'information qu'on vient chercher.
      ============================================================ */
+  /* Une icône par source de bien-être. Le lien n'est pas
+     illustratif mais mnémotechnique : la cible pour l'élan, le
+     soleil pour la fierté, le cœur pour la tendresse, la tasse
+     chaude pour le réconfort, le dé pour le cran. */
   const PHOTO_MOL = {
-    dopamine:      'runner finish line achievement',
-    serotonine:    'sunlight calm morning',
-    ocytocine:     'two people hugging warmth',
-    cannabinoides: 'friends laughing together',
-    opioides:      'warm blanket comfort tea',
-    testosterone:  'gym weights training'
+    dopamine:      'objectifs',
+    serotonine:    'mood',
+    ocytocine:     'apple sante',
+    cannabinoides: 'trois idees',
+    opioides:      'chaud',
+    testosterone:  'de hasard'
   };
 
   function cupsBlock() {

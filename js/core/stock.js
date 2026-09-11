@@ -312,10 +312,21 @@
     const c = clef(type, sujet);
     const cache = enCache(c);
     if (cache !== undefined) return cache;
-    if (!actif() || coupe || !navigator.onLine) return null;
+    /* Hors ligne, on ne peut rien faire : une image cassee est pire
+       qu'une pastille. Partout ailleurs on rend TOUJOURS quelque
+       chose. C'est ici que naissaient les « lettres » : des que la
+       photothèque etait coupee (quota Openverse atteint, reglage
+       desactive) ou que le sujet ne donnait aucune requete, la
+       fonction rendait null et l'initiale restait a l'ecran. La
+       generation, elle, ne coute rien et ne tombe jamais. */
+    if (!navigator.onLine) return null;
 
     const q = requete(type, sujet);
-    if (!q) return null;
+    if (!actif() || coupe || !q) {
+      const direct = genere(type, sujet);
+      Store.set(c, { u: direct, at: Date.now(), gen: 1 });
+      return direct;
+    }
 
     return enchainer(async () => {
       const encore = enCache(c);
@@ -354,6 +365,14 @@
 
   function ic(sujet, opts) {
     opts = opts || {};
+    /* Une icone 3D dessinee pour l'application bat toujours une
+       photo cherchee par mot-cle : meme style, meme cadrage, meme
+       lumiere. On ne repart sur la photothèque que si le sujet ne
+       correspond a aucune des trente-trois. */
+    if (global.Ic && !opts.photo) {
+      const slug = Ic.trouve(sujet);
+      if (slug) return Ic.html(slug, { classe: opts.classe });
+    }
     const t = teinte(sujet);
     const type = opts.type || 'icone';
     return '<span class="phic' + (opts.classe ? ' ' + opts.classe : '') + '"' +

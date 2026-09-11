@@ -91,7 +91,7 @@
     { cle: 'standing', nom: 'Heures debout',  groupe: 'Activité', art: 'personne', teinte: '#4F9D8C', unite: 'h',    fmt: (v) => Math.round(v) },
     { cle: 'distance', nom: 'Distance',       groupe: 'Activité', art: 'lieu',     teinte: '#3D95D8', unite: 'km',   fmt: (v) => v.toFixed(1).replace('.', ','), pas: '0.1' },
 
-    { cle: 'sleep',    nom: 'Sommeil',        groupe: 'Récupération', art: 'lune', teinte: '#8F76D0', unite: 'h',    fmt: (v) => (v / 60).toFixed(1).replace('.', ','), champ: 'minutes' },
+    { cle: 'sleep',    nom: 'Sommeil',        groupe: 'Récupération', art: 'lune', teinte: '#8F76D0', unite: 'h',    fmt: (v) => (v / 60).toFixed(1).replace('.', ','), stockeEnMinutes: true },
     { cle: 'hrRest',   nom: 'FC au repos',    groupe: 'Récupération', art: 'coeur', teinte: '#C6402F', unite: 'bpm', fmt: (v) => Math.round(v), bas: true },
     { cle: 'hrv',      nom: 'Variabilité',    groupe: 'Récupération', art: 'eclair', teinte: '#3D95D8', unite: 'ms', fmt: (v) => Math.round(v) },
     { cle: 'spo2',     nom: 'Oxygène du sang', groupe: 'Récupération', art: 'goutte', teinte: '#4A9BE0', unite: '%', fmt: (v) => Math.round(v) },
@@ -202,9 +202,9 @@
             const n = METRIQUES.filter((m) => rempli[m.cle] != null && rempli[m.cle] !== '').length;
             return n + (n > 1 ? ' mesures notées' : ' mesure notée');
           }()) : 'Pas, sommeil, poids…',
-          ph: 'notebook pen writing desk', type: 'icone' },
+          ph: 'a saisir ajouter', type: 'icone' },
         { id: 'goals', titre: 'Mes objectifs', sous: 'Ce que tu vises chaque jour',
-          ph: 'target archery bullseye', type: 'icone' }
+          ph: 'objectifs', type: 'icone' }
       ]) + '</div>';
   }
 
@@ -342,7 +342,7 @@
       return Graph.tuile({
         nom: m.nom, art: m.art, teinte: m.teinte,
         valeur: m.fmt(dernier), unite: m.unite + (sens === 'stable' ? '' : ' · ' + sens),
-        graph: graph
+        graph: graph, detail: m.cle
       });
     }).filter(Boolean);
 
@@ -443,9 +443,9 @@
     const meta = Store.get('healthImport', null);
     return '<div class="section"><div class="secbar"><h2>Mes données</h2></div>' +
       Cartes.grille([
-        { id: 'import', titre: 'Apple Santé', ph: 'iphone health app screen', type: 'icone',
+        { id: 'import', titre: 'Apple Santé', ph: 'apple sante', type: 'icone',
           sous: meta ? UI.fmt.n(meta.records) + ' mesures' : 'Importer l\'export' },
-        daily().length ? { id: 'clear', titre: 'Tout effacer', sous: daily().length + ' journées', ph: 'empty cardboard box', type: 'icone' } : null
+        daily().length ? { id: 'clear', titre: 'Tout effacer', sous: daily().length + ' journées', ph: 'poubelle a jeter', type: 'icone' } : null
       ].filter(Boolean)) + '</div>' +
     '<div class="section" style="padding-top:0"><p class="muted" style="font-size:11.5px;line-height:1.5">' +
     'Apple Santé ne propose aucune connexion directe pour le web. L\'export met une à deux minutes ' +
@@ -462,6 +462,80 @@
       jour = suivant; UI.haptic('tap'); render();
     });
     root.querySelectorAll('[data-act]').forEach((b) => b.onclick = () => acts[b.dataset.act] && acts[b.dataset.act]());
+    root.querySelectorAll('[data-detail]').forEach((b) => {
+      b.onclick = () => detailMetrique(b.dataset.detail);
+      b.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); detailMetrique(b.dataset.detail); } };
+    });
+  }
+
+  /* ============================================================
+     Le detail d'une mesure
+
+     La tuile donne la derniere valeur et une silhouette. Quand on
+     la touche, on veut le reste : la courbe en grand, les reperes
+     qui permettent de la lire (moyenne, mini, maxi, objectif) et
+     les journees une par une. Meme grammaire visuelle que la
+     tuile, juste la place en plus.
+
+     Regle importante : une journee sans mesure n'est pas un zero.
+     On ne garde que les jours renseignes, sinon la moyenne ment et
+     la courbe plonge chaque fois qu'on oublie de saisir.
+     ============================================================ */
+  function detailMetrique(cle) {
+    const m = metrique(cle);
+    if (!m) return;
+    const serie = lastDays(range)
+      .map((d) => ({ jour: d.day, v: d[cle] }))
+      .filter((x) => x.v != null && x.v !== '' && isFinite(Number(x.v)))
+      .map((x) => ({ jour: x.jour, v: Number(x.v) }));
+    if (!serie.length) return;
+
+    const vals = serie.map((x) => x.v);
+    const dernier = vals[vals.length - 1];
+    const moy = vals.reduce((a, b) => a + b, 0) / vals.length;
+    const mini = Math.min.apply(null, vals);
+    const maxi = Math.max.apply(null, vals);
+    const moitie = Math.floor(vals.length / 2);
+    const a1 = vals.slice(0, moitie).reduce((a, b) => a + b, 0) / (moitie || 1);
+    const a2 = vals.slice(moitie).reduce((a, b) => a + b, 0) / (vals.length - moitie || 1);
+    const ecart = (vals.length > 1 && a1) ? ((a2 - a1) / a1) * 100 : 0;
+    const sens = vals.length < 2 ? 'trop tôt pour dire'
+      : (Math.abs(ecart) < 2 ? 'stable'
+        : (ecart > 0 ? 'en hausse de ' : 'en baisse de ') + Math.abs(ecart).toFixed(0) + ' %');
+    const mieux = Math.abs(ecart) < 2 ? null : ((ecart > 0) !== !!m.bas);
+
+    const parJour = ['sleep', 'cafe', 'alcool', 'eau'].indexOf(cle) >= 0;
+    const grand = parJour
+      ? Graph.barres({ valeurs: vals.slice(-14), c2: m.teinte, classe: 'haute', L: 660, H: 260 })
+      : Graph.courbe({ valeurs: vals.slice(-30), c1: m.teinte, classe: 'haute', L: 660, H: 260 });
+
+    const obj = goals()[cle];
+    const u = m.unite ? ' ' + m.unite : '';
+    const chiffre = (nom, v) => '<div class="gstat"><small>' + nom + '</small><b>' + UI.esc(m.fmt(v)) + u + '</b></div>';
+
+    const lignes = serie.slice().reverse().slice(0, 30).map((x) =>
+      '<div class="rowitem"><span class="tx"><b>' + UI.esc(UI.day.label(x.jour)) + '</b></span>' +
+      '<span class="rt tabnum">' + UI.esc(m.fmt(x.v)) + u + '</span></div>').join('');
+
+    UI.openSheet(
+      '<div class="mbody" style="padding-top:6px">' +
+        '<h2 style="font-size:22px">' + UI.esc(m.nom) + '</h2>' +
+        '<p class="mdesc">' + serie.length + (serie.length > 1 ? ' journées renseignées' : ' journée renseignée') +
+          ' sur les ' + range + ' derniers jours · ' + sens +
+          (mieux === null ? '' : (mieux ? ' (dans le bon sens)' : ' (dans le mauvais sens)')) + '</p>' +
+        '<div class="gtuile pleine" style="--t:' + UI.attr(m.teinte) + ';margin-top:14px">' +
+          '<div class="bas">' + grand + '</div>' +
+        '</div>' +
+        '<div class="gstats">' +
+          chiffre('Dernier', dernier) + chiffre('Moyenne', moy) +
+          chiffre('Mini', mini) + chiffre('Maxi', maxi) +
+        '</div>' +
+        (obj != null ? '<p class="aide">Objectif : ' + UI.esc(m.fmt(obj)) + u +
+          ' · ' + (((dernier >= obj) !== !!m.bas) ? 'atteint sur la dernière journée' : 'pas encore atteint') + '</p>' : '') +
+        '<div class="sechead" style="margin-top:18px"><h2 style="font-size:16px">Jour par jour</h2><span>' + serie.length + '</span></div>' +
+        '<div class="list">' + lignes + '</div>' +
+        '<p class="aide">Les journées sans saisie sont ignorées : elles ne comptent pas comme un zéro.</p>' +
+      '</div>');
   }
 
   const acts = {
@@ -695,14 +769,19 @@
       if (!dedans.length) return;
       champs.push({ type: 'titre', label: g });
       dedans.forEach((m) => {
-        const val = cur[m.cle];
+        /* Le sommeil est stocke en minutes, comme Apple Sante le
+           fournit, mais personne ne pense « 465 minutes ». On
+           saisit 7,75 et la conversion se fait au moment
+           d'enregistrer. */
+        let val = cur[m.cle];
+        if (m.stockeEnMinutes && val != null) val = Math.round(val / 6) / 10;
         champs.push({
           name: m.cle,
-          label: m.nom + (m.champ === 'minutes' ? ' (minutes)' : (m.unite ? ' (' + m.unite + ')' : '')),
+          label: m.nom + (m.unite ? ' (' + m.unite + ')' : ''),
           type: 'number',
-          step: m.pas || '1',
+          step: m.stockeEnMinutes ? '0.25' : (m.pas || '1'),
           max: m.max,
-          inputmode: m.pas ? 'decimal' : 'numeric',
+          inputmode: (m.pas || m.stockeEnMinutes) ? 'decimal' : 'numeric',
           value: val != null ? val : ''
         });
       });
@@ -716,7 +795,8 @@
     const row = { day: k };
     METRIQUES.forEach((m) => {
       const v = res[m.cle];
-      if (v !== undefined && v !== '' && isFinite(Number(v))) row[m.cle] = Number(v);
+      if (v === undefined || v === '' || !isFinite(Number(v))) return;
+      row[m.cle] = m.stockeEnMinutes ? Math.round(Number(v) * 60) : Number(v);
     });
     if (cur.id) Store.put('healthDays', cur.id, row); else Store.add('healthDays', row);
     Store.set('healthInsight', null);
@@ -732,10 +812,10 @@
       { name: 'steps', label: 'Pas par jour', type: 'number', inputmode: 'numeric', value: g.steps },
       { name: 'exercise', label: 'Minutes d\'exercice', type: 'number', inputmode: 'numeric', value: g.exercise },
       { name: 'active', label: 'Calories actives', type: 'number', inputmode: 'numeric', value: g.active },
-      { name: 'sleep', label: 'Sommeil (minutes)', type: 'number', inputmode: 'numeric', value: g.sleep }
+      { name: 'sleep', label: 'Sommeil (heures)', type: 'number', step: '0.25', inputmode: 'decimal', value: Math.round(g.sleep / 6) / 10 }
     ], 'Enregistrer');
     if (!res) return;
-    Store.set('healthGoals', { steps: +res.steps || 10000, exercise: +res.exercise || 30, active: +res.active || 500, sleep: +res.sleep || 450 });
+    Store.set('healthGoals', { steps: +res.steps || 10000, exercise: +res.exercise || 30, active: +res.active || 500, sleep: Math.round((+res.sleep || 7.5) * 60) });
     render();
   }
 

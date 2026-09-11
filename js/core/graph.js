@@ -64,7 +64,7 @@
     const vals = (o.valeurs || []).map((v) => Number(v) || 0);
     if (!vals.length) return '';
     const max = Math.max.apply(null, vals.concat([1]));
-    const L = 200, H = 110, n = vals.length;
+    const L = o.L || 200, H = o.H || 110, n = vals.length;
     const large = Math.max(4, Math.min(18, (L - (n - 1) * 4) / n));
     const ecart = n > 1 ? (L - large) / (n - 1) : 0;
     const actif = o.actif == null ? n - 1 : o.actif;
@@ -88,7 +88,12 @@
     o = o || {};
     const vals = (o.valeurs || []).map((v) => Number(v) || 0);
     if (vals.length < 2) return '';
-    const L = 240, H = 120, P = 8;
+    /* La boite est reglable : la meme courbe sert dans une tuile
+       de 160 px et dans une feuille de detail plein ecran. Si le
+       viewBox garde son ratio de tuile alors que le conteneur est
+       trois fois plus large, le SVG se centre en laissant deux
+       marges vides. */
+    const L = o.L || 240, H = o.H || 120, P = 8;
     const min = o.min != null ? o.min : Math.min.apply(null, vals);
     const max = o.max != null ? o.max : Math.max.apply(null, vals);
     const etendue = (max - min) || 1;
@@ -201,8 +206,12 @@
      reference : quatre tuiles disent la journee sans une phrase. */
   function tuile(o) {
     o = o || {};
-    return '<div class="gtuile" style="--t:' + UI.attr(o.teinte || '#4A9BE0') + '"' +
-      (o.act ? ' data-act="' + UI.attr(o.act) + '"' : '') + '>' +
+    const cliquable = !!(o.act || o.detail);
+    return '<div class="gtuile' + (cliquable ? ' cliquable' : '') + '"' +
+      ' style="--t:' + UI.attr(o.teinte || '#4A9BE0') + '"' +
+      (o.act ? ' data-act="' + UI.attr(o.act) + '"' : '') +
+      (o.detail ? ' data-detail="' + UI.attr(o.detail) + '"' : '') +
+      (cliquable ? ' role="button" tabindex="0"' : '') + '>' +
       '<div class="haut">' +
         (o.art && global.Art ? '<span class="ill">' + Anime.art(o.art, 26) + '</span>' : '') +
         '<b>' + UI.esc(o.nom) + '</b>' +

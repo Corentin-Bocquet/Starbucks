@@ -96,6 +96,45 @@
     'bellini': 'bellini', 'kir royal': 'kir royal', 'sangria': 'sangria'
   };
 
+  /* TheMealDB sert ses vignettes d'ingredients par NOM ANGLAIS.
+     On ne traduisait que les PLATS : « oeufs », « steak hache » ou
+     « courgette » ne tombaient donc jamais juste, et la vignette
+     partait en generation alors que la bonne photo existait. */
+  const INGREDIENTS = {
+    'oeuf': 'egg', 'oeufs': 'eggs', 'lait': 'milk', 'beurre': 'butter',
+    'farine': 'flour', 'sucre': 'sugar', 'sel': 'salt', 'poivre': 'black pepper',
+    'huile': 'olive oil', 'huile d olive': 'olive oil', 'vinaigre': 'vinegar',
+    'ail': 'garlic', 'oignon': 'onion', 'oignons': 'onion', 'echalote': 'shallots',
+    'tomate': 'tomato', 'tomates': 'tomato', 'carotte': 'carrots', 'carottes': 'carrots',
+    'pomme de terre': 'potatoes', 'pommes de terre': 'potatoes', 'patate': 'potatoes',
+    'courgette': 'courgettes', 'courgettes': 'courgettes', 'aubergine': 'aubergine',
+    'poivron': 'red pepper', 'champignon': 'mushrooms', 'champignons': 'mushrooms',
+    'salade': 'lettuce', 'laitue': 'lettuce', 'epinard': 'spinach', 'epinards': 'spinach',
+    'brocoli': 'broccoli', 'chou': 'cabbage', 'haricot vert': 'green beans',
+    'petit pois': 'peas', 'petits pois': 'peas', 'mais': 'sweetcorn', 'riz': 'rice',
+    'pates': 'pasta', 'spaghetti': 'spaghetti', 'pain': 'bread', 'poulet': 'chicken',
+    'blanc de poulet': 'chicken breast', 'dinde': 'turkey', 'boeuf': 'beef',
+    'steak': 'beef', 'steak hache': 'minced beef', 'viande hachee': 'minced beef',
+    'porc': 'pork', 'jambon': 'ham', 'lardon': 'bacon', 'lardons': 'bacon',
+    'bacon': 'bacon', 'saucisse': 'sausages', 'agneau': 'lamb', 'veau': 'veal',
+    'saumon': 'salmon', 'thon': 'tuna', 'cabillaud': 'cod', 'crevette': 'prawns',
+    'crevettes': 'prawns', 'fromage': 'cheese', 'gruyere': 'gruyere',
+    'parmesan': 'parmesan cheese', 'mozzarella': 'mozzarella', 'creme': 'double cream',
+    'creme fraiche': 'creme fraiche', 'yaourt': 'yogurt', 'chocolat': 'dark chocolate',
+    'miel': 'honey', 'citron': 'lemon', 'citron vert': 'lime', 'orange': 'orange',
+    'pomme': 'apple', 'pommes': 'apple', 'banane': 'banana', 'fraise': 'strawberries',
+    'fraises': 'strawberries', 'framboise': 'raspberries', 'amande': 'almonds',
+    'noix': 'walnuts', 'noisette': 'hazelnuts', 'basilic': 'basil', 'persil': 'parsley',
+    'thym': 'thyme', 'romarin': 'rosemary', 'coriandre': 'coriander', 'menthe': 'mint',
+    'curry': 'curry powder', 'paprika': 'paprika', 'cumin': 'cumin',
+    'moutarde': 'mustard', 'ketchup': 'tomato ketchup', 'mayonnaise': 'mayonnaise',
+    'vin blanc': 'white wine', 'vin rouge': 'red wine', 'biere': 'beer',
+    'bouillon': 'chicken stock', 'levure': 'yeast', 'vanille': 'vanilla',
+    'cannelle': 'cinnamon', 'avocat': 'avocado', 'concombre': 'cucumber',
+    'quinoa': 'quinoa', 'lentille': 'lentils', 'lentilles': 'lentils',
+    'pois chiche': 'chickpeas', 'pois chiches': 'chickpeas', 'tofu': 'tofu'
+  };
+
   function traduire(table, sujet) {
     const b = sansAccent(sujet).replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
     if (!b) return '';
@@ -154,7 +193,7 @@
     const c = clef('ing', sujet);
     const cache = enCache(c);
     if (cache !== undefined) return cache;
-    const q = traduire(PLATS, sujet);
+    const q = traduire(INGREDIENTS, sujet);
     if (!q) return null;
     const u = 'https://www.themealdb.com/images/ingredients/' +
       encodeURIComponent(q.replace(/ /g, '_')) + '.png';
@@ -183,5 +222,5 @@
     coupees.meal = coupees.cock = coupees.ing = false;
   }
 
-  global.Banques = { chercher, plat, cocktail, ingredient, vider, PLATS, COCKTAILS };
+  global.Banques = { chercher, plat, cocktail, ingredient, vider, PLATS, COCKTAILS, INGREDIENTS };
 })(window);
