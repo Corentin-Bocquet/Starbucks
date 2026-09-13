@@ -3018,3 +3018,20 @@ html, body { overflow-x: hidden; max-width: 100%; }
 @media (max-width: 380px) {
   .gstats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* ============================================================
+   46. Titre d'une pop-up empilee
+
+   La fleche de retour est en position absolue en haut a gauche.
+   Quand la feuille commence directement par un `.mbody` avec un
+   titre, les deux se chevauchent : sur le diagnostic IA, la
+   fleche passait par-dessus le « L' » de « L'IA ne repond pas ».
+
+   On ne decale pas le corps entier, ce qui creuserait un blanc
+   inutile sur toutes les autres feuilles : seul le premier titre
+   descend sous la fleche.
+   ============================================================ */
+.sheet:has(> .retourpop) > .mbody > h2:first-child,
+.sheet:has(> .retourpop) > .mbody > .sechead:first-child {
+  margin-top: 34px;
+}

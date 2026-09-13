@@ -70,6 +70,16 @@
           '<button class="rowitem" data-act="google"><span class="ic marque">' + Icon.marque('gcal', 21) + '</span>' +
             '<span class="tx"><b>Google Agenda</b><small>' + (Store.get('googleClientId', '') ? 'Configuré' : 'Sans cela, les événements passent par un fichier .ics') + '</small></span>' +
             '<span class="rt">' + Icon('next', 15) + '</span></button>' +
+          /* Les icones 3D ont ete essayees a la place des photos sur
+             toutes les cartes. Les photos restent plus parlantes,
+             mais les 33 fichiers sont toujours la : l'interrupteur
+             permet de comparer sans rien reinstaller. */
+          '<button class="rowitem" data-act="ic3d">' + art3d('etoile') +
+            '<span class="tx"><b>Icônes 3D sur les cartes</b><small>' +
+            (Store.get('icones3d', false)
+              ? 'Activées · les cartes montrent les icônes en verre'
+              : 'Coupées · les cartes montrent des photos') + '</small></span>' +
+            '<span class="rt">' + Icon('next', 15) + '</span></button>' +
           '<button class="rowitem" data-act="images">' + art3d('appareil') +
             '<span class="tx"><b>Images générées</b><small>' +
             (Imagerie.actif()
@@ -337,26 +347,109 @@
     },
     clearcache: () => { AI.clearCache(); AI.forget(); UI.toast('Cache vidé'); render(); },
 
-    /* Diagnostic : dit exactement ce qui bloque, plutôt que le
-       sempiternel « impossible de récupérer les suggestions ». */
+    ic3d: async () => {
+      const on = Store.get('icones3d', false);
+      const ok = await UI.confirmSheet(
+        on ? 'Revenir aux photos' : 'Passer aux icônes 3D',
+        on
+          ? "Les cartes reprendront des photos de plats, de lieux et de vêtements."
+          : "Les cartes afficheront les 33 icônes en verre à la place des photos. En thème sombre, celles dont le verre est très pâle perdent une partie de leur dessin : c'est une limite des fichiers d'origine, rendus sur fond blanc.",
+        false);
+      if (!ok) return;
+      Store.set('icones3d', !on);
+      UI.toast(!on ? 'Icônes 3D activées' : 'Photos rétablies');
+      render();
+    },
+
+    /* ============================================================
+       Diagnostic
+
+       Avant, ce panneau disait « l'IA ne repond pas » et s'arretait
+       la. Sur un telephone, sans console, c'etait un cul-de-sac.
+
+       Il teste maintenant les quatre briques separement, parce
+       qu'elles tombent en panne separement : la liste des modeles,
+       le texte, la lecture d'image (le scan de plat et de
+       code-barres) et la generation d'image (les tenues). Une cle
+       gratuite a couramment du texte illimite et zero quota image :
+       dire « l'IA est cassee » serait faux.
+
+       Le journal en dessous garde les vrais messages de Google.
+       C'est ce qui permet de comprendre une panne a distance.
+       ============================================================ */
     diag: async () => {
-      UI.openSheet('<div class="mbody">' + UI.thinking('Test en cours…') + '</div>');
+      UI.openSheet('<div class="mbody">' + UI.thinking('Test des quatre briques…') + '</div>');
       AI.forget();
       const r = await AI.selfTest();
+
+      /* La pastille `.ic` prend l'accent de la page, rouge dans les
+         reglages : une coche de succes dans un rond rouge se lit
+         comme un echec. On force donc les deux couleurs. */
+      const ligne = (e) => {
+        const c = e.ok ? '#2E9E5B' : '#C6402F';
+        return '<div class="rowitem">' +
+          '<span class="ic" style="color:' + c +
+            ';background:color-mix(in srgb, ' + c + ' 14%, transparent);box-shadow:none">' +
+            Icon(e.ok ? 'check' : 'alert', 17) + '</span>' +
+          '<span class="tx"><b>' + UI.esc(e.nom) + '</b><small>' +
+            UI.esc(e.ok ? String(e.info || 'ok').slice(0, 90) : (e.message || e.code)) +
+          '</small></span>' +
+          '<span class="rt tabnum" style="font-size:11px">' + e.ms + ' ms</span>' +
+        '</div>';
+      };
+
+      const brut = (r.etapes || []).filter((e) => !e.ok && e.detail);
+      const j = (AI.journal() || []).slice(0, 8);
+      const quand = (t) => {
+        const d = Math.round((Date.now() - t) / 60000);
+        return d < 1 ? "a l'instant" : (d < 60 ? 'il y a ' + d + ' min' : 'il y a ' + Math.round(d / 60) + ' h');
+      };
+
       UI.openSheet('<div class="mbody" style="padding-top:6px">' +
-        '<h2 style="font-size:22px;margin-bottom:12px">' + (r.ok ? "L'IA répond" : "L'IA ne répond pas") + '</h2>' +
+        '<h2 style="font-size:22px;margin-bottom:4px">' +
+          (r.ok ? "L'IA répond" : "L'IA ne répond pas") + '</h2>' +
+        '<p class="mdesc">' + (r.cle ? 'Clé enregistrée sur cet appareil.' : (r.proxy ? 'Passe par un proxy.' : 'Aucune clé.')) + '</p>' +
+
+        '<div class="list" style="margin-top:14px">' + (r.etapes || []).map(ligne).join('') + '</div>' +
+
         (r.ok
-          ? '<div class="banner ok">' + Icon('check', 18) + '<span>Tout fonctionne.</span></div>' +
-            '<div class="list" style="margin-top:12px">' +
-              '<div class="rowitem"><span class="tx"><b>Modèle texte</b></span><span class="rt">' + UI.esc(r.model) + '</span></div>' +
-              (r.imageModel ? '<div class="rowitem"><span class="tx"><b>Modèle image</b></span><span class="rt">' + UI.esc(r.imageModel) + '</span></div>' : '') +
-              (r.count ? '<div class="rowitem"><span class="tx"><b>Modèles disponibles</b></span><span class="rt">' + r.count + '</span></div>' : '') +
-            '</div>' +
-            '<p class="muted" style="font-size:12px;margin-top:12px">Le modèle est choisi automatiquement parmi ce que Google expose, ' +
-            "et revérifié chaque semaine. Si Google en retire un, l'application bascule toute seule.</p>"
-          : '<div class="banner danger">' + Icon('alert', 18) + '<span>' + UI.esc(r.message) + '</span></div>' +
-            (r.detail ? '<p class="muted" style="font-size:11.5px;margin-top:12px;word-break:break-word">' + UI.esc(String(r.detail).slice(0, 300)) + '</p>' : '')) +
-        '<button class="btn block" style="margin-top:16px" data-sheet-close>Fermer</button></div>');
+          ? '<p class="muted" style="font-size:12px;margin-top:12px">Modèle retenu : <b>' + UI.esc(r.model || '?') + '</b>' +
+            (r.imageModel ? ' · images : <b>' + UI.esc(r.imageModel) + '</b>' : '') +
+            ". Le choix est refait automatiquement si Google retire un modèle."
+            + '</p>'
+          : '<div class="banner danger" style="margin-top:14px">' + Icon('alert', 18) +
+            '<span>' + UI.esc(r.message || 'Erreur inconnue') + '</span></div>') +
+
+        (brut.length
+          ? '<div class="sechead" style="margin-top:18px"><h2 style="font-size:15px">Réponse exacte de Google</h2></div>' +
+            brut.map((e) => '<p class="muted" style="font-size:11.5px;word-break:break-word;margin-top:6px">' +
+              '<b>' + UI.esc(e.nom) + '</b> · ' + UI.esc(e.code) + '<br>' + UI.esc(e.detail) + '</p>').join('')
+          : '') +
+
+        (j.length
+          ? '<div class="sechead" style="margin-top:18px"><h2 style="font-size:15px">Derniers appels</h2>' +
+            '<button data-vider>Vider</button></div>' +
+            '<div class="list">' + j.map((e) =>
+              '<div class="rowitem"><span class="tx"><b>' +
+                UI.esc(e.ev === 'echec' ? (e.model || '?') : e.ev) + '</b><small>' +
+                UI.esc([e.code, e.kind, e.text, e.rates,
+                  (e.n != null ? e.n + ' modèles' : null),
+                  (e.ok === true ? 'tout répond' : null)].filter(Boolean).join(' · ') || '—') +
+              '</small></span><span class="rt" style="font-size:11px">' + quand(e.t) + '</span></div>').join('') +
+            '</div>'
+          : '') +
+
+        '<div class="btnrow" style="margin-top:18px">' +
+          '<button class="btn primary grow" data-refaire>Refaire le test</button>' +
+          '<button class="btn" data-sheet-close>Fermer</button>' +
+        '</div>' +
+        '<p class="muted" style="font-size:11px;margin-top:10px">Rien de tout ceci ne quitte le téléphone. La clé n\'est jamais journalisée.</p>' +
+        '</div>', { onMount: (sh) => {
+          const b = sh.querySelector('[data-refaire]');
+          if (b) b.onclick = () => { UI.closeSheet(); acts.diag(); };
+          const v = sh.querySelector('[data-vider]');
+          if (v) v.onclick = () => { AI.viderJournal(); UI.closeSheet(); acts.diag(); };
+        } });
       render();
     },
 

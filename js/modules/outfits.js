@@ -203,7 +203,7 @@
   };
 
   async function inventerLeJour(seulement) {
-    if (!AI.available()) { UI.toast('Ajoute ta clé Gemini dans Réglages'); return; }
+    if (!AI.available()) return UI.echecIA('NO_KEY', { titre: "Inventer des tenues demande une clé IA" });
     const wx = ctx && ctx.weather;
     const cibles = seulement ? [seulement] : SEED.MOODS.map((m) => m.id);
 
@@ -239,7 +239,7 @@
       render();
       /* Les visuels arrivent ensuite, un par un, sans bloquer. */
       Imagerie.peupler(root, { generer: true, max: 2 });
-    } catch (e) { UI.toast(AI.humanError(e)); }
+    } catch (e) { UI.echecIA(e, { titre: "Les tenues du jour n'ont pas pu être inventées", reessayer: () => inventerLeJour(seulement) }); }
   }
 
   function relancer(mood) {
@@ -338,11 +338,14 @@
      Un bouton « Tout voir » garde l'ancien affichage complet, pour
      les fois ou on veut embrasser toute la penderie d'un coup.
      ============================================================ */
+  /* Une icône 3D par catégorie de penderie. Le sous-vêtement et
+     les chaussettes n'en ont pas : ils reprennent celle du haut et
+     du bas, plus juste qu'une photo de banque prise au hasard. */
   const PHOTO_SLOT = {
-    haut: 'folded shirts stack', bas: 'folded jeans trousers',
-    chaussures: 'sneakers pair shoes', veste: 'jacket coat hanger',
-    sousvetement: 'folded underwear basics', chaussettes: 'folded socks',
-    accessoire: 'watch belt accessories flat lay'
+    haut: 'haut', bas: 'bas',
+    chaussures: 'chaussures', veste: 'manteau',
+    sousvetement: 'haut', chaussettes: 'chaussures',
+    accessoire: 'accessoires'
   };
 
   const cartePiece = (g) => ({
@@ -982,7 +985,7 @@
       };
 
       sh.querySelector('[data-reia]').onclick = async () => {
-        if (!AI.available()) { UI.toast('Ajoute ta clé Gemini dans Réglages'); return; }
+        if (!AI.available()) return UI.echecIA('NO_KEY', { titre: 'Reconnaître une pièce demande une clé IA' });
         /* Photos.pourIA ramene la photo en data:, qu'elle vienne de
            l'appareil ou du compte. Une URL https etait ignoree par
            l'API de vision : le modele repondait sans rien voir. */
@@ -1000,7 +1003,7 @@
           });
           redessiner();
           UI.toast('Propositions mises à jour, vérifie et enregistre');
-        } catch (e) { UI.toast(AI.humanError(e)); }
+        } catch (e) { UI.echecIA(e, { titre: "La pièce n'a pas pu être analysée" }); }
       };
     }
   }
@@ -1351,7 +1354,7 @@
 
   /* ---------- Génération IA de tenues ---------- */
   async function aiOutfits() {
-    if (!AI.available()) { UI.toast('Ajoute ta clé Gemini dans Réglages'); return; }
+    if (!AI.available()) return UI.echecIA('NO_KEY', { titre: "Inventer des tenues demande une clé IA" });
     const all = garments();
     if (all.length < 4) { UI.toast('Il faut au moins quatre pièces'); return; }
     UI.openSheet('<div class="mbody">' + UI.thinking('Association des pièces…') + '</div>');
@@ -1378,7 +1381,7 @@
       });
       UI.closeSheet(); UI.toast(n + ' tenue' + (n > 1 ? 's générées' : ' générée'));
       view = 'tenues'; render();
-    } catch (e) { UI.closeSheet(); UI.toast(AI.humanError(e)); }
+    } catch (e) { UI.closeSheet(); UI.echecIA(e, { titre: "Les tenues n'ont pas pu être générées" }); }
   }
 
   /* ============================================================
@@ -1419,7 +1422,7 @@
   }
 
   async function porte(t) {
-    if (!AI.available()) { UI.toast('Ajoute ta clé Gemini dans Réglages'); return; }
+    if (!AI.available()) return UI.echecIA('NO_KEY', { titre: "Inventer des tenues demande une clé IA" });
 
     let src = await Photos.versDataUrl(await portraitSource());
     if (!src) {

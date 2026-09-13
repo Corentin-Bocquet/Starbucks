@@ -253,16 +253,15 @@
     const prog = progression(m);
     const plats = (m.plateformes || []).map((id) => PLATEFORMES[id]).filter(Boolean);
 
+    /* L'affiche remplace l'aplat violet. Un film se reconnait a son
+       affiche ; un degrade ne dit rien et, sur une pop-up, laissait
+       une bande de couleur inutile au-dessus du titre. */
     return '<div class="result">' +
-      '<div class="rtete" style="--g1:#3B3690;--g2:#15123F">' +
-        '<div class="sur">' + (m.type === 'serie' ? 'Série' : 'Film') + (m.annee ? ' · ' + UI.esc(m.annee) : '') + '</div>' +
-        '<div class="titreligne"><h3>' + UI.esc(m.titre) + '</h3>' +
-        (m.note ? '<span class="valeur">' + String(m.note).replace('.', ',') + ' ★</span>' : '') + '</div>' +
-      '</div>' +
+      afficheTete(m) +
       '<div class="rbody">' +
+        badgesGenre(m) +
         (m.resume ? '<p class="muted" style="font-size:13.5px;line-height:1.5">' + UI.esc(m.resume) + '</p>' : '') +
         '<div class="rmeta">' +
-          (m.genre ? '<span>' + UI.esc(m.genre) + '</span>' : '') +
           (m.duree ? '<span>' + UI.esc(m.duree) + '</span>' : '') +
           (prog ? '<span>' + prog.vues + ' / ' + prog.total + ' saisons</span>' : '') +
         '</div>' +
@@ -276,6 +275,40 @@
         '</div>' +
         (fav ? '<p class="muted" style="font-size:12px;margin-top:8px;text-align:center">Dans tes favoris</p>' : '') +
       '</div></div>';
+  }
+
+  /* ============================================================
+     Le bandeau d'affiche
+
+     L'affiche occupe toute la largeur, le titre se pose dessus sur
+     un fondu sombre. Elle colle au bord haut de la pop-up : c'est
+     ce liseré au-dessus du titre qui faisait tache.
+     ============================================================ */
+  function afficheTete(m) {
+    return '<div class="mimg affiche-tete">' +
+      visuel(m) +
+      '<div class="ombre"></div>' +
+      '<div class="dessus">' +
+        '<div class="sur">' + (m.type === 'serie' ? 'Série' : 'Film') +
+          (m.annee ? ' · ' + UI.esc(m.annee) : '') + '</div>' +
+        '<div class="titreligne"><h3>' + UI.esc(m.titre) + '</h3>' +
+        (m.note ? '<span class="valeur">' + String(m.note).replace('.', ',') + ' ★</span>' : '') +
+        '</div></div></div>';
+  }
+
+  /* Les genres, en pastilles. Ils arrivent soit en une chaine
+     (« Thriller, policier »), soit en liste selon la source. */
+  function listeGenres(m) {
+    const brut = m.genres || m.genre || '';
+    const l = Array.isArray(brut) ? brut : String(brut).split(/[,;\/·]+/);
+    return l.map((g) => String(g).trim()).filter(Boolean).slice(0, 4);
+  }
+
+  function badgesGenre(m) {
+    const g = listeGenres(m);
+    if (!g.length) return '';
+    return '<div class="genres">' + g.map((x) =>
+      '<span class="genre">' + UI.esc(x) + '</span>').join('') + '</div>';
   }
 
   /* Les saisons se cochent d'un appui. C'est le seul moyen simple
@@ -379,7 +412,7 @@
           return;
         }
       }
-      if (!AI.available()) { UI.toast('Ajoute ta clé Gemini ou ta clé TMDB'); return; }
+      if (!AI.available()) return UI.echecIA('NO_KEY', { titre: "Les idées de films demandent une clé IA" });
       const res = await AI.json(
         'Combien de saisons de la série « ' + m.titre + ' » sont sorties à ce jour ? ' +
         'Donne le nombre de saisons diffusées, et la date de la dernière.',
@@ -392,7 +425,7 @@
       Store.put('media', id, { saisons: n, majSaisons: Date.now(), suite: res.suite || '' });
       UI.toast(n + ' saison' + (n > 1 ? 's' : '') + (res.suite ? ' · ' + res.suite : ''));
       render();
-    } catch (e) { UI.toast(AI.humanError(e)); }
+    } catch (e) { UI.echecIA(e, { titre: "Les saisons n'ont pas pu être mises à jour" }); }
   }
 
   /* ============================================================
@@ -431,21 +464,24 @@
                 '</small></span>' +
                 (dedans
                   ? '<span class="rt pastille-ok">' + Icon('check', 14) + 'Déjà</span>'
-                  : '<span class="rt">' + Icon('plus', 16) + '</span>') +
+                  : '<span class="rt plusrond" data-add="' + i + '" role="button" aria-label="Ajouter">' +
+                    Icon('plus', 16) + '</span>') +
               '</button>';
             }).join('') + '</div>';
 
-            out.querySelectorAll('[data-i]').forEach((b) => b.onclick = () => {
+            /* Le titre ouvre l'aperçu, le « + » ajoute. On ne veut
+               plus qu'un doigt posé sur une ligne engage quoi que
+               ce soit sans qu'on ait vu de quoi il s'agit. */
+            const pose = (r) => { ajouter(Object.assign({ status: 'avoir' }, r), true); UI.haptic('success'); dessiner(); };
+
+            out.querySelectorAll('[data-add]').forEach((b) => b.onclick = (e) => {
+              e.stopPropagation();
+              pose(resultats[+b.dataset.add]);
+            });
+            out.querySelectorAll('[data-i]').forEach((b) => b.onclick = (e) => {
+              if (e.target.closest('[data-add]')) return;
               const r = resultats[+b.dataset.i];
-              const dedans = dejaLa(r.titre, r.type);
-              if (dedans) {
-                /* On ne bloque pas : on ouvre la fiche existante. */
-                UI.toast('Déjà dans « ' + (dedans.status === 'vu' ? 'Vus' : 'À voir') + ' »');
-                return;
-              }
-              ajouter(Object.assign({ status: 'avoir' }, r), true);
-              UI.haptic('success');
-              dessiner();
+              apercu(r, { ajouter: () => { pose(r); } });
             });
           };
 
@@ -561,7 +597,7 @@
      Les idées
      ============================================================ */
   async function reco() {
-    if (!AI.available()) { UI.toast('Ajoute ta clé Gemini dans Réglages'); return App.go('#/m/settings/ia'); }
+    if (!AI.available()) return UI.echecIA('NO_KEY', { titre: "Les idées de films demandent une clé IA" });
     const all = items();
     const aimes = all.filter((m) => Store.isFav('media', m.id)).map((m) => m.titre);
     const vus = all.filter((m) => m.status === 'vu').map((m) => m.titre);
@@ -577,10 +613,13 @@
         (rejetes.length ? "N'a pas aimé : " + rejetes.join(', ') + '\n' : '') +
         (connus.length ? 'Ne propose AUCUN titre de cette liste : ' + connus.join(', ') + '\n\n' : '\n') +
         'Dix propositions, moitié films moitié séries, varie les époques et les pays. ' +
-        "Explique en une ligne le lien avec ses goûts, pas un résumé. Réponds en français.",
+        "Réponds en français.",
         AI.T.obj({ propositions: AI.T.arr(AI.T.obj({
           titre: AI.T.str(''), type: AI.T.enu(['film', 'serie'], ''), annee: AI.T.str(''),
-          genre: AI.T.str(''), pourquoi: AI.T.str('Le lien avec ses goûts, une ligne')
+          genres: AI.T.arr(AI.T.str(''), 'Un a trois genres, en francais : comedie, thriller, drame...'),
+          resume: AI.T.str('Le pitch en deux phrases, sans divulgacher la fin'),
+          duree: AI.T.str('Duree du film, ou nombre de saisons'),
+          pourquoi: AI.T.str('Le lien avec ses gouts, une ligne')
         })) }), { cache: false, temperature: 1 });
 
       Store.all('mediaIdeas').forEach((x) => Store.del('mediaIdeas', x.id));
@@ -595,7 +634,7 @@
          lettres. On va les chercher tout de suite, en tache de
          fond, et le carrousel se remplit tout seul. */
       affichesDesIdees();
-    } catch (e) { UI.closeSheet(); UI.toast(AI.humanError(e)); }
+    } catch (e) { UI.closeSheet(); UI.echecIA(e, { titre: "Pas d'idées de films pour le moment", reessayer: () => reco() }); }
   }
 
   /* Va chercher l'affiche de chaque suggestion. TMDB quand la cle
@@ -640,6 +679,70 @@
   }
 
   /* ============================================================
+     L'aperçu avant d'ajouter
+
+     Toucher une suggestion l'ajoutait droit aux favoris. On ne
+     pouvait donc rien regarder sans l'accepter, ce qui est
+     exactement l'inverse de ce qu'on veut faire devant une liste
+     de titres qu'on ne connaît pas.
+
+     Le doigt ouvre maintenant une fiche : l'affiche en grand, le
+     genre en pastilles, le résumé, et la raison pour laquelle le
+     titre est proposé. L'ajout se fait sur un bouton, et nulle
+     part ailleurs.
+     ============================================================ */
+  function apercu(x, opts) {
+    opts = opts || {};
+    const dedans = dejaLa(x.titre, x.type);
+    UI.openSheet(
+      afficheTete(x) +
+      '<div class="mbody" style="padding-top:14px">' +
+        badgesGenre(x) +
+        (x.resume ? '<p style="font-size:14px;line-height:1.55">' + UI.esc(x.resume) + '</p>' : '') +
+        (x.pourquoi ? '<div class="rwhy" style="margin-top:12px"><b>Pourquoi toi ? </b>' +
+          UI.esc(x.pourquoi) + '</div>' : '') +
+        (x.duree ? '<p class="aide">' + UI.esc(x.duree) + '</p>' : '') +
+        '<div class="btnrow" style="margin-top:16px">' +
+          (dedans
+            ? '<button class="btn block lg" disabled>Déjà dans tes listes</button>'
+            : '<button class="btn primary grow lg" data-ok>' + Icon('plus', 17) + 'Ajouter à ma liste</button>') +
+          (opts.rejet ? '<button class="btn lg" data-non aria-label="Pas pour moi">' +
+            Icon('close', 17) + '</button>' : '') +
+        '</div>' +
+      '</div>',
+      { onMount: (sh) => {
+          const ok = sh.querySelector('[data-ok]');
+          if (ok) ok.onclick = () => { UI.closeSheet(); if (opts.ajouter) opts.ajouter(); };
+          const non = sh.querySelector('[data-non]');
+          if (non) non.onclick = () => { UI.closeSheet(); if (opts.refuser) opts.refuser(); };
+        } }
+    );
+  }
+
+  /* Une suggestion : on la regarde d'abord, on décide ensuite. */
+  async function apercuIdee(id) {
+    const i = Store.find('mediaIdeas', id);
+    if (!i) return;
+    /* Le résumé et l'affiche manquent souvent : la reco ne renvoie
+       qu'une raison. On complète à la volée avant d'afficher. */
+    let x = i;
+    if (!i.resume && tmdbKey()) {
+      const t = await tmdbSearch(i.titre);
+      if (t[0]) x = Object.assign({}, t[0], i, { poster: i.poster || t[0].poster, resume: i.resume || t[0].resume });
+    }
+    apercu(x, {
+      rejet: true,
+      ajouter: () => accepterIdee(id),
+      refuser: () => {
+        Store.log('dislike', { label: i.titre });
+        Store.del('mediaIdeas', id);
+        UI.toast('Noté, on ne te le repropose pas');
+        render();
+      }
+    });
+  }
+
+  /* ============================================================
      Interactions
      ============================================================ */
   function bind() {
@@ -647,7 +750,16 @@
     root.querySelectorAll('[data-type]').forEach((b) => b.onclick = () => { setPrefs({ type: b.dataset.type }); render(); });
     root.querySelectorAll('[data-act]').forEach((b) => b.onclick = () => ({ add: addFlow, reco: reco })[b.dataset.act]());
     root.querySelectorAll('[data-m]').forEach((b) => b.onclick = () => ouvrir(b.dataset.m));
-    root.querySelectorAll('[data-idee]').forEach((b) => b.onclick = () => accepterIdee(b.dataset.idee));
+    /* Le corps de la carte ouvre l'aperçu ; seul le bouton « + »
+       ajoute sans passer par la case fiche. */
+    root.querySelectorAll('[data-idee]').forEach((b) => b.onclick = (e) => {
+      if (e.target.closest('.ajout')) return;
+      apercuIdee(b.dataset.idee);
+    });
+    root.querySelectorAll('[data-idee] .ajout').forEach((b) => b.onclick = (e) => {
+      e.stopPropagation();
+      accepterIdee(b.parentNode.dataset.idee);
+    });
   }
 
   function ouvrir(id) {

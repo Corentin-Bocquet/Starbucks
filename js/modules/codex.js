@@ -267,13 +267,40 @@
 
     if (S.step < steps.length) {
       const st = steps[S.step], pal = CARDCOL[S.tab];
+      /* Les photos de l'assistant etaient des rendus de boisson tires
+         du catalogue : jolis un par un, sans unite les uns a cote des
+         autres. Les icones 3D de la maison les remplacent partout ou
+         il en existe une ; les choix trop precis (gin, vodka, rhum)
+         gardent leur photo, aucune icone ne les couvre. */
+      const ICONE_OPT = {
+        'sb-temp-chaud': 'chaud',   'sb-temp-glace': 'glace',   'sb-temp-mixe': 'mixe',
+        'sb-base-cafe': 'cafe',     'sb-base-the': 'the-matcha', 'sb-base-fruit': 'fruite',
+        'sb-base-lait': 'sans-cafe',
+        'sb-gour-leger': 'leger',   'sb-gour-equilibre': 'equilibre', 'sb-gour-gourmand': 'gourmand',
+        'mm-moment-entree': 'entree', 'mm-moment-plat': 'plat',
+        'mm-moment-dessert': 'dessert', 'mm-moment-apero': 'apero',
+        'mm-serv-chaud': 'chaud',   'mm-serv-froid': 'glace',
+        'ck-humeur-frais': 'glace', 'ck-humeur-corse': 'leger',
+        'ck-humeur-gourmand': 'gourmand', 'ck-humeur-tropical': 'fruite',
+        'ck-humeur-chic': 'equilibre',
+        'ck-bar-oui': 'leger',      'ck-bar-non': 'sans-cafe'
+      };
       const cards = st.opts.map((o, i) => {
         const col = pal[i % pal.length];
         const n = countFor(S.step, o.v);
-        return '<button class="opt ' + (chosen[S.step] === o.v ? 'sel' : '') + '" data-v="' + UI.attr(o.v === null ? '' : o.v) + '" data-null="' + (o.v === null ? 1 : 0) + '"' +
-          ' style="background:' + col[0] + ';color:' + col[1] + '">' +
-          '<span class="disc" style="background:' + col[1] + '"></span>' +
-          '<img class="im" src="' + IMG[o.img] + '" alt="">' +
+        const slug = (global.Ic && Ic.actif()) ? ICONE_OPT[o.img] : null;
+        /* Avec une icone 3D, la carte prend le fond de l'icone et la
+           couleur de la palette ne sert plus qu'aux accents : sans
+           ca, un carre blanc flottait au milieu d'un aplat vert. */
+        return '<button class="opt ' + (slug ? 'opt3d ' : '') + (chosen[S.step] === o.v ? 'sel' : '') +
+          '" data-v="' + UI.attr(o.v === null ? '' : o.v) + '" data-null="' + (o.v === null ? 1 : 0) + '"' +
+          (slug ? ' style="--oa:' + col[1] + '"'
+                : ' style="background:' + col[0] + ';color:' + col[1] + '"') + '>' +
+          (slug ? '' : '<span class="disc" style="background:' + col[1] + '"></span>') +
+          (slug && global.Ic
+            ? '<span class="im ic3d" data-ic="' + slug + '"><img src="' +
+              Ic.url(slug, Ic.sombre()) + '" alt="" loading="lazy"></span>'
+            : '<img class="im" src="' + IMG[o.img] + '" alt="">') +
           '<span class="nm">' + UI.esc(o.n) + '</span><span class="sb">' + UI.esc(o.s) + '</span>' +
           '<span class="cnt">' + n + ' ' + (n > 1 ? 'recettes' : 'recette') + '</span></button>';
       }).join('');
@@ -431,7 +458,7 @@
   const TITRE_CREER = { sb: 'Inventer une boisson', ck: 'Inventer un cocktail', mm: 'Inventer un plat' };
 
   function createFlow() {
-    if (!AI.available()) { UI.toast('Ajoute ta clé Gemini dans Réglages'); App.go('#/m/settings/ia'); return; }
+    if (!AI.available()) return UI.echecIA('NO_KEY', { titre: "Créer demande une clé IA" });
     const tab = S.tab;
     const envies = ENVIES[tab];
 
@@ -541,7 +568,7 @@
         if (global.Game) Game.award('creation', 12);
       } catch (e) {
         b.querySelector('.cta').innerHTML = Icon('alert', 15) + 'Réessayer';
-        UI.toast(AI.humanError(e));
+        UI.echecIA(e, { titre: "La création n'a pas abouti" });
       }
     });
   }

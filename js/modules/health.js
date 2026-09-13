@@ -614,7 +614,7 @@
     });
     const name = Object.keys(files).find((n) => /export\.xml$/i.test(n)) || Object.keys(files)[0];
     if (!name) throw new Error("export.xml introuvable dans l'archive");
-    return new TextDécoder('utf-8').decode(files[name]);
+    return new TextDecoder('utf-8').decode(files[name]);
   }
 
   /* Lecture par tranches : on ne charge jamais tout le XML d'un
@@ -625,7 +625,7 @@
       const CHUNK = 4 * 1024 * 1024;
       const acc = newAcc();
       let offset = 0, tail = '';
-      const dec = new TextDécoder('utf-8');
+      const dec = new TextDecoder('utf-8');
       const reader = new FileReader();
 
       reader.onerror = () => reject(new Error('Lecture du fichier interrompue'));
@@ -841,7 +841,7 @@
   }, ['note', 'verdict', 'bien', 'moins_bien', 'actions', 'manger']);
 
   async function insight() {
-    if (!AI.available()) { UI.toast('Ajoute ta clé Gemini dans Réglages'); App.go('#/m/settings/ia'); return; }
+    if (!AI.available()) return UI.echecIA('NO_KEY', { titre: "Le bilan de forme demande une clé IA" });
     const days = lastDays(Math.max(14, range));
     const food = global.Food ? Food.summary(7) : [];
     UI.toast('Analyse…');
@@ -874,7 +874,7 @@
         INSIGHT_SCHEMA, { cache: false, temperature: 0.5 });
       Store.set('healthInsight', { at: Date.now(), data: res });
       render();
-    } catch (e) { UI.toast(AI.humanError(e)); }
+    } catch (e) { UI.echecIA(e, { titre: "Le bilan de forme n'a pas pu être fait", reessayer: () => insight() }); }
   }
 
   /* Expose pour les autres modules. */

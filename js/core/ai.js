@@ -24,8 +24,55 @@
   const BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
   const CACHE_KEY = 'aiCache';
   const MODELS_KEY = 'aiModels';
+  const JOURNAL_KEY = 'aiJournal';
   const MAX_CACHE = 120;
+  const MAX_JOURNAL = 25;
   const MODELS_TTL = 7 * 86400e3;
+
+  /* Le numero de schema du cache de modeles.
+
+     C'est la panne qu'on a mis le plus longtemps a comprendre.
+     Google retire des modeles (gemini-2.0-flash, gemini-2.5-flash
+     ont disparu), mais l'appareil garde SA liste pendant sept
+     jours. Chaque appel partait alors vers un modele mort, Google
+     repondait 404, et l'app ne redecouvrait jamais : l'IA restait
+     cassee une semaine entiere sans un mot d'explication.
+
+     On incremente ce numero des qu'on touche a la selection : les
+     appareils jettent leur ancienne liste au premier chargement. */
+  const MODELS_SCHEMA = 2;
+
+  /* Un filet, pas un choix. La decouverte reste la voie normale ;
+     ces noms ne servent que si Google ne repond pas. Une LISTE, pas
+     un nom unique : avec un seul nom fige, le jour ou il est retire
+     l'application est morte. */
+  const REPLI = {
+    text: ['gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash',
+           'gemini-3.5-flash', 'gemini-3.5-flash-lite', 'gemini-2.5-pro'],
+    image: ['gemini-3.1-flash-image', 'gemini-3.1-flash-lite-image',
+            'gemini-3-pro-image', 'gemini-2.5-flash-image']
+  };
+
+  /* ============================================================
+     Le journal
+
+     Une panne d'IA se voyait par un toast gris qui disparaissait en
+     deux secondes, sans dire quel modele avait ete appele ni ce que
+     Google avait repondu. Impossible de diagnostiquer a distance.
+
+     On garde donc les 25 derniers appels sur l'appareil, avec le
+     message BRUT de Google. Reglages > Diagnostic les affiche. Rien
+     ne sort du telephone, et la cle n'est jamais journalisee.
+     ============================================================ */
+  function noter(entree) {
+    try {
+      const j = Store.get(JOURNAL_KEY, []);
+      j.unshift(Object.assign({ t: Date.now() }, entree));
+      Store.set(JOURNAL_KEY, j.slice(0, MAX_JOURNAL));
+    } catch (e) { /* le journal ne doit jamais casser un appel */ }
+  }
+  function journal() { return Store.get(JOURNAL_KEY, []); }
+  function viderJournal() { Store.set(JOURNAL_KEY, []); }
 
   function conf() { return global.EVER_CONFIG || {}; }
   function key() { return Store.get('geminiKey', '') || ''; }
@@ -114,38 +161,65 @@
         .slice(0, 5)
         .map((x) => x.n);
 
-      const textList = rank('text'), imageList = rank('image');
+      let textList = rank('text'), imageList = rank('image');
+
+      /* Si le classement ne retient rien, c'est que Google a change
+         la forme de ses noms. Plutot que de rendre l'IA muette, on
+         reprend ce qui existe vraiment chez lui et qui sait au
+         moins repondre, en ecartant seulement l'evidemment hors
+         sujet. Mieux vaut un modele imparfait que pas d'IA. */
+      if (!textList.length) {
+        textList = models
+          .map((m) => m.name.replace('models/', ''))
+          .filter((n) => !EXCLUDE.test(n) && !/image/i.test(n))
+          .slice(0, 5);
+      }
+
       const picked = {
+        v: MODELS_SCHEMA,
         at: Date.now(),
         text: textList[0] || null, image: imageList[0] || null,
         textList: textList, imageList: imageList,
         all: models.map((m) => m.name.replace('models/', ''))
       };
       Store.set(MODELS_KEY, picked);
+      noter({ ev: 'decouverte', n: picked.all.length, text: picked.text, image: picked.image });
       return picked;
     })().finally(() => { discovering = null; });
     return discovering;
   }
 
   /* Renvoie la liste ordonnée des modèles à essayer. */
-  async function candidates(kind, override) {
+  async function candidates(kind, override, forcer) {
     if (override) return [override];
     const listKey = kind + 'List';
     let cached = Store.get(MODELS_KEY, null);
 
-    if (!cached || Date.now() - cached.at >= MODELS_TTL || !cached[listKey]) {
+    /* Une liste ecrite par une version precedente de l'app est
+       jetee sans discuter : c'est elle qui gardait des modeles
+       morts en memoire pendant une semaine. */
+    if (cached && cached.v !== MODELS_SCHEMA) { cached = null; Store.set(MODELS_KEY, null); }
+
+    const perime = !cached || Date.now() - cached.at >= MODELS_TTL || !cached[listKey];
+    if (perime || forcer) {
       try {
         const fresh = await discover();
         if (fresh) cached = fresh;
       } catch (e) {
         if (String(e.message) === 'BAD_KEY') throw e;
+        noter({ ev: 'decouverte-ratee', code: String(e.message) });
       }
     }
+
     const list = (cached && cached[listKey]) || (cached && cached[kind] ? [cached[kind]] : []);
-    const fallback = kind === 'image'
-      ? (conf().geminiImageModel || 'gemini-2.5-flash-image')
-      : (conf().geminiTextModel || 'gemini-2.5-flash');
-    return list.length ? list : [fallback];
+    /* Les replis viennent APRES la liste decouverte, jamais a la
+       place : si le premier modele connu est sature, on veut
+       pouvoir retomber sur un nom stable plutot que d'abandonner. */
+    const replis = (kind === 'image'
+      ? [conf().geminiImageModel].concat(REPLI.image)
+      : [conf().geminiTextModel].concat(REPLI.text)).filter(Boolean);
+    const vus = {};
+    return list.concat(replis).filter((m) => (m && !vus[m]) ? (vus[m] = 1) : false).slice(0, 8);
   }
 
   /* Compatibilité : le premier candidat. */
@@ -156,9 +230,15 @@
   /* Un modèle qui vient de répondre passe en tête pour la suite :
      inutile de retomber sur celui qui est saturé à chaque appel. */
   function promote(kind, model) {
-    const c = Store.get(MODELS_KEY, null);
-    if (!c) return;
+    let c = Store.get(MODELS_KEY, null);
+    /* Le cache peut avoir ete efface juste avant par `forget()`,
+       apres un modele disparu. Sans cette reconstruction, l'appel
+       suivant repartait de zero et retentait les modeles morts :
+       trois requetes perdues a chaque scan de plat. */
+    if (!c) c = { v: MODELS_SCHEMA, at: Date.now(), textList: [], imageList: [], all: [] };
     const listKey = kind + 'List';
+    if (!c[listKey]) c[listKey] = [];
+    if (c[listKey].indexOf(model) < 0) { c[listKey].unshift(model); c[kind] = model; Store.set(MODELS_KEY, c); return; }
     const list = c[listKey] || [];
     const i = list.indexOf(model);
     if (i > 0) { list.splice(i, 1); list.unshift(model); c[listKey] = list; c[kind] = model; Store.set(MODELS_KEY, c); }
@@ -220,7 +300,15 @@
     if (!res.ok) {
       let detail = '';
       try { const j = await res.json(); detail = (j.error && j.error.message) || ''; } catch (e) {}
-      if (res.status === 404 && /no longer available|not found|is not supported/i.test(detail)) {
+      /* TOUT 404 est un modele disparu, sans lire le message.
+
+         On filtrait sur le texte de l'erreur, et Google le reformule
+         regulierement. Le jour ou il a ecrit autre chose, le 404 est
+         tombe dans le cas general : erreur non reessayable, aucune
+         redecouverte, IA morte jusqu'a ce qu'on vide le cache a la
+         main. Un 404 sur une URL de modele n'a de toute facon qu'une
+         seule signification. */
+      if (res.status === 404) {
         const err = new Error('MODEL_GONE'); err.detail = detail; throw err;
       }
       if (res.status === 400 && /API key|API_KEY/i.test(detail)) throw new Error('BAD_KEY');
@@ -253,23 +341,39 @@
 
   async function call(kind, body, opts) {
     opts = opts || {};
-    const list = await candidates(kind, opts.model);
     let last = null;
+    let disparu = false;
 
-    for (let i = 0; i < list.length; i++) {
-      const model = list[i];
-      try {
-        const out = await attempt(model, body, opts);
-        if (i > 0) promote(kind, model);
-        return out;
-      } catch (e) {
-        last = e;
-        const code = String(e.message);
-        if (code === 'MODEL_GONE') forget();
-        if (!RETRYABLE[code] || opts.model) throw e;
-        /* on continue vers le candidat suivant */
+    /* Deux passes. La premiere avec ce qu'on croit savoir, la
+       seconde apres avoir REDEMANDE a Google sa liste. Sans cette
+       seconde passe, un appareil dont le cache pointe vers des
+       modeles retires echoue a chaque fois sans jamais se corriger,
+       parce que `forget()` ne prend effet qu'au prochain appel et
+       que l'appel suivant echouait avant d'arriver la. */
+    for (let passe = 0; passe < 2; passe++) {
+      const list = await candidates(kind, opts.model, passe === 1);
+
+      for (let i = 0; i < list.length; i++) {
+        const model = list[i];
+        try {
+          const out = await attempt(model, body, opts);
+          if (i > 0 || passe > 0) promote(kind, model);
+          return out;
+        } catch (e) {
+          last = e;
+          const code = String(e.message);
+          noter({ ev: 'echec', kind: kind, model: model, code: code, detail: (e.detail || '').slice(0, 240) });
+          if (code === 'MODEL_GONE') { disparu = true; forget(); }
+          if (!RETRYABLE[code] || opts.model) throw e;
+        }
       }
+
+      /* On ne refait un tour que si la cause peut se reparer en
+         redecouvrant : un modele disparu. Un quota atteint sur tous
+         les modeles ne se reglera pas en redemandant la liste. */
+      if (!disparu || opts.model) break;
     }
+
     throw last || new Error('UPSTREAM');
   }
 
@@ -294,8 +398,7 @@
     const c = String(code && code.message || code || '');
     if (c === 'NO_KEY')     return "Ajoute ta clé Gemini dans Réglages pour activer l'IA.";
     if (c === 'BAD_KEY')    return 'Clé Gemini refusée. Vérifie-la dans Réglages.';
-    if (c === 'QUOTA')      return 'Google a refusé la demande : quota atteint sur ce modèle. ' +
-      "La génération d'images en a un très petit sur les clés gratuites, bien plus petit que le texte.";
+    if (c === 'QUOTA')      return 'Quota Google atteint sur ce modèle. Réessaie plus tard.';
     if (c === 'NETWORK')    return 'Pas de connexion : les suggestions arrivent quand le réseau revient.';
     if (c === 'SAFETY')     return 'La demande a été bloquée par le filtre de sécurité.';
     if (c === 'MODEL_GONE') return "Le modèle a changé côté Google. Réessaie, l'app se remet à jour toute seule.";
@@ -445,28 +548,74 @@
     });
   }
 
-  /* ---------- Diagnostic, affiché dans Réglages ---------- */
+  /* ---------- Diagnostic, affiché dans Réglages ----------
+     Un carre rouge de 8 px sur 8. Assez pour verifier que la
+     chaine vision fonctionne de bout en bout (encodage, envoi,
+     lecture de la reponse) sans envoyer quoi que ce soit de
+     personnel ni peser sur le quota. */
+  const PIXEL = 'data:image/png;base64,' +
+    'iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAAG0lEQVQoz2NkYPjPQApgYhgFo' +
+    'wBGwSiAUTAKYBQMAwAKvgABAeAOZQAAAABJRU5ErkJggg==';
+
+  /* Chaque brique est testee separement : savoir QUE l'IA ne marche
+     pas ne sert a rien, il faut savoir LAQUELLE ne marche pas. La
+     cle peut etre bonne pour le texte et sans quota pour l'image,
+     c'est meme le cas le plus frequent sur les cles gratuites. */
   async function selfTest() {
-    if (!available()) return { ok: false, message: humanError('NO_KEY') };
-    try {
-      const models = await discover();
-      const out = await ask('Réponds uniquement par : ok', { cache: false, maxTokens: 1024, temperature: 0 });
-      return {
-        ok: true,
-        model: (models && models.text) || Store.get(MODELS_KEY, {}).text || '?',
-        imageModel: (models && models.image) || null,
-        count: models && models.all ? models.all.length : null,
-        echo: out
-      };
-    } catch (e) {
-      return { ok: false, message: humanError(e), code: String(e.message), detail: e.detail || '' };
+    const res = { cle: !!key(), proxy: !!proxy(), etapes: [] };
+    if (!available()) {
+      res.ok = false; res.message = humanError('NO_KEY');
+      return res;
     }
+
+    const etape = async (nom, fn) => {
+      const t0 = Date.now();
+      try {
+        const v = await fn();
+        res.etapes.push({ nom: nom, ok: true, ms: Date.now() - t0, info: v });
+        return v;
+      } catch (e) {
+        res.etapes.push({ nom: nom, ok: false, ms: Date.now() - t0,
+          code: String(e.message), message: humanError(e), detail: (e.detail || '').slice(0, 240) });
+        return null;
+      }
+    };
+
+    const models = await etape('Liste des modèles', async () => {
+      const m = await discover();
+      if (!m) return 'via proxy, liste non consultable';
+      return m.all.length + ' modèles, retenu : ' + m.text;
+    });
+
+    const txt = await etape('Texte', () =>
+      ask('Réponds uniquement par : ok', { cache: false, maxTokens: 1024, temperature: 0 }));
+
+    const vis = await etape('Lecture d\'image', () =>
+      vision([PIXEL], 'Quelle est la couleur dominante de cette image ? Un seul mot.',
+        null, { cache: false, maxTokens: 1024 }));
+
+    await etape('Génération d\'image', async () => {
+      const o = await image('un carre bleu uni, tres simple', { maxTokens: 2048 });
+      return o.images.length ? 'image reçue' : 'aucune image renvoyée';
+    });
+
+    const dur = res.etapes.filter((x) => !x.ok);
+    res.ok = res.etapes.slice(0, 3).every((x) => x.ok);
+    res.model = (Store.get(MODELS_KEY, null) || {}).text || '?';
+    res.imageModel = (Store.get(MODELS_KEY, null) || {}).image || null;
+    res.echo = txt;
+    res.vision = vis;
+    res.message = res.ok ? null : ((dur[0] && dur[0].message) || humanError('UPSTREAM'));
+    res.code = dur[0] && dur[0].code;
+    noter({ ev: 'diagnostic', ok: res.ok, rates: dur.map((x) => x.nom).join(', ') });
+    return res;
   }
 
   global.AI = {
     ask, json, vision, image, shrink, fileToDataUrl,
     available, humanError, clearCache, parseJson,
     discover, modelFor, candidates, forget, selfTest,
+    journal, viderJournal, noter,
     currentModel: () => (Store.get(MODELS_KEY, {}) || {}).text || null,
     /* Types courts pour composer les schémas de réponse */
     T: {

@@ -101,8 +101,25 @@
   const EXACT = {};
   INDEX.forEach(([m, s]) => { if (!EXACT[m]) EXACT[m] = s; });
 
+  /* ============================================================
+     L'interrupteur
+
+     Les icones 3D ont remplace les photos sur toutes les cartes.
+     A l'usage, une photo de plat appetissante dit plus qu'une
+     icone en verre : on revient aux photos par defaut, et les
+     icones restent la, activables depuis Reglages.
+
+     Tout passe par `trouve` : cartes.js, stock.js et codex.js
+     appellent tous cette fonction ou consultent `actif()`. Un seul
+     endroit a basculer, aucun risque d'en oublier un.
+     ============================================================ */
+  function actif() {
+    return !!(global.Store && Store.get('icones3d', false));
+  }
+
   /* Le nom du fichier pour un mot, ou null si rien ne colle. */
   function trouve(mot) {
+    if (!actif()) return null;
     const m = sansAccent(mot);
     if (!m) return null;
     if (SET[m.replace(/ /g, '-')]) return m.replace(/ /g, '-');
@@ -171,5 +188,5 @@
       '" alt="' + UI.attr(alt || '') + '" loading="lazy" decoding="async">';
   }
 
-  global.Ic = { trouve, html, balise, url, sombre, rafraichir, DISPO, a: (m) => !!trouve(m) };
+  global.Ic = { trouve, actif, html, balise, url, sombre, rafraichir, DISPO, a: (m) => !!trouve(m) };
 })(window);

@@ -163,7 +163,7 @@
   });
 
   async function aiIdeas() {
-    if (!AI.available()) { UI.toast('Ajoute ta clé Gemini dans Réglages'); return App.go('#/m/settings/ia'); }
+    if (!AI.available()) return UI.echecIA('NO_KEY', { titre: "Les idées de cadeaux demandent une clé IA" });
     const p = Store.find('people', personId);
     const h = hints(personId), g = gifts(personId);
     if (!h.length && !g.length) { UI.toast('Ajoute d\'abord un indice ou une idée'); return; }
@@ -192,7 +192,7 @@
       UI.closeSheet();
       if (global.Game) Game.award('idée-cadeau', 10);
       render();
-    } catch (e) { UI.closeSheet(); UI.toast(AI.humanError(e)); }
+    } catch (e) { UI.closeSheet(); UI.echecIA(e, { titre: "Pas d'idées de cadeaux pour le moment" }); }
   }
 
   function openIdea(id) {
@@ -244,7 +244,7 @@
   }
 
   async function whereToBuy(what) {
-    if (!AI.available()) { UI.toast('Ajoute ta clé Gemini dans Réglages'); return; }
+    if (!AI.available()) return UI.echecIA('NO_KEY', { titre: "Les idées de cadeaux demandent une clé IA" });
     const place = Ctx.place();
     UI.openSheet('<div class="mbody">' + UI.thinking('Recherche des commerces…') + '</div>');
     try {
@@ -273,7 +273,7 @@
           window.open(prov === 'google' ? 'https://www.google.com/maps/search/?api=1&query=' + q : 'https://maps.apple.com/?q=' + q, '_blank', 'noopener');
         })
       });
-    } catch (e) { UI.closeSheet(); UI.toast(AI.humanError(e)); }
+    } catch (e) { UI.closeSheet(); UI.echecIA(e, { titre: "Pas d'idées de cadeaux pour le moment" }); }
   }
 
   /* ============================================================

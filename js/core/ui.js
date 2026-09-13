@@ -73,6 +73,7 @@
       '<button class="close" data-sheet-close aria-label="Fermer">' + Icon('close', 16) + '</button>' +
       html;
     sheet.classList.toggle('a-retour', peutRevenir);
+    marquerBandeau(sheet);
 
     ov.classList.add('on');
     document.body.style.overflow = 'hidden';
@@ -84,6 +85,37 @@
     sheet.__remonter = opts.onMount || null;
     if (opts.onMount) opts.onMount(sheet);
     return sheet;
+  }
+
+  /* ============================================================
+     Le bandeau collé en haut
+
+     Une pop-up qui commence par une image ou par un aplat coloré
+     doit le faire toucher le bord haut. La règle CSS ne visait que
+     l'enfant DIRECT de la feuille : dès que le bandeau était
+     emballé dans un conteneur (la fiche d'un film, la carte d'un
+     lieu), elle ne s'appliquait plus et une bande claire restait
+     au-dessus du titre. C'est le fameux « espace moche ».
+
+     On cherche donc le premier élément visible, en descendant tant
+     qu'il n'a qu'un seul enfant, et on marque la feuille. Toutes
+     les règles de collage partent de cette classe : plus aucune
+     pop-up ne peut y échapper, quelle que soit son imbrication.
+     ============================================================ */
+  function marquerBandeau(sheet) {
+    let n = sheet.firstElementChild;
+    while (n && (n.classList.contains('grabber') || n.classList.contains('close') ||
+                 n.classList.contains('retourpop'))) n = n.nextElementSibling;
+    let profondeur = 0;
+    while (n && profondeur < 3) {
+      if (n.classList && (n.classList.contains('mimg') || n.classList.contains('mtete'))) {
+        sheet.classList.add('bandeau');
+        sheet.classList.toggle('bandeau-img', n.classList.contains('mimg'));
+        return;
+      }
+      n = n.firstElementChild; profondeur++;
+    }
+    sheet.classList.remove('bandeau', 'bandeau-img');
   }
 
   /* Revient d'un cran. Le HTML précédent est réinjecté tel quel et
@@ -100,6 +132,7 @@
     const fl = sheet.querySelector('[data-sheet-back]');
     if (fl && !historique.length) fl.remove();
     sheet.scrollTop = 0;
+    marquerBandeau(sheet);
     sheet.__remonter = p.remonter;
     if (p.remonter) { try { p.remonter(sheet); } catch (e) {} }
     sautHistorique = false;
@@ -486,8 +519,66 @@
     '</div>';
   }
 
+  /* ============================================================
+     Quand l'IA echoue
+
+     Quinze endroits de l'application attrapaient une erreur d'IA et
+     affichaient un toast gris de deux secondes. Sur un telephone,
+     ca donne « Impossible de recuperer les suggestions », le toast
+     disparait, et il ne reste rien : ni le modele appele, ni la
+     raison, ni un moyen de reessayer.
+
+     Une action que l'utilisateur a declenchee exprès (scanner un
+     plat, generer une tenue) merite une vraie reponse : ce qui a
+     echoue, pourquoi, et deux boutons. Les degradations
+     silencieuses, elles, gardent le toast : inutile d'ouvrir une
+     fenetre pour une suggestion accessoire qui n'est pas venue.
+     ============================================================ */
+  function echecIA(e, opts) {
+    opts = opts || {};
+    const AI = global.AI;
+    const code = String((e && e.message) || e || '');
+    if (code === 'ABORT') return;
+
+    const message = (AI && AI.humanError) ? AI.humanError(e) : "L'IA n'a pas repondu.";
+    const detail = (e && e.detail) ? String(e.detail).slice(0, 220) : '';
+    const modele = (AI && AI.currentModel && AI.currentModel()) || null;
+
+    /* Une clé absente ou refusée n'est pas une panne : c'est une
+       chose a faire. Le bouton mene droit au bon reglage. */
+    const cle = code === 'NO_KEY' || code === 'BAD_KEY';
+
+    openSheet('<div class="mbody" style="padding-top:6px">' +
+      '<h2 style="font-size:22px;margin-bottom:4px">' +
+        esc(opts.titre || (cle ? "L'IA n'est pas configurée" : "L'IA n'a pas répondu")) + '</h2>' +
+      '<p class="mdesc">' + esc(message) + '</p>' +
+      (detail ? '<p class="muted" style="font-size:11.5px;margin-top:10px;word-break:break-word">' +
+        esc(detail) + '</p>' : '') +
+      (modele && !cle ? '<p class="muted" style="font-size:11.5px;margin-top:6px">Modèle appelé : ' +
+        esc(modele) + ' · code ' + esc(code) + '</p>' : '') +
+      (opts.repli ? '<div style="height:1px;background:var(--hairline);margin:16px 0"></div>' +
+        '<p class="muted" style="font-size:12px;margin-bottom:10px">En attendant :</p>' : '') +
+      '<div style="margin-top:16px">' +
+        (opts.reessayer ? '<button class="btn primary block lg" data-re>Réessayer</button>' : '') +
+        (opts.repli ? '<button class="btn soft block" style="margin-top:8px" data-repli>' +
+          esc(opts.repli.nom) + '</button>' : '') +
+        '<button class="btn ghost block" style="margin-top:8px" data-diag>' +
+          (cle ? 'Ouvrir les réglages' : 'Voir le diagnostic') + '</button>' +
+      '</div></div>',
+      { onMount: (sh) => {
+        const re = sh.querySelector('[data-re]');
+        if (re) re.onclick = () => { closeSheet(); opts.reessayer(); };
+        const rp = sh.querySelector('[data-repli]');
+        if (rp) rp.onclick = () => { closeSheet(); opts.repli.faire(); };
+        sh.querySelector('[data-diag]').onclick = () => {
+          closeSheet();
+          if (global.App) App.go('#/m/settings/ia');
+        };
+      } });
+  }
+
   global.UI = {
-    $, $$, esc, attr, haptic, toast,
+    $, $$, esc, attr, haptic, toast, echecIA,
     openSheet, closeSheet, backSheet, confirmSheet, promptSheet,
     hint, showHint, hideHint, grandeCarte,
     fmt, day, uid, clamp, debounce, sleep, download, copy,

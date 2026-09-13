@@ -56,11 +56,11 @@
       '</div>' +
 
       Portes.section('', [
-        { act: 'roue',     nom: 'Tourner',   sub: 'Le hasard choisit',  ph: 'hasard' },
-        { act: 'ai',       nom: 'Choisis pour moi', sub: 'Selon mes macros', ph: 'chef cooking' },
-        { act: 'three',    nom: 'Trois idées', sub: 'Puis la roue',     ph: 'surprise' },
-        { act: 'add',      nom: 'Ajouter',   sub: 'Un aliment de plus', ph: 'grocery shelf food' },
-        { act: 'share',    nom: 'Listes',    sub: 'Couple, famille',    ph: 'gens' },
+        { act: 'roue',     nom: 'Tourner',   sub: 'Le hasard choisit',  ph: 'de hasard' },
+        { act: 'ai',       nom: 'Choisis pour moi', sub: 'Selon mes macros', ph: 'recettes' },
+        { act: 'three',    nom: 'Trois idées', sub: 'Puis la roue',     ph: 'trois idees' },
+        { act: 'add',      nom: 'Ajouter',   sub: 'Un aliment de plus', ph: 'ajouter' },
+        { act: 'share',    nom: 'Listes',    sub: 'Couple, famille',    ph: 'guide' },
         { act: 'favoris',  nom: p.favOnly ? 'Favoris' : 'Tout',
           sub: p.favOnly ? 'Filtré' : 'Sans filtre', ph: 'favoris' }
       ], { serre: true }) +
@@ -285,7 +285,7 @@
   }
 
   async function aiPick() {
-    if (!AI.available()) { UI.toast('Ajoute ta clé Gemini dans Réglages'); return App.go('#/m/settings/ia'); }
+    if (!AI.available()) return UI.echecIA('NO_KEY', { titre: "Choisir pour toi demande une clé IA" });
     const g = Food.goals(), t = Food.totals(Food.entries());
     const list = pool().map((f) => f.nom).slice(0, 120);
     UI.openSheet('<div class="mbody">' + UI.thinking('Je regarde ta journée…') + '</div>');
@@ -304,7 +304,7 @@
       box.innerHTML = card(found).replace('</h3>', '</h3><div class="rwhy" style="margin-top:10px"><b>Pourquoi ? </b>' + UI.esc(res.pourquoi) + '</div>');
       bindCard(box, found);
       box.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    } catch (e) { UI.closeSheet(); UI.toast(AI.humanError(e)); }
+    } catch (e) { UI.closeSheet(); UI.echecIA(e, { titre: "Le choix n'a pas pu être fait" }); }
   }
 
   App.register('foods', { mount: mount });

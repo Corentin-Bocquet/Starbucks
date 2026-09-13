@@ -296,7 +296,7 @@
       Store.set('reste.' + viewDay, { reste: reste, data: res, at: Date.now() });
       render();
     } catch (e) {
-      UI.toast(AI.humanError(e));
+      UI.echecIA(e, { titre: 'Pas de suggestion pour ce soir', reessayer: () => quoiManger() });
       render();
     }
   }
@@ -554,6 +554,36 @@
     );
   }
 
+  /* ============================================================
+     Le schema de la photo d'assiette
+
+     Il MANQUAIT. `scanFlow` le passait a `AI.vision` sans qu'il
+     soit defini nulle part : le scan levait une ReferenceError
+     avant meme le premier appel reseau. Vu de l'exterieur, l'IA
+     avait l'air en panne alors qu'elle n'etait jamais appelee.
+
+     Les champs collent exactement a ce que `showScanResult` lit
+     ensuite, et les valeurs nutritionnelles sont demandees POUR LA
+     PORTION VISIBLE, jamais pour 100 g : c'est l'erreur classique
+     qui triple les calories d'une assiette.
+     ============================================================ */
+  const SCAN_SCHEMA = AI.T.obj({
+    aliments: AI.T.arr(AI.T.obj({
+      nom:        AI.T.str("Le nom de l'aliment en francais, court et concret"),
+      quantite:   AI.T.num('La quantite estimee de la portion visible'),
+      unite:      AI.T.enu(['g', 'ml', 'piece', 'tranche', 'cuillere', 'portion'], "L'unite de la quantite"),
+      kcal:       AI.T.num('Calories de la portion visible, pas pour 100 g'),
+      proteines:  AI.T.num('Proteines en grammes, pour la portion visible'),
+      glucides:   AI.T.num('Glucides en grammes, pour la portion visible'),
+      lipides:    AI.T.num('Lipides en grammes, pour la portion visible'),
+      fibres:     AI.T.num('Fibres en grammes, pour la portion visible'),
+      sucres:     AI.T.num('Sucres en grammes, pour la portion visible'),
+      sodium:     AI.T.num('Sodium en milligrammes, pour la portion visible'),
+      confiance:  AI.T.enu(['haute', 'moyenne', 'basse'], "La confiance dans l'identification et la portion")
+    }, ['nom', 'quantite', 'unite', 'kcal']), 'Un element par aliment identifie sur la photo'),
+    commentaire: AI.T.str("Une phrase sur ce que montre l'assiette, en francais")
+  }, ['aliments']);
+
   function scanFlow() {
     if (!AI.available()) return needKey();
     /* On demande la source : une assiette se photographie sur le
@@ -572,7 +602,11 @@
         showScanResult(res, img);
       } catch (e) {
         UI.closeSheet();
-        UI.toast(AI.humanError(e) || 'Analyse impossible');
+        UI.echecIA(e, {
+          titre: "La photo n'a pas pu être analysée",
+          reessayer: () => scanFlow(),
+          repli: { nom: 'Saisir le repas à la main', faire: () => manualFlow('', guessSlot()) }
+        });
       }
     }, { capture: 'environment' });
   }
@@ -996,7 +1030,10 @@
   }
 
   function barcodePhoto(slot) {
-    if (!AI.available()) { UI.toast("Ajoute ta clé IA dans les réglages pour lire un code en photo"); return manualFlow('', slot); }
+    if (!AI.available()) return UI.echecIA('NO_KEY', {
+      titre: 'Lire un code en photo demande une clé IA',
+      repli: { nom: 'Saisir le produit à la main', faire: () => manualFlow('', slot) }
+    });
     Photos.pick(async (f) => {
       if (!f) return;
       UI.toast('Lecture du code…');
@@ -1009,7 +1046,13 @@
         const code = String((lu && lu.code) || '').replace(/\D/g, '');
         if (code.length < 8) { UI.toast('Code illisible, réessaie de plus près'); return; }
         lookupBarcode(code, slot);
-      } catch (e) { UI.toast(AI.humanError ? AI.humanError(e) : 'Lecture impossible'); }
+      } catch (e) {
+        UI.echecIA(e, {
+          titre: "Le code-barres n'a pas pu être lu",
+          reessayer: () => barcodePhoto(slot),
+          repli: { nom: 'Saisir le produit à la main', faire: () => manualFlow('', slot) }
+        });
+      }
     }, { capture: 'environment' });
   }
 
@@ -1146,7 +1189,7 @@
       if (global.Game) Game.award('analyse', 15);
       render();
     } catch (e) {
-      UI.toast(AI.humanError(e) || 'Analyse impossible');
+      UI.echecIA(e, { titre: "La journée n'a pas pu être analysée", reessayer: () => analyse() });
       render();
     }
   }
