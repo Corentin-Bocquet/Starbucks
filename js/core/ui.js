@@ -74,6 +74,9 @@
       html;
     sheet.classList.toggle('a-retour', peutRevenir);
     marquerBandeau(sheet);
+    /* Une feuille « pleine » occupe tout l'écran (le hub). */
+    sheet.classList.toggle('plein', !!opts.plein);
+    ov.classList.toggle('plein', !!opts.plein);
 
     ov.classList.add('on');
     document.body.style.overflow = 'hidden';

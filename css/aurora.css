@@ -1,0 +1,736 @@
+/* ============================================================
+   EVER : Aurora, le thème nuit en verre liquide
+
+   Chargée après components.css, cette feuille ne touche QUE le
+   thème sombre, devenu le thème par défaut. Le clair reste tel
+   qu'il était, pour qui le choisit dans Réglages.
+
+   Trois idées :
+     1. un fond vivant : trois lueurs bleu pétrole et indigo, fixes,
+        derrière tout. Sans elles, le verre n'a rien à réfracter et
+        ressemble à du gris ;
+     2. du verre partout où l'on touche : panneaux, boutons, barres,
+        feuilles, bulles. Un dégradé blanc très léger, un flou
+        saturé, un liseré lumineux en haut ;
+     3. le contenu reste net : chiffres, photos et textes ne sont
+        jamais posés sur du verre trop clair.
+   ============================================================ */
+
+:root[data-theme="dark"] {
+  --bg:              #050B10;
+  --bg-elev:         #0C151C;
+  --surface:         rgba(255, 255, 255, .075);
+  --surface-2:       rgba(255, 255, 255, .055);
+  --surface-3:       rgba(255, 255, 255, .11);
+  --hairline:        rgba(255, 255, 255, .10);
+  --hairline-strong: rgba(255, 255, 255, .18);
+
+  --ink:   #F3F6F8;
+  --ink-2: rgba(236, 243, 247, .80);
+  --muted: rgba(236, 243, 247, .58);
+  --faint: rgba(236, 243, 247, .34);
+
+  --brand:        #8FD8F0;
+  --brand-strong: #B5E8F7;
+  --brand-soft:   rgba(143, 216, 240, .14);
+  --brand-ink:    #E3F7FD;
+
+  /* Le verre, en jetons, pour que chaque composant parle pareil. */
+  --glass:        linear-gradient(160deg, rgba(255,255,255,.14), rgba(255,255,255,.045) 55%, rgba(255,255,255,.075));
+  --glass-strong: linear-gradient(160deg, rgba(255,255,255,.22), rgba(255,255,255,.08) 60%, rgba(255,255,255,.12));
+  --glass-blur:   blur(22px) saturate(180%);
+  --glass-rim:    inset 0 1px 1px rgba(255,255,255,.30), inset 0 0 0 1px rgba(255,255,255,.07), inset 0 -1px 1px rgba(255,255,255,.05);
+  --glass-drop:   0 18px 40px -20px rgba(0,0,0,.8);
+
+  --sh-1: var(--glass-rim);
+  --sh-2: var(--glass-rim), var(--glass-drop);
+  --sh-3: var(--glass-rim), 0 24px 50px -22px rgba(0,0,0,.85);
+  --sh-float: var(--glass-rim), 0 26px 60px -18px rgba(0,0,0,.9);
+  --sh-inset: inset 0 0 0 1px rgba(255,255,255,.08);
+
+  --hero-ink:       #FFFFFF;
+  --hero-ink-soft:  rgba(255,255,255,.86);
+  --hero-ink-faint: rgba(255,255,255,.7);
+  --hero-chip:      rgba(255,255,255,.14);
+  --hero-chip-line: rgba(255,255,255,.22);
+
+  background: #050B10;
+}
+:root[data-theme="dark"] body { --hero-bg: color-mix(in srgb, var(--accent) 26%, #07121A); background: transparent; }
+
+/* ---------- Le fond ----------
+   Un calque fixe plutôt que background-attachment: fixed, que
+   Safari iOS ignore. */
+:root[data-theme="dark"] body::before {
+  content: ''; position: fixed; inset: -10vh -10vw; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(60% 40% at 88% 4%, color-mix(in srgb, var(--accent) 34%, #1E6B7A) 0%, transparent 70%),
+    radial-gradient(55% 38% at 0% 46%, rgba(40, 52, 140, .55) 0%, transparent 70%),
+    radial-gradient(60% 40% at 85% 100%, rgba(14, 90, 104, .5) 0%, transparent 72%),
+    #050B10;
+  transition: background .6s ease;
+}
+
+/* ---------- Le verre, appliqué ---------- */
+:root[data-theme="dark"] :is(.panel, .list, .search, .seg, .barrejour, .moodcarte, .kart, .porte, .card, .toast, .rowitem.carte) {
+  background: var(--glass);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-rim), var(--glass-drop);
+}
+:root[data-theme="dark"] .list { box-shadow: var(--glass-rim); }
+:root[data-theme="dark"] .list .rowitem { border-bottom-color: rgba(255,255,255,.07); }
+
+/* Boutons */
+:root[data-theme="dark"] :is(.btn, .iconbtn, .tbtn, .rondgris, .chip) {
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
+  backdrop-filter: blur(18px) saturate(180%);
+  box-shadow: var(--glass-rim), 0 10px 24px -14px rgba(0,0,0,.7);
+  color: var(--ink);
+}
+:root[data-theme="dark"] .btn.ghost { background: transparent; box-shadow: none; color: var(--muted); backdrop-filter: none; -webkit-backdrop-filter: none; }
+/* L'action principale : une lentille claire, lisible au premier coup d'œil. */
+:root[data-theme="dark"] :is(.btn.primary, .iconbtn.accent, .chip.on) {
+  background: linear-gradient(180deg, #FFFFFF, #D9E7EC);
+  color: #061015;
+  box-shadow: inset 0 1px 0 #fff, inset 0 -3px 6px rgba(0, 40, 60, .12), 0 12px 30px -10px rgba(140, 220, 235, .45);
+}
+:root[data-theme="dark"] .btn.danger, :root[data-theme="dark"] .btn.primary.danger { background: linear-gradient(180deg, #FF8A7F, #E4574B); color: #fff; }
+
+/* Segments : le choix actif devient une pastille de verre claire. */
+:root[data-theme="dark"] .seg { padding: 4px; }
+:root[data-theme="dark"] .seg button { color: var(--muted); }
+:root[data-theme="dark"] .seg button.on {
+  background: linear-gradient(180deg, rgba(255,255,255,.95), rgba(220,232,238,.85));
+  color: #061015; box-shadow: inset 0 1px 0 #fff, 0 6px 16px -6px rgba(0,0,0,.5);
+}
+
+/* ---------- Barre du haut ---------- */
+:root[data-theme="dark"] .topbar {
+  background: linear-gradient(180deg, rgba(5,11,16,.82), rgba(5,11,16,.35) 70%, transparent);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  backdrop-filter: blur(14px) saturate(160%);
+  border-bottom-color: transparent;
+}
+:root[data-theme="dark"] .tbtn { width: 42px; height: 42px; }
+
+/* ---------- Barre d'onglets : une seule barre de verre, des icônes ---------- */
+:root[data-theme="dark"] .tabbar {
+  height: 70px; padding: 0 9px; border-radius: 999px;
+  width: min(calc(100% - 44px), 400px);
+  bottom: calc(var(--safe-b) + 14px);
+  background: linear-gradient(180deg, rgba(255,255,255,.16), rgba(255,255,255,.05));
+  -webkit-backdrop-filter: blur(26px) saturate(190%);
+  backdrop-filter: blur(26px) saturate(190%);
+  box-shadow: inset 0 1px 1px rgba(255,255,255,.5), inset 0 -1px 2px rgba(255,255,255,.1),
+              inset 0 0 0 1px rgba(255,255,255,.08), 0 24px 50px -16px rgba(0,0,0,.85);
+}
+:root[data-theme="dark"] .tabbar button {
+  width: 58px; height: 52px; border-radius: 999px;
+  color: rgba(236,243,247,.58);
+}
+:root[data-theme="dark"] .tabbar button.on {
+  width: 70px; color: #fff;
+  background: linear-gradient(180deg, rgba(255,255,255,.32), rgba(255,255,255,.10));
+  box-shadow: inset 0 1px 1px rgba(255,255,255,.75), inset 0 -2px 5px rgba(255,255,255,.12), 0 8px 18px -8px rgba(0,0,0,.6);
+}
+:root[data-theme="dark"] .tabbar button.on svg { width: 25px; height: 25px; }
+
+/* ---------- Feuilles, tiroir, notifications ---------- */
+:root[data-theme="dark"] .ov { background: rgba(2, 6, 9, .45); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+:root[data-theme="dark"] .sheet {
+  background: linear-gradient(170deg, rgba(22,34,42,.86), rgba(8,14,19,.94));
+  -webkit-backdrop-filter: blur(30px) saturate(170%);
+  backdrop-filter: blur(30px) saturate(170%);
+  box-shadow: inset 0 1px 1px rgba(255,255,255,.22), 0 -20px 60px -20px rgba(0,0,0,.8);
+}
+:root[data-theme="dark"] .sheet .grabber { background: linear-gradient(180deg, rgba(14,24,31,.95) 60%, transparent); }
+:root[data-theme="dark"] .drawer {
+  background: linear-gradient(170deg, rgba(22,34,42,.88), rgba(8,14,19,.95));
+  -webkit-backdrop-filter: blur(30px) saturate(170%);
+  backdrop-filter: blur(30px) saturate(170%);
+}
+:root[data-theme="dark"] .toast { color: var(--ink); border-radius: 999px; }
+
+/* ---------- Les icônes 3D : plus jamais de carré de fond ----------
+   Chaque icône est livrée sur fond noir (sombre) ou blanc (clair).
+   En mode « écran », le noir devient transparent : l'icône flotte
+   sur le verre, quelle que soit la couleur de la carte. C'est ce
+   qui évite le pull sur fond blanc posé dans une boîte grise. */
+.ic3d { background: transparent; }
+.ic3d > img, .ic3dimg { mix-blend-mode: multiply; }
+:root[data-theme="dark"] .ic3d > img, :root[data-theme="dark"] .ic3dimg { mix-blend-mode: screen; }
+:root[data-theme="dark"] :is(.porte, .kart)::before { opacity: .35; }
+/* Même raison : la couche qui porte l'icône ne doit pas créer son
+   propre contexte d'empilement, sinon le fondu ne se fait pas. */
+:root[data-theme="dark"] :is(.kart .vis, .porte .ic3d, .porte .phic) { z-index: auto; }
+.ic3d > img, .ic3dimg { background: transparent; }
+
+/* ---------- Hub ---------- */
+:root[data-theme="dark"] .hubtile .ic {
+  background: linear-gradient(150deg, color-mix(in srgb, var(--g2, #888) 60%, transparent), color-mix(in srgb, var(--g1, #444) 45%, transparent));
+  box-shadow: inset 0 1px 1px rgba(255,255,255,.5), inset 0 0 0 1px rgba(255,255,255,.1), 0 12px 24px -10px color-mix(in srgb, var(--g1, #000) 70%, transparent);
+}
+:root[data-theme="dark"] .hubtile .ic svg:not(.art) { color: #fff; }
+
+/* ---------- Bandeau de lieu d'Activités ---------- */
+:root[data-theme="dark"] .accueil {
+  background: linear-gradient(150deg, color-mix(in srgb, var(--g2) 55%, transparent), color-mix(in srgb, var(--g1) 40%, rgba(5,11,16,.6)));
+  -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-rim), var(--glass-drop);
+}
+
+/* ============================================================
+   Le carrousel de lanceurs (Activités)
+   ============================================================ */
+.lanceurs {
+  display: flex; gap: 12px; overflow-x: auto;
+  scroll-snap-type: x mandatory; scrollbar-width: none;
+  margin: 0 calc(-1 * var(--gut)); padding: 6px var(--gut) 14px;
+  -webkit-overflow-scrolling: touch;
+}
+.lanceurs::-webkit-scrollbar { display: none; }
+.lanceur {
+  position: relative; overflow: hidden; isolation: isolate;
+  flex: none; width: min(64vw, 250px); height: 300px;
+  border-radius: 32px; scroll-snap-align: start;
+  background: radial-gradient(110% 80% at 70% 15%, var(--l1), var(--l2) 78%);
+  box-shadow: inset 0 1px 1px rgba(255,255,255,.35), 0 22px 40px -22px var(--l2);
+  color: #fff;
+}
+.lanceur .lic { position: absolute; left: calc(50% - 84px); top: 16px; width: 168px; height: 168px; }
+/* Pas de z-index ni de transform ici : ils isoleraient l'image, et
+   le mode « écran » n'aurait plus rien derrière lui avec quoi se
+   fondre. Le noir du fichier resterait un carré noir. */
+.lanceur .lic img { width: 100%; height: 100%; object-fit: contain; background: transparent; }
+html:not([data-theme="dark"]) .lanceur .lic img { mix-blend-mode: multiply; filter: saturate(1.1); }
+.lanceur .fonte {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 58%; z-index: 1;
+  background: linear-gradient(to top, color-mix(in srgb, var(--l2) 88%, transparent) 25%, transparent);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-mask-image: linear-gradient(to top, #000 45%, transparent);
+  mask-image: linear-gradient(to top, #000 45%, transparent);
+}
+.lanceur .ltx { position: absolute; left: 18px; right: 18px; bottom: 76px; z-index: 2; }
+.lanceur .ltx b { display: block; font-size: 22px; font-weight: 820; letter-spacing: -.02em; line-height: 1.1; }
+.lanceur .ltx small { display: block; font-size: 13px; opacity: .88; margin-top: 4px; line-height: 1.35; }
+
+/* Le curseur à glisser */
+.glisseur {
+  --p: 0;
+  position: absolute; left: 12px; right: 12px; bottom: 12px; z-index: 3;
+  height: 52px; border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255,255,255,.22), rgba(255,255,255,.08));
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  backdrop-filter: blur(16px) saturate(180%);
+  box-shadow: inset 0 1px 1px rgba(255,255,255,.5), inset 0 0 0 1px rgba(255,255,255,.1);
+  display: flex; align-items: center;
+}
+.glisseur .rail {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  padding-left: 40px; font-size: 13.5px; font-weight: 720; letter-spacing: .01em;
+  color: rgba(255,255,255,.9); opacity: calc(1 - var(--p) * 1.6);
+  background: linear-gradient(90deg, rgba(255,255,255,.55) 0%, #fff 50%, rgba(255,255,255,.55) 100%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  animation: miroitement 2.6s linear infinite;
+  pointer-events: none;
+}
+.glisseur .bouton {
+  position: relative; z-index: 2; margin-left: 4px;
+  width: 44px; height: 44px; border-radius: 50%;
+  display: grid; place-items: center; touch-action: none; cursor: grab;
+  color: #061015;
+  background: linear-gradient(180deg, #fff, #DCE8EC);
+  box-shadow: inset 0 1px 0 #fff, 0 6px 16px -6px rgba(0,0,0,.55);
+}
+.glisseur .bouton svg { width: 20px; height: 20px; }
+.glisseur .bouton:active { cursor: grabbing; }
+@keyframes miroitement { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { .glisseur .rail { animation: none; } }
+
+/* Les humeurs en bulles */
+.bulles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.bulle {
+  display: flex; align-items: center; gap: 9px;
+  height: 50px; padding: 0 12px; border-radius: 999px;
+  font-size: 14px; font-weight: 700; text-align: left; color: var(--ink);
+  background: var(--glass, var(--surface));
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
+  backdrop-filter: blur(18px) saturate(180%);
+  box-shadow: var(--glass-rim, var(--sh-inset));
+  transition: transform var(--d-fast) var(--spring);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.bulle:active { transform: scale(.95); }
+.bulle .pt {
+  flex: none; width: 30px; height: 30px; border-radius: 50%;
+  display: grid; place-items: center; color: #fff;
+  background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--mc) 70%, white), var(--mc));
+  box-shadow: 0 0 16px color-mix(in srgb, var(--mc) 60%, transparent);
+}
+.bulle .pt svg { width: 15px; height: 15px; }
+.bulle.on { box-shadow: inset 0 0 0 2px var(--mc), var(--glass-rim, none); }
+
+.raccourcis { display: flex; gap: 8px; margin-top: 12px; }
+.raccourcis .btn { flex: 1; padding: 0 10px; font-size: 13.5px; }
+
+/* ============================================================
+   Santé : le bandeau de connexion Apple Santé
+   ============================================================ */
+.santelien {
+  width: 100%; display: flex; align-items: center; gap: 12px; text-align: left;
+  padding: 12px 14px; border-radius: 24px; color: var(--ink);
+}
+.santelien .pastille {
+  flex: none; width: 42px; height: 42px; border-radius: 14px;
+  display: grid; place-items: center; color: #fff;
+  background: linear-gradient(145deg, #FF6B8A, #E0245E);
+  box-shadow: 0 8px 18px -8px rgba(224, 36, 94, .7);
+}
+.santelien .tx { flex: 1; min-width: 0; }
+.santelien .tx b { display: block; font-size: 15px; font-weight: 750; }
+.santelien .tx small { display: block; font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+.santelien.on .pastille { background: linear-gradient(145deg, #4ADE80, #16A34A); box-shadow: 0 8px 18px -8px rgba(22, 163, 74, .7); }
+
+/* Le bandeau du lieu, plus compact : c'est un réglage, pas le
+   sujet de la page. Le carrousel doit se voir sans défiler. */
+:root[data-theme="dark"] .accueil { padding: 14px 18px 12px; }
+:root[data-theme="dark"] .accueil .ville { font-size: clamp(24px, 7vw, 32px); margin: 4px 0 6px; }
+
+/* Le noir des fichiers n'est pas tout à fait noir : en mode écran
+   il laisse un carré à peine visible. Un masque radial efface les
+   bords, l'icône reste entière. */
+:root[data-theme="dark"] .lanceur .lic img {
+  -webkit-mask-image: radial-gradient(closest-side, #000 72%, transparent 100%);
+  mask-image: radial-gradient(closest-side, #000 72%, transparent 100%);
+}
+
+/* ---------- Illustrations de repli sur les tuiles ---------- */
+.artic { position: absolute; inset: 0; display: grid; place-items: center; padding-bottom: 36px; z-index: 1; }
+.artic .anime, .artic svg { width: 72px; height: 72px; }
+.porte .artic, .kart .artic { pointer-events: none; }
+.phic.vide { background: radial-gradient(120% 90% at 30% 10%, var(--p1), var(--p2)); opacity: .55; }
+.porte .phic.vide, .kart .vis .phic.vide { opacity: .45; }
+
+/* ---------- Tenues : la tenue de base ---------- */
+.tenuebase { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.tenuebase .piece {
+  display: flex; flex-direction: column; gap: 2px; padding: 10px 12px 12px;
+  border-radius: 24px; background: var(--glass, var(--surface));
+  -webkit-backdrop-filter: blur(20px) saturate(180%); backdrop-filter: blur(20px) saturate(180%);
+  box-shadow: var(--glass-rim, var(--sh-inset)), var(--glass-drop, none);
+}
+.tenuebase .pv { display: block; height: 92px; margin-bottom: 6px; }
+.tenuebase .pv img { width: 100%; height: 100%; object-fit: contain; }
+.tenuebase small { font-size: 10.5px; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.tenuebase b { font-size: 14px; font-weight: 720; line-height: 1.25; }
+
+/* Les cartes à icône 3D avaient un fond noir opaque pour épouser
+   le fond du fichier. Avec le fondu « écran », ce n'est plus utile :
+   elles redeviennent du verre comme le reste. */
+:root[data-theme="dark"] :is(.kart, .porte):has(.ic3d) {
+  background: var(--glass);
+  box-shadow: var(--glass-rim), var(--glass-drop);
+}
+:root[data-theme="dark"] .ic3d { background: transparent; }
+:root[data-theme="dark"] :is(.kart, .porte):has(.ic3d) .voile {
+  background: linear-gradient(180deg, transparent 55%, rgba(5,11,16,.55) 100%);
+}
+:root[data-theme="dark"] :is(.kart, .porte):has(.ic3d) .ic3d.fond { z-index: auto; }
+
+/* Le fond des fichiers sombres est un gris très noir (#0B0C10) : un
+   léger contraste le ramène au noir pur, que le mode écran efface
+   complètement. Sans ça, un carré à peine plus clair restait visible. */
+:root[data-theme="dark"] :is(.lanceur .lic img, .ic3d > img, .ic3dimg) { filter: contrast(1.3) brightness(1.03); }
+
+/* Anneaux et jauges : une piste de verre, un trait lumineux. */
+:root[data-theme="dark"] .ring .bgc, :root[data-theme="dark"] circle.bgc { stroke: rgba(255,255,255,.09); }
+:root[data-theme="dark"] .ring .fgc, :root[data-theme="dark"] circle.fgc { filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent) 60%, transparent)); }
+:root[data-theme="dark"] .bar-track { background: rgba(255,255,255,.08); }
+:root[data-theme="dark"] .bar-fill { box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 50%, transparent); }
+
+/* ============================================================
+   Pourquoi les cartes à icône ont un verre « plein »
+
+   Le mode écran efface le noir d'une icône en le mélangeant avec
+   ce qu'il y a DERRIÈRE elle, dans sa carte. Or une carte en verre
+   est un groupe isolé (le flou d'arrière-plan l'impose) dont le fond
+   est presque transparent : le noir n'avait rien de clair avec quoi
+   se mélanger, et restait un carré noir. Ces cartes reçoivent donc
+   un verre opaque, teinté comme le reste, avec le même liseré. Le
+   fondu devient parfait, comme sur les grandes cartes du carrousel.
+   ============================================================ */
+:root[data-theme="dark"] {
+  --glass-solid: radial-gradient(120% 90% at 30% 0%, #1D2E3B 0%, #0E1922 55%, #0A131A 100%);
+}
+:root[data-theme="dark"] :is(.kart, .porte):has(.ic3d, .artic),
+:root[data-theme="dark"] .tenuebase .piece {
+  background: var(--glass-solid);
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+}
+
+/* ---------- Tuiles en carrousel ----------
+   Cinq tuiles empilées en grille prenaient un écran entier. En
+   rangée qu'on fait glisser du pouce, elles tiennent sur une ligne,
+   et la suivante qui dépasse dit qu'il y en a d'autres. */
+.portes.defile {
+  display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none;
+  margin: 0 calc(-1 * var(--gut)); padding: 4px var(--gut) 12px;
+}
+.portes.defile::-webkit-scrollbar { display: none; }
+.portes.defile .porte { flex: none; width: min(38vw, 150px); height: 150px; scroll-snap-align: start; }
+
+/* ============================================================
+   Alignement sur la maquette Aurora
+   ============================================================ */
+
+/* Police de la maquette : Manrope. */
+:root[data-theme="dark"] { --font: 'Manrope', -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif; --font-num: 'Manrope', ui-monospace, monospace; }
+
+/* ---------- La barre du haut : une capsule de verre ----------
+   Hub à gauche, titre au centre, compte à droite, dans une seule
+   pilule qui flotte à 16 px des bords. */
+:root[data-theme="dark"] .topbar {
+  position: sticky; top: calc(var(--safe-t) + 8px);
+  height: 56px; margin: calc(var(--safe-t) + 8px) 16px 0; padding: 0 6px;
+  border-radius: 999px; gap: 6px;
+  background: linear-gradient(160deg, rgba(255,255,255,.15), rgba(255,255,255,.05) 55%, rgba(255,255,255,.08));
+  -webkit-backdrop-filter: blur(24px) saturate(185%); backdrop-filter: blur(24px) saturate(185%);
+  box-shadow: inset 0 1px 1px rgba(255,255,255,.35), inset 0 0 0 1px rgba(255,255,255,.07), 0 18px 40px -18px rgba(0,0,0,.8);
+  border: 0;
+}
+:root[data-theme="dark"] .topbar.scrolled { border: 0; }
+:root[data-theme="dark"] .topbar .title { font-size: 16px; font-weight: 700; letter-spacing: -.01em; }
+:root[data-theme="dark"] .topbar .tbtn {
+  width: 44px; height: 44px; background: rgba(255,255,255,.08);
+  box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none;
+}
+/* La zone de l'encoche reste sombre quand on fait défiler. */
+:root[data-theme="dark"] body::after {
+  content: ''; position: fixed; left: 0; right: 0; top: 0; z-index: 69; pointer-events: none;
+  height: calc(var(--safe-t) + 14px);
+  background: linear-gradient(180deg, rgba(5,11,16,.92), rgba(5,11,16,0));
+}
+
+/* ---------- Titres de section ---------- */
+:root[data-theme="dark"] .secbar h2, :root[data-theme="dark"] .sechead h2 { font-size: 20px; font-weight: 700; letter-spacing: -.02em; }
+:root[data-theme="dark"] .secbar h2::before { display: none; }
+
+/* ---------- Feuilles : un panneau de verre qui flotte ---------- */
+:root[data-theme="dark"] .ov { padding: 0 8px 8px; }
+:root[data-theme="dark"] .sheet {
+  border-radius: 40px; max-height: calc(100vh - var(--safe-t) - 24px);
+  padding-bottom: 0;
+}
+:root[data-theme="dark"] .sheet .grabber i { background: rgba(255,255,255,.3); }
+:root[data-theme="dark"] .sheet :is(.close, .retourpop) {
+  background: linear-gradient(160deg, rgba(255,255,255,.18), rgba(255,255,255,.06));
+  box-shadow: inset 0 1px 1px rgba(255,255,255,.35); color: var(--ink);
+}
+
+/* Le hub : plein écran, sans poignée, au-dessus du fond Aurora. */
+:root[data-theme="dark"] .ov.plein { padding: 0; background: rgba(3,8,12,.55); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
+:root[data-theme="dark"] .sheet.plein {
+  max-width: none; height: 100%; max-height: 100vh; border-radius: 0;
+  background: transparent; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none;
+  padding-top: var(--safe-t);
+}
+.sheet.plein .grabber { display: none; }
+.hubplein { display: flex; flex-direction: column; gap: 16px; padding-top: 18px; }
+.hubtete small { display: block; font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.hubtete h2 { font-size: 28px !important; font-weight: 800 !important; letter-spacing: -.03em; }
+.hubcherche { height: 52px; }
+.hubcases { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.hubcase {
+  height: 112px; border-radius: 28px; color: #fff;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  background: linear-gradient(150deg, color-mix(in srgb, var(--g2) 80%, transparent), color-mix(in srgb, var(--g1) 60%, transparent));
+  -webkit-backdrop-filter: blur(20px) saturate(180%); backdrop-filter: blur(20px) saturate(180%);
+  box-shadow: inset 0 1px 1px rgba(255,255,255,.45), inset 0 -10px 20px rgba(0,0,0,.15), 0 16px 30px -14px var(--g1);
+  transition: transform var(--d-fast) var(--spring);
+}
+.hubcase:active { transform: scale(.95); }
+.hubcase .rond {
+  width: 50px; height: 50px; border-radius: 50%; display: grid; place-items: center;
+  background: rgba(255,255,255,.2); box-shadow: inset 0 1px 1px rgba(255,255,255,.6);
+}
+.hubcase .rond svg { width: 24px; height: 24px; }
+.hubcase b { font-size: 14px; font-weight: 700; }
+
+/* ---------- La notification courte ---------- */
+:root[data-theme="dark"] .toast {
+  bottom: calc(var(--tabbar) + 14px); padding: 0 20px; height: 52px;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(170deg, rgba(40,52,62,.88), rgba(16,24,31,.9));
+  -webkit-backdrop-filter: blur(24px) saturate(180%); backdrop-filter: blur(24px) saturate(180%);
+  box-shadow: inset 0 1px 1px rgba(255,255,255,.3), 0 20px 40px -16px rgba(0,0,0,.8);
+  font-size: 14px; font-weight: 650;
+}
+
+/* ---------- Activités : l'en-tête de la maquette ---------- */
+.tete-act { padding-top: 16px; }
+.tete-act h1 { font-size: 34px; font-weight: 800; letter-spacing: -.03em; line-height: 1.04; margin-top: 12px; }
+.tete-act .chip { height: 34px; padding: 0 12px; font-size: 13px; gap: 6px; }
+.tete-act .chip svg { width: 15px; height: 15px; }
+:root[data-theme="dark"] .secbar h2 { padding-left: 0; }
+.seg.full { display: flex; width: 100%; }
+.seg.full > button { flex: 1; }
+
+/* ---------- Tenues : la carte météo de la maquette ---------- */
+.meteo-hero {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin-top: 14px; padding: 18px; border-radius: 32px;
+  background: var(--glass, var(--surface));
+  -webkit-backdrop-filter: blur(24px) saturate(185%); backdrop-filter: blur(24px) saturate(185%);
+  box-shadow: var(--glass-rim, var(--sh-inset)), var(--glass-drop, var(--sh-2));
+}
+.meteo-hero .col-g { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.meteo-hero small { font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.meteo-hero .t { font-size: 56px; font-weight: 800; letter-spacing: -.05em; line-height: 1; font-variant-numeric: tabular-nums; }
+.meteo-hero span:not(.astre) { font-size: 14px; color: var(--ink-2); }
+.meteo-hero .astre {
+  flex: none; width: 92px; height: 92px; border-radius: 50%; display: grid; place-items: center; color: #fff;
+  background: radial-gradient(circle at 35% 30%, #fff, #9FC6E0 45%, #3E6C9A);
+  box-shadow: 0 0 40px rgba(140,190,230,.5);
+}
+.meteo-hero .astre.soleil { background: radial-gradient(circle at 35% 30%, #FFF6D8, #FFC75A 45%, #E0822B); box-shadow: 0 0 40px rgba(255,190,90,.5); }
+.meteo-hero .astre.pluie { background: radial-gradient(circle at 35% 30%, #E3EEF8, #7EA3C8 45%, #2F4F75); }
+.meteo-hero .astre svg { width: 34px; height: 34px; opacity: .9; }
+
+/* La bascule penderie / inventer devient un segment de verre. */
+:root[data-theme="dark"] .bascule { background: var(--glass); box-shadow: var(--glass-rim); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); }
+:root[data-theme="dark"] .bascule .cote { color: var(--muted); }
+:root[data-theme="dark"] .bascule .cote.on { background: linear-gradient(180deg, rgba(255,255,255,.95), rgba(220,232,238,.85)); color: #061015; box-shadow: inset 0 1px 0 #fff, 0 6px 16px -6px rgba(0,0,0,.5); }
+
+/* ============================================================
+   Alimentation, comme la maquette
+   ============================================================ */
+.anneau-jour { display: flex; align-items: center; gap: 18px; padding: 18px !important; border-radius: 32px !important; margin-top: 8px; }
+.ajr { position: relative; flex: none; width: 132px; height: 132px; }
+.ajr svg { width: 100%; height: 100%; filter: drop-shadow(0 0 10px rgba(91,224,245,.35)); }
+.ajc { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.ajc b { font-size: 28px; font-weight: 800; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+.ajc small { font-size: 12px; color: var(--muted); }
+.ajd { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.ajd .eyebrow { font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.ajd b { font-size: 34px; font-weight: 800; letter-spacing: -.03em; line-height: 1; font-variant-numeric: tabular-nums; }
+.ajd span { font-size: 13px; color: var(--ink-2); }
+
+.carres { display: flex; gap: 10px; overflow-x: auto; scrollbar-width: none; margin: 12px calc(-1 * var(--gut)) 0; padding: 2px var(--gut) 6px; }
+.carres::-webkit-scrollbar { display: none; }
+.carre {
+  flex: 1 0 96px; height: 84px; border-radius: 24px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  font-size: 13px; font-weight: 700; color: var(--ink);
+  background: var(--glass, var(--surface));
+  -webkit-backdrop-filter: blur(20px) saturate(180%); backdrop-filter: blur(20px) saturate(180%);
+  box-shadow: var(--glass-rim, var(--sh-inset)), 0 12px 26px -16px rgba(0,0,0,.7);
+  transition: transform var(--d-fast) var(--spring);
+}
+.carre:active { transform: scale(.94); }
+.carre svg { width: 22px; height: 22px; }
+
+.macros-jour { margin-top: 12px; border-radius: 28px !important; display: flex; flex-direction: column; gap: 12px; }
+.macros-jour .macro b { font-size: 13px; font-weight: 700; }
+.macros-jour .macro .muted { font-size: 13px; }
+.macros-jour .bar-track { margin-top: 6px; height: 8px; }
+:root[data-theme="dark"] .macros-jour .bar-fill { box-shadow: 0 0 10px color-mix(in srgb, var(--c) 60%, transparent); }
+
+.repas-jour { display: flex; flex-direction: column; gap: 8px; }
+.repas { border-radius: 22px; overflow: hidden; background: var(--glass, var(--surface));
+  -webkit-backdrop-filter: blur(20px) saturate(180%); backdrop-filter: blur(20px) saturate(180%);
+  box-shadow: var(--glass-rim, var(--sh-inset)), 0 12px 26px -18px rgba(0,0,0,.7); }
+.repas .rtete { width: 100%; min-height: 62px; display: flex; align-items: center; gap: 12px; padding: 0 12px 0 14px; text-align: left; color: var(--ink); }
+.repas .ric { flex: none; width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: rgba(255,255,255,.1); }
+.repas .rtx { flex: 1; min-width: 0; }
+.repas .rtx b { display: block; font-size: 15px; font-weight: 700; }
+.repas .rtx small { display: block; font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.repas .rk { font-size: 14px; font-weight: 700; }
+.repas .rplus { flex: none; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: linear-gradient(180deg, #fff, #D9E7EC); color: #061015; }
+.repas .list { background: transparent; box-shadow: none; border-top: 1px solid rgba(255,255,255,.07); -webkit-backdrop-filter: none; backdrop-filter: none; border-radius: 0; }
+.macros-jour .macro { margin: 0 !important; }
+
+/* ============================================================
+   Santé, comme la maquette
+   ============================================================ */
+.forme-jour { display: flex; align-items: center; gap: 16px; padding: 18px !important; border-radius: 32px !important; }
+.forme-jour .fr { position: relative; flex: none; width: 110px; height: 110px; }
+.forme-jour svg { width: 100%; height: 100%; filter: drop-shadow(0 0 10px rgba(127,224,192,.35)); }
+.forme-jour .frc { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.forme-jour .frc b { font-size: 32px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.forme-jour .frc small { font-size: 11px; color: var(--muted); }
+.forme-jour .fd { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.forme-jour .fd b { font-size: 20px; font-weight: 700; letter-spacing: -.02em; }
+.forme-jour .fd span { font-size: 13px; line-height: 1.4; color: var(--ink-2); }
+
+.mesures { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.mesure {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 14px;
+  border-radius: 24px; text-align: left; color: var(--ink);
+  background: var(--glass, var(--surface));
+  -webkit-backdrop-filter: blur(20px) saturate(180%); backdrop-filter: blur(20px) saturate(180%);
+  box-shadow: var(--glass-rim, var(--sh-inset)), 0 12px 26px -16px rgba(0,0,0,.7);
+}
+.mesure .mh { display: flex; align-items: center; gap: 8px; }
+.mesure .mh small { font-size: 13px; font-weight: 600; color: var(--ink-2); }
+.mesure b { font-size: 24px; font-weight: 800; letter-spacing: -.02em; }
+
+.tasses-jour { display: block; border-radius: 28px !important; color: var(--ink); }
+.tasses-jour b { font-size: 15px; }
+.tasses-jour .muted { font-size: 12px; }
+.tbars { display: flex; gap: 8px; align-items: flex-end; margin-top: 12px; }
+.tbars .tb { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 0; }
+.tbars .tt { width: 100%; height: 70px; border-radius: 14px; background: rgba(255,255,255,.1); position: relative; overflow: hidden; }
+.tbars .tt i { position: absolute; left: 0; right: 0; bottom: 0; border-radius: 14px; background: linear-gradient(180deg, var(--t), color-mix(in srgb, var(--t) 80%, transparent)); box-shadow: 0 0 14px color-mix(in srgb, var(--t) 50%, transparent); }
+.tbars small { font-size: 10px; font-weight: 700; opacity: .8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+
+/* ============================================================
+   Café, Bar, Recettes : comme la maquette
+   ============================================================ */
+/* Le héros photo : l'image entière, fondue en bas dans un verre. */
+.hero.herophoto {
+  height: 200px; margin: 12px var(--gut) 0; border-radius: 32px; overflow: hidden; isolation: isolate;
+  background: #0A131A; display: block;
+}
+.herophoto .hp { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 62% 60%; z-index: -2; }
+.herophoto.t-mm .hp { object-position: 70% 50%; }
+.herophoto .fonte {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 62%; z-index: -1;
+  -webkit-backdrop-filter: blur(22px) saturate(160%); backdrop-filter: blur(22px) saturate(160%);
+  -webkit-mask-image: linear-gradient(to top, #000 42%, rgba(0,0,0,.6) 64%, transparent);
+  mask-image: linear-gradient(to top, #000 42%, rgba(0,0,0,.6) 64%, transparent);
+}
+.herophoto.t-sb .fonte { background: linear-gradient(to top, rgba(4,40,26,.85), transparent); }
+.herophoto.t-ck .fonte { background: linear-gradient(to top, rgba(50,14,34,.85), transparent); }
+.herophoto.t-mm .fonte { background: linear-gradient(to top, rgba(40,14,6,.85), transparent); }
+.herophoto .hptx { position: absolute; left: 18px; right: 18px; bottom: 16px; color: #fff; }
+.herophoto .hptx small { display: block; font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; opacity: .82; }
+.herophoto .hptx b { display: block; font-size: 23px; font-weight: 800; letter-spacing: -.02em; line-height: 1.15; margin-top: 2px; }
+
+/* La barre de recherche du codex, en verre, sans bandeau opaque. */
+:root[data-theme="dark"] .searchbar { background: transparent; border: 0; box-shadow: none; }
+:root[data-theme="dark"] .searchbar .search { height: 50px; }
+:root[data-theme="dark"] #codexBar .iconbtn { width: 50px; height: 50px; }
+
+/* Les choix de l'assistant : trois cartes de verre côte à côte. */
+:root[data-theme="dark"] .track { padding: 6px var(--gut) 10px; gap: 10px; }
+:root[data-theme="dark"] .trackwrap .arrows { display: none; }
+:root[data-theme="dark"] .opt, :root[data-theme="dark"] .opt.opt3d {
+  width: 112px; min-height: 0; padding: 12px 8px 12px; border-radius: 26px; scroll-snap-align: start;
+  background: var(--glass-solid); color: var(--ink);
+  box-shadow: var(--glass-rim), 0 12px 26px -16px rgba(0,0,0,.7);
+}
+:root[data-theme="dark"] .opt .disc { display: none; }
+:root[data-theme="dark"] .opt .im, :root[data-theme="dark"] .opt.opt3d .im.ic3d,
+:root[data-theme="dark"] .opt.mid .im, :root[data-theme="dark"] .opt.opt3d.mid .im.ic3d {
+  width: 64px; height: 64px; margin: 0 auto; border-radius: 50%; filter: none;
+}
+:root[data-theme="dark"] .opt img.im { object-fit: cover; }
+:root[data-theme="dark"] .opt.mid { transform: none; box-shadow: var(--glass-rim), 0 12px 26px -16px rgba(0,0,0,.7); }
+:root[data-theme="dark"] .opt .nm { font-size: 14px; margin-top: 8px; color: var(--ink); }
+:root[data-theme="dark"] .opt .sb { font-size: 11px; color: var(--muted); opacity: 1; }
+:root[data-theme="dark"] .opt .cnt { margin-top: 8px; padding: 3px 9px; background: rgba(255,255,255,.1); color: var(--ink-2); }
+:root[data-theme="dark"] .opt.sel { outline: 2px solid #fff; outline-offset: 2px; }
+:root[data-theme="dark"] .wizhead h2 { font-size: 20px; font-weight: 700; }
+:root[data-theme="dark"] .wizhead .num { color: var(--muted); }
+:root[data-theme="dark"] .crumb.step { background: linear-gradient(180deg, #fff, #D9E7EC); color: #061015; }
+
+/* Les cartes boisson et cocktail : verre, image sur fond blanc en haut. */
+:root[data-theme="dark"] .rail .card, :root[data-theme="dark"] .pfaits .card {
+  border-radius: 26px; padding: 8px; background: var(--glass); box-shadow: var(--glass-rim), var(--glass-drop);
+}
+:root[data-theme="dark"] .card .ph { border-radius: 20px; background: #fff; }
+:root[data-theme="dark"] .card .bd { padding: 10px 6px 6px; }
+:root[data-theme="dark"] .card .fav { background: rgba(255,255,255,.18); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); color: #fff; box-shadow: inset 0 1px 1px rgba(255,255,255,.4); }
+:root[data-theme="dark"] .card .fav.on { color: #FF6B8A; }
+.pfaits .card { width: 150px !important; flex: none; }
+
+/* Recettes : grande carte et grille de photos qui fondent. */
+.rcarte {
+  position: relative; overflow: hidden; isolation: isolate; cursor: pointer;
+  height: 176px; border-radius: 26px; background: #140C08;
+  box-shadow: inset 0 1px 1px rgba(255,255,255,.2), 0 18px 34px -20px rgba(0,0,0,.8);
+  transition: transform var(--d-fast) var(--spring);
+}
+.rcarte:active { transform: scale(.97); }
+.rcarte.grande { height: 236px; border-radius: 30px; }
+.rcarte .rp, .rcarte .ph { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: -2; }
+.rcarte .fonte {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 58%; z-index: -1;
+  background: linear-gradient(to top, rgba(60,20,10,.85), transparent);
+  -webkit-backdrop-filter: blur(20px) saturate(160%); backdrop-filter: blur(20px) saturate(160%);
+  -webkit-mask-image: linear-gradient(to top, #000 42%, rgba(0,0,0,.6) 64%, transparent);
+  mask-image: linear-gradient(to top, #000 42%, rgba(0,0,0,.6) 64%, transparent);
+}
+.rcarte .coeur {
+  position: absolute; top: 10px; right: 10px; width: 38px; height: 38px; border-radius: 50%;
+  display: grid; place-items: center; color: #fff;
+  background: rgba(255,255,255,.18); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+  box-shadow: inset 0 1px 1px rgba(255,255,255,.45);
+}
+.rcarte .coeur.on { color: #FF6B8A; background: rgba(255,255,255,.9); }
+.rcarte .coeur.on svg { fill: currentColor; }
+.rcarte .rtx { position: absolute; left: 14px; right: 14px; bottom: 12px; color: #fff; }
+.rcarte .rtx small { display: block; font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; opacity: .82; }
+.rcarte .rtx b { display: block; font-size: 16px; font-weight: 800; letter-spacing: -.01em; line-height: 1.15; }
+.rcarte.grande .rtx { display: grid; grid-template-columns: 1fr auto; align-items: end; column-gap: 10px; left: 18px; bottom: 14px; }
+.rcarte.grande .rtx small, .rcarte.grande .rtx b { grid-column: 1; }
+.rcarte.grande .rtx b { font-size: 24px; }
+.rcarte .cuisiner {
+  grid-column: 2; grid-row: 1 / span 2; align-self: end;
+  display: inline-flex; align-items: center; gap: 6px; height: 42px; padding: 0 16px; border-radius: 999px;
+  font-size: 14px; font-weight: 700; color: #fff;
+  background: rgba(255,255,255,.22); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+  box-shadow: inset 0 1px 1px rgba(255,255,255,.5);
+}
+.rgrille { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+
+/* La fiche : la photo en grand, le texte sur un verre qui la chevauche. */
+:root[data-theme="dark"] .sheet:has(> .mimg) .mbody, :root[data-theme="dark"] .sheet.bandeau-img .mbody {
+  position: relative; z-index: 4; margin-top: -36px; border-radius: 32px 32px 0 0;
+  background: linear-gradient(170deg, rgba(40,30,20,.6), rgba(12,18,24,.92) 40%);
+  -webkit-backdrop-filter: blur(24px) saturate(170%); backdrop-filter: blur(24px) saturate(170%);
+  box-shadow: inset 0 1px 1px rgba(255,255,255,.25);
+}
+:root[data-theme="dark"] .mimg { aspect-ratio: auto; height: 360px; max-height: 48vh; border-radius: 40px 40px 0 0; }
+:root[data-theme="dark"] .mimg::after { display: none; }
+:root[data-theme="dark"] .mbody h2 { font-size: 28px; font-weight: 800; }
+:root[data-theme="dark"] .mcat { color: var(--muted); }
+:root[data-theme="dark"] .mtags .tg { background: rgba(255,255,255,.12); color: var(--ink); box-shadow: inset 0 1px 1px rgba(255,255,255,.25); }
+:root[data-theme="dark"] .nums { padding: 10px 0; border-radius: 22px; background: var(--glass); box-shadow: var(--glass-rim); gap: 0; }
+:root[data-theme="dark"] .nums .num { background: transparent; padding: 4px; }
+:root[data-theme="dark"] .nums .num b { font-size: 17px; }
+:root[data-theme="dark"] .steps li::marker { color: var(--muted); }
+
+/* Recherche du codex : la barre et ses boutons sur une ligne, les
+   tailles de gobelet dessous, comme sur la maquette. */
+:root[data-theme="dark"] #codexBar .searchrow { display: flex; flex-wrap: wrap; gap: 8px; }
+:root[data-theme="dark"] #codexBar .search { flex: 1 1 0; }
+:root[data-theme="dark"] #codexSizes { order: 5; flex: 1 0 100%; display: flex; }
+:root[data-theme="dark"] #codexSizes.hide { display: none; }
+:root[data-theme="dark"] #codexSizes button { flex: 1; }
+
+/* Les icônes de l'assistant : l'illustration claire dans un rond
+   blanc, sans fondu (le rond est déjà blanc). */
+:root[data-theme="dark"] .opt .im.ic3d { background: #fff; overflow: hidden; box-shadow: 0 8px 18px -8px rgba(0,0,0,.5); }
+:root[data-theme="dark"] .opt .im.ic3d > img { mix-blend-mode: normal; filter: none; padding: 6px; }
+
+/* L'étape : le titre à gauche, « Étape 1 sur 3 » à droite. Le fil
+   d'Ariane ne sert qu'une fois un premier choix fait. */
+:root[data-theme="dark"] .crumbs:not(:has([data-goto])) { display: none; }
+:root[data-theme="dark"] .wizhead { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 10px; }
+:root[data-theme="dark"] .wizhead h2 { order: 1; }
+:root[data-theme="dark"] .wizhead .num { order: 2; font-size: 13px; letter-spacing: 0; text-transform: none; font-weight: 700; }
+:root[data-theme="dark"] .wizhead p { order: 3; flex-basis: 100%; }
+:root[data-theme="dark"] .opt, :root[data-theme="dark"] .opt.opt3d { height: auto !important; align-self: flex-start; }
+:root[data-theme="dark"] .opt.sel[data-null="1"] { outline: none; }
+:root[data-theme="dark"] .opt[data-null="1"] .im { background: rgba(255,255,255,.1) !important; }
+.pfaits .card .tags, .pfaits .card .meta { display: none; }
+.pfaits .card .bd h3 { font-size: 14px; }
+.pfaits .card .ph { aspect-ratio: 1 / 1; }
+.pfaits { align-items: flex-start; }
+.pfaits .card { height: auto !important; min-height: 0 !important; }
+.pfaits .card .bd { padding-bottom: 8px; }

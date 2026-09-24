@@ -118,11 +118,11 @@ Vulgarisation, pas médecine.
 | **Open-Meteo** | ✅ | Météo et géocodage, sans clé, sans compte |
 | **Open Food Facts** | ✅ | 900 000 produits, code-barres compris, sans clé |
 | **OpenStreetMap** | ✅ | Carte intégrée pour choisir un lieu au doigt |
-| **Gemini** | ⚙️ clé à coller | Scan de repas, analyses, guides, événements, cadeaux, tenues. **Le modèle n'est pas écrit en dur** : l'app interroge Google, classe ce qui existe, et bascule toute seule si un modèle est retiré ou saturé |
+| **Gemini** | ✅ via le serveur `ever-ai` | Plus de clé à coller : la clé vit dans les secrets Supabase (`sql/edge/ever-ai.ts`). Scan de repas, analyses, guides, événements, cadeaux, tenues. **Le modèle n'est pas écrit en dur** : l'app interroge Google, classe ce qui existe, et bascule toute seule si un modèle est retiré ou saturé |
 | **TMDB** | ⚙️ facultatif | Affiches de films, clé gratuite |
 | **Google Calendar** | ⚠️ voir plus bas | Les événements passent par `.ics`, qui marche partout |
 | **MyFitnessPal** | ⛔ impossible | Voir plus bas |
-| **Apple Santé** | ⛔ pas d'API web | Voir plus bas |
+| **Apple Santé** | ✅ envoi automatique | L'iPhone pousse ses chiffres chaque jour (Raccourci ou Health Auto Export) vers `ever-sante`. Voir plus bas |
 
 ### Pourquoi le schéma `ever` et pas un projet dédié
 
@@ -165,7 +165,20 @@ HealthKit est une **API native iOS**. Aucune page web, aucune PWA, aucun
 connecteur ne peut y accéder. Ce n'est pas une limite de l'app, c'est une
 limite d'iOS.
 
-**À la place** : un importeur complet de l'export Apple Santé
+**Mais l'iPhone peut ENVOYER ses chiffres.** Santé → *Connecter Apple Santé*
+donne une adresse privée (un jeton aléatoire, sans compte). Deux façons
+de l'alimenter :
+
+| Moyen | Coût | Réglage |
+|---|---|---|
+| [Health Auto Export](https://apps.apple.com/app/health-auto-export-json-csv/id1115567069) | quelques euros | Automatisation « REST API », format JSON, l'adresse en URL. Tout part, sommeil compris |
+| Raccourcis iPhone | gratuit | Automatisation quotidienne, « Rechercher des échantillons de santé », puis POST JSON `{steps, active, hrRest, weight, sleepH}` |
+
+La fonction `sql/edge/ever-sante.ts` range chaque journée dans
+`ever.health_inbox` (fermée à tout sauf elle), et l'app la relit à chaque
+ouverture de Santé.
+
+**En complément** : un importeur complet de l'export Apple Santé
 (`export.zip` ou `export.xml`), lu **par tranches de 4 Mo dans le
 navigateur** — un export fait souvent 300 Mo. Il couvre 22 types HealthKit
 et les entraînements, déduplique les mesures iPhone/Watch, agrège par jour.

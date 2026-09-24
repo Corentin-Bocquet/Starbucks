@@ -138,7 +138,155 @@
   /* ============================================================
      Rendu
      ============================================================ */
-  function mount(el) { root = el; render(); }
+  function mount(el) {
+    root = el; render();
+    /* Les chiffres envoyés par l'iPhone arrivent tout seuls : on va
+       les chercher à chaque ouverture, au plus toutes les 10 minutes. */
+    const s = Store.get('healthSync', null);
+    if (s && Date.now() - (s.pull || 0) > 10 * 60e3) tirer(true);
+  }
+
+  /* ============================================================
+     Apple Santé en automatique
+
+     iOS interdit à une page web de LIRE Santé, mais rien n'empêche
+     l'iPhone d'ENVOYER ses chiffres. Un Raccourci programmé le soir,
+     ou l'app Health Auto Export, les poste sur la fonction serveur
+     `ever-sante` (sql/edge/ever-sante.ts). L'appli les récupère ici.
+
+     Pas besoin de compte : l'appareil tire un jeton secret au
+     hasard, qui sert d'adresse privée. Qui n'a pas le jeton ne
+     voit rien.
+     ============================================================ */
+  const CLES_SANTE = ['steps', 'distance', 'active', 'basal', 'floors', 'exercise', 'stand', 'hr', 'hrRest', 'hrWalk',
+    'hrv', 'vo2', 'resp', 'spo2', 'weight', 'fat', 'lean', 'hkWater', 'bpSys', 'bpDia', 'sleep', 'mindful'];
+
+  function jeton() {
+    let t = Store.get('healthToken', '');
+    if (!t) {
+      const a = new Uint8Array(24);
+      crypto.getRandomValues(a);
+      t = btoa(String.fromCharCode.apply(null, a)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+      Store.set('healthToken', t);
+    }
+    return t;
+  }
+  function adresseSync() {
+    return ((global.EVER_CONFIG || {}).supabaseUrl || '') + '/functions/v1/ever-sante?t=' + jeton();
+  }
+
+  async function tirer(silencieux) {
+    let r;
+    try {
+      r = await fetch(adresseSync() + '&since=' + UI.day.add(UI.day.today(), -120));
+    } catch (e) {
+      if (!silencieux) UI.toast('Pas de réseau pour le moment');
+      return 0;
+    }
+    const j = await r.json().catch(() => null);
+    if (!r.ok || !j || !j.ok) { if (!silencieux) UI.toast('Synchro impossible pour le moment'); return 0; }
+
+    const existants = {};
+    Store.all('healthDays').forEach((d) => existants[d.day] = d);
+    let n = 0, dernier = null;
+    (j.days || []).forEach((x) => {
+      const row = { day: x.day };
+      CLES_SANTE.forEach((k) => { if (x[k] != null) row[k] = x[k]; });
+      if (Object.keys(row).length < 2) return;
+      if (existants[x.day]) Store.put('healthDays', existants[x.day].id, row);
+      else Store.add('healthDays', row);
+      n++; dernier = x;
+    });
+    const avant = Store.get('healthSync', null) || {};
+    Store.set('healthSync', {
+      pull: Date.now(), jours: n || avant.jours || 0,
+      recu: dernier ? dernier._at : avant.recu || null,
+      src: dernier ? dernier._src : avant.src || null
+    });
+    if (n) Store.set('healthInsight', null);
+    if (root && root.isConnected) render();
+    if (!silencieux) UI.toast(n ? n + (n > 1 ? ' journées à jour' : ' journée à jour') : 'Rien de reçu pour l\'instant');
+    return n;
+  }
+
+  function depuis(iso) {
+    if (!iso) return 'jamais';
+    const m = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+    if (m < 2) return "à l'instant";
+    if (m < 60) return 'il y a ' + m + ' min';
+    const h = Math.round(m / 60);
+    if (h < 48) return 'il y a ' + h + ' h';
+    return 'il y a ' + Math.round(h / 24) + ' jours';
+  }
+
+  /* Le bandeau du haut : une seule ligne, qui dit si ça marche. */
+  function blocConnexion() {
+    const s = Store.get('healthSync', null);
+    if (s && s.recu) {
+      return '<div class="section" style="padding-top:10px"><div class="panel santelien on">' +
+        '<span class="pastille">' + Icon('heart', 18) + '</span>' +
+        '<span class="tx"><b>Apple Santé connecté</b><small>Dernier envoi ' + UI.esc(depuis(s.recu)) + '</small></span>' +
+        '<button class="iconbtn" data-act="tirer" aria-label="Actualiser">' + Icon('refresh', 18) + '</button>' +
+        '</div></div>';
+    }
+    return '<div class="section" style="padding-top:10px"><button class="panel santelien" data-act="connecter">' +
+      '<span class="pastille">' + Icon('heart', 18) + '</span>' +
+      '<span class="tx"><b>Connecter Apple Santé</b><small>' +
+        (s ? 'En attente du premier envoi de ton iPhone' : 'Tes pas, ton sommeil et ton cœur, chaque jour, tout seuls') +
+      '</small></span>' + Icon('next', 17) + '</button></div>';
+  }
+
+  function etape(n, t, sous) {
+    return '<div class="rowitem"><span class="ic">' + n + '</span><span class="tx"><b style="font-weight:600">' + t + '</b>' +
+      (sous ? '<small>' + sous + '</small>' : '') + '</span></div>';
+  }
+
+  function connecter() {
+    const url = adresseSync();
+    Store.set('healthSync', Store.get('healthSync', null) || { pull: 0, jours: 0, recu: null });
+    UI.openSheet(
+      '<div class="mbody" style="padding-top:6px">' +
+        '<h2 style="font-size:22px">Connecter Apple Santé</h2>' +
+        '<p class="mdesc">Ton iPhone envoie ses chiffres à EVER chaque jour. Tu règles ça une fois, ensuite tu n\'y touches plus.</p>' +
+        '<div class="panel" style="margin-top:14px">' +
+          '<small class="muted" style="display:block;margin-bottom:6px">Ton adresse privée (ne la partage pas)</small>' +
+          '<code style="display:block;font-size:11.5px;word-break:break-all;line-height:1.45">' + UI.esc(url) + '</code>' +
+          '<button class="btn primary block" style="margin-top:10px" data-copier>' + Icon('link', 16) + 'Copier l\'adresse</button>' +
+        '</div>' +
+
+        '<div class="sechead" style="margin-top:18px"><h2 style="font-size:16px">Option 1 · La plus simple</h2><span>Health Auto Export</span></div>' +
+        '<div class="list">' +
+          etape(1, 'Installe <a href="https://apps.apple.com/app/health-auto-export-json-csv/id1115567069" target="_blank" rel="noopener">Health Auto Export</a>', 'L\'automatisation REST fait partie de l\'offre payante (quelques euros)') +
+          etape(2, 'Automatisations, puis « Nouvelle », type « REST API »') +
+          etape(3, 'Colle ton adresse dans URL, format JSON', 'Données : Health Metrics · Période : depuis la dernière synchro') +
+          etape(4, 'Active-la, puis touche « Exporter maintenant »', 'Ensuite elle envoie toute seule') +
+        '</div>' +
+
+        '<div class="sechead" style="margin-top:18px"><h2 style="font-size:16px">Option 2 · Gratuite</h2><span>Raccourcis iPhone</span></div>' +
+        '<div class="list">' +
+          etape(1, 'Raccourcis, onglet Automatisation, « + »', '« Heure de la journée », 22:00, Quotidiennement, « Exécuter immédiatement »') +
+          etape(2, 'Action « Rechercher des échantillons de santé »', 'Type : Nombre de pas · Date de début : aujourd\'hui') +
+          etape(3, 'Action « Calculer des statistiques » : Somme', 'Refais 2 et 3 pour Énergie active (Somme) et FC au repos (Moyenne)') +
+          etape(4, 'Action « Dictionnaire »', 'Clés : steps, active, hrRest (et weight, sleepH si tu veux), chacune reliée à son résultat') +
+          etape(5, 'Action « Obtenir le contenu de l\'URL »', 'Colle l\'adresse · Méthode POST · Corps JSON · Fichier : le Dictionnaire') +
+        '</div>' +
+
+        '<button class="btn block lg" style="margin-top:16px" data-verifier>' + Icon('refresh', 17) + 'Vérifier la connexion</button>' +
+        '<button class="btn ghost block" style="margin-top:8px" data-act-import>' + Icon('upload', 16) + 'Plutôt importer un export complet</button>' +
+        '<p class="aide">Les chiffres arrivent sur ton adresse privée, puis dans l\'appli à chaque ouverture de Santé.</p>' +
+      '</div>');
+    const sh = document.getElementById('sheet');
+    if (!sh) return;
+    const c = sh.querySelector('[data-copier]'); if (c) c.onclick = () => UI.copy(url);
+    const v = sh.querySelector('[data-verifier]'); if (v) v.onclick = async () => {
+      v.disabled = true;
+      const n = await tirer(true);
+      v.disabled = false;
+      if (n) { UI.closeSheet(); UI.toast('Apple Santé est connecté'); }
+      else UI.toast('Rien reçu pour l\'instant. Lance l\'envoi sur l\'iPhone, puis réessaie.');
+    };
+    const im = sh.querySelector('[data-act-import]'); if (im) im.onclick = () => { UI.closeSheet(); importFlow(); };
+  }
 
   /* Le jour affiche. Comme dans l'alimentation, on peut remonter :
      on oublie souvent de saisir le soir meme, et les donnees sont
@@ -160,10 +308,14 @@
        arret : ils passent tout en haut, avant meme le bilan.
        Les tendances et l'import, qu'on consulte, restent apres. */
     root.innerHTML = '<div class="wrap">' +
+      blocConnexion() +
       barreJour() +
-      blocSaisie() +
+      formeBlock(today) +
+      tuilesMesures(today) +
+      tassesBlock() +
+      actionsSante() +
       blocSport() +
-      (has ? todayBlock(today) + insightBlock(days) + rangeBar() + trendBlock(days) + workoutsBlock() : onboarding()) +
+      (has ? insightBlock(days) + rangeBar() + trendBlock(days) + workoutsBlock() : '') +
       (global.Sport ? Sport.carteDuCorps(7) : '') +
       sourcesBlock() +
       '</div>';
@@ -188,6 +340,88 @@
         (dayOf(jour) ? '<small>Journée renseignée</small>' : '<small>Rien de noté</small>') + '</span>' +
       '<button data-jour="1" aria-label="Jour suivant"' + (futur ? ' disabled' : '') + '>' + Icon('next', 17) + '</button>' +
       '</div>';
+  }
+
+  /* ============================================================
+     La page Santé de la maquette Aurora
+
+     1. la forme du jour : un anneau et une phrase ;
+     2. quatre mesures en tuiles : sommeil, pas, cœur, poids ;
+     3. les six tasses sur sept jours, en barres ;
+     4. deux boutons : saisir la journée, noter une séance.
+
+     La forme n'est pas un chiffre magique : c'est la moyenne de ce
+     qui est atteint par rapport à TES objectifs (pas, sommeil,
+     exercice), sur les mesures qu'on a pour ce jour. Sans mesure,
+     pas de chiffre inventé.
+     ============================================================ */
+  function forme(d) {
+    const g = goals(), parts = [];
+    if (d.steps != null) parts.push(Math.min(1, d.steps / g.steps));
+    if (d.sleep != null) parts.push(Math.min(1, d.sleep / g.sleep));
+    if (d.exercise != null) parts.push(Math.min(1, d.exercise / g.exercise));
+    if (d.active != null) parts.push(Math.min(1, d.active / g.active));
+    if (!parts.length) return null;
+    return Math.round(100 * parts.reduce((a, b) => a + b, 0) / parts.length);
+  }
+
+  function formeBlock(d) {
+    const f = forme(d);
+    const R = 49, C = 2 * Math.PI * R, p = f == null ? 0 : f / 100;
+    const seul = global.Mood ? Mood.joursSansLien() : null;
+    const titre = f == null ? 'Pas encore de mesure'
+      : f >= 80 ? 'Belle forme' : f >= 60 ? 'Bonne forme' : f >= 40 ? 'Journée moyenne' : 'À recharger';
+    const bits = [];
+    if (d.sleep != null) bits.push('nuit de ' + UI.fmt.dur(d.sleep));
+    if (d.steps != null) bits.push(UI.fmt.n(d.steps) + ' pas');
+    let texte = f == null ? 'Connecte Apple Santé ou saisis ta journée : la lecture se fait toute seule.'
+      : (bits.length ? bits.join(', ').replace(/^./, (c) => c.toUpperCase()) + '.' : 'Selon tes objectifs du jour.');
+    if (seul != null && seul >= 4) texte += ' Point faible : ' + seul + ' jours sans voir personne.';
+    return '<div class="section" style="padding-top:12px"><div class="panel forme-jour">' +
+      '<div class="fr"><svg viewBox="0 0 110 110" aria-hidden="true">' +
+        '<circle cx="55" cy="55" r="' + R + '" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="12"/>' +
+        (p > 0 ? '<circle cx="55" cy="55" r="' + R + '" fill="none" stroke="#7FE0C0" stroke-width="12" stroke-linecap="round" stroke-dasharray="' +
+          (C * p).toFixed(1) + ' ' + C.toFixed(1) + '" transform="rotate(-90 55 55)"/>' : '') +
+        '</svg><div class="frc"><b>' + (f == null ? '·' : f) + '</b><small>forme</small></div></div>' +
+      '<div class="fd"><b>' + UI.esc(titre) + '</b><span>' + UI.esc(texte) + '</span></div>' +
+    '</div></div>';
+  }
+
+  function tuilesMesures(d) {
+    const val = (k) => d[k] != null ? d[k] : null;
+    const poids = val('weight') != null ? d.weight.toFixed(1).replace('.', ',') + ' kg' : lastKnown('weight');
+    const T = [
+      ['Sommeil', val('sleep') != null ? UI.fmt.dur(d.sleep) : '·', 'moon', '#8C80F0', 'sleep'],
+      ['Pas', val('steps') != null ? UI.fmt.n(d.steps) : '·', 'steps', '#F5A25B', 'steps'],
+      ['Cardio repos', val('hrRest') != null ? Math.round(d.hrRest) + ' bpm' : '·', 'pulse', '#F5577F', 'hrRest'],
+      ['Poids', poids, 'scale', '#5BC8F5', 'weight']
+    ];
+    return '<div class="section" style="padding-top:10px"><div class="mesures">' + T.map((t) =>
+      '<button class="mesure" data-detail="' + t[4] + '"><span class="mh" style="color:' + t[3] + '">' + Icon(t[2], 18) +
+      '<small>' + t[0] + '</small></span><b class="tabnum">' + UI.esc(t[1]) + '</b></button>').join('') + '</div></div>';
+  }
+
+  function tassesBlock() {
+    if (!global.Mood || !global.MOODS) return '';
+    const b = Mood.balance(7);
+    const ids = Object.keys(MOODS.MOLECULES);
+    const max = Math.max(1, ...ids.map((m) => b[m] || 0));
+    return '<div class="section" style="padding-top:10px"><a class="panel tasses-jour" href="#/m/stats">' +
+      '<div class="row-between"><b>Les six tasses · 7 jours</b><span class="muted">Voir</span></div>' +
+      '<div class="tbars">' + ids.map((m) => {
+        const mol = MOODS.MOLECULES[m], v = b[m] || 0;
+        return '<div class="tb"><div class="tt"><i style="height:' + Math.max(6, Math.round(100 * v / max)) + '%;--t:' + mol.teinte + ';opacity:' + (v ? 1 : .35) + '"></i></div>' +
+          '<small>' + UI.esc(mol.court || mol.nom) + '</small></div>';
+      }).join('') + '</div></a></div>';
+  }
+
+  function actionsSante() {
+    const rempli = dayOf(jour);
+    return '<div class="section" style="padding-top:12px"><div class="row" style="gap:10px">' +
+      '<button class="btn primary grow lg" data-act="manual">' + Icon(rempli ? 'edit' : 'plus', 18) + (rempli ? 'Modifier ce jour' : 'Saisir ce jour') + '</button>' +
+      '<button class="btn lg" data-act="muscu">' + Icon('dumbbell', 18) + 'Séance</button>' +
+      '<button class="iconbtn" style="width:52px;height:52px" data-act="goals" aria-label="Mes objectifs">' + Icon('target', 20) + '</button>' +
+    '</div></div>';
   }
 
   /* Les deux gestes du quotidien, en grand, tout en haut. */
@@ -251,19 +485,20 @@
     return '<div class="section">' +
       '<div class="panel" style="text-align:center;padding:26px 18px">' +
         '<div class="ei" style="width:56px;height:56px;margin:0 auto 14px;border-radius:18px;display:grid;place-items:center;background:var(--accent-soft);color:var(--accent)">' + Icon('heart', 28) + '</div>' +
-        '<b style="font-size:18px;display:block;margin-bottom:8px">Importe tes données Apple Santé</b>' +
+        '<b style="font-size:18px;display:block;margin-bottom:8px">Tes données Apple Santé, ici</b>' +
         '<p class="muted" style="font-size:13.5px;line-height:1.55;max-width:380px;margin:0 auto 16px">' +
-          'iOS ne laisse aucune page web lire Santé en direct. Le seul chemin est un export, et il est simple.' +
+          'Le plus simple : connecter ton iPhone une fois, il envoie ses chiffres tout seul chaque jour. Sinon, un export complet.' +
         '</p>' +
+        '<button class="btn primary block lg" style="margin-bottom:14px" data-act="connecter">' + Icon('heart', 18) + 'Connecter Apple Santé</button>' +
         '<div class="list" style="text-align:left;margin-bottom:16px">' +
           step(1, 'Ouvre l\'app Santé sur ton iPhone') +
           step(2, 'Touche ta photo de profil, en haut à droite') +
           step(3, 'Descends jusqu\'à « Exporter toutes les données »') +
           step(4, 'Enregistre le fichier, puis reviens ici') +
         '</div>' +
-        '<button class="btn primary block lg" data-act="import">' + Icon('upload', 18) + 'Choisir le fichier</button>' +
+        '<button class="btn block lg" data-act="import">' + Icon('upload', 18) + 'Importer un export</button>' +
         '<button class="btn ghost block" style="margin-top:8px" data-act="manual">' + Icon('plus', 16) + 'Saisir une journée à la main</button>' +
-        '<p class="muted" style="font-size:11.5px;margin-top:14px">Le fichier est lu sur l\'appareil. Rien n\'est envoyé à un serveur.</p>' +
+        '<p class="muted" style="font-size:11.5px;margin-top:14px">Un export est lu sur l\'appareil, rien n\'est envoyé.</p>' +
       '</div></div>';
   }
   const step = (n, t) => '<div class="rowitem"><span class="ic">' + n + '</span><span class="tx"><b style="font-weight:600">' + UI.esc(t) + '</b></span></div>';
@@ -285,8 +520,8 @@
         UI.ring(d.steps || 0, g.steps, UI.fmt.n(d.steps || 0), 'pas') +
       '</div></div>' +
       '<div class="stats" style="margin-top:12px">' +
-        stat('Sommeil', d.sleep != null ? UI.fmt.dur(d.sleep) : '—', 'moon') +
-        stat('FC repos', d.hrRest != null ? Math.round(d.hrRest) + ' bpm' : '—', 'pulse') +
+        stat('Sommeil', d.sleep != null ? UI.fmt.dur(d.sleep) : '·', 'moon') +
+        stat('FC repos', d.hrRest != null ? Math.round(d.hrRest) + ' bpm' : '·', 'pulse') +
         stat('VFC', d.hrv != null ? Math.round(d.hrv) + ' ms' : '—', 'pulse') +
         stat('Distance', d.distance != null ? UI.fmt.km(d.distance) : '—', 'map') +
         stat('Étages', d.floors != null ? UI.fmt.n(d.floors) : '—', 'activity') +
@@ -448,8 +683,7 @@
         daily().length ? { id: 'clear', titre: 'Tout effacer', sous: daily().length + ' journées', ph: 'poubelle a jeter', type: 'icone' } : null
       ].filter(Boolean)) + '</div>' +
     '<div class="section" style="padding-top:0"><p class="muted" style="font-size:11.5px;line-height:1.5">' +
-    'Apple Santé ne propose aucune connexion directe pour le web. L\'export met une à deux minutes ' +
-    'à se générer sur l\'iPhone et couvre tout l\'historique.</p></div>';
+    'La connexion automatique envoie les chiffres de chaque jour. L\'export complet, lui, rattrape tout l\'historique d\'un coup.</p></div>';
   }
 
   function bind() {
@@ -542,6 +776,8 @@
     muscu: () => { if (global.Sport) Sport.nouvelleSeance(); },
     sportauto: () => { if (global.Sport) Sport.choisirSport(); },
     import: () => importFlow(),
+    connecter: () => connecter(),
+    tirer: () => tirer(false),
     manual: () => manualDay(),
     goals: () => editGoals(),
     insight: () => insight(),

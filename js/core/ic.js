@@ -104,17 +104,19 @@
   /* ============================================================
      L'interrupteur
 
-     Les icones 3D ont remplace les photos sur toutes les cartes.
-     A l'usage, une photo de plat appetissante dit plus qu'une
-     icone en verre : on revient aux photos par defaut, et les
-     icones restent la, activables depuis Reglages.
+     Les icones 3D sont de nouveau la regle sur les cartes d'action.
+     Les photos tirees d'une banque par mot-cle tombaient trop
+     souvent a cote du sujet (une « balade » illustree par un
+     parking) : une icone dessinee pour l'app est toujours juste.
+     Les vraies photos restent la ou elles sont sures : boissons,
+     cocktails et recettes, qui ont chacun la leur dans assets/.
 
      Tout passe par `trouve` : cartes.js, stock.js et codex.js
      appellent tous cette fonction ou consultent `actif()`. Un seul
      endroit a basculer, aucun risque d'en oublier un.
      ============================================================ */
   function actif() {
-    return !!(global.Store && Store.get('icones3d', false));
+    return !!(global.Store && Store.get('icones3d', true));
   }
 
   /* Le nom du fichier pour un mot, ou null si rien ne colle. */

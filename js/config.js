@@ -23,9 +23,11 @@ window.EVER_CONFIG = {
      dessus : aucune table n'est partagée, seul le compte l'est. */
   supabaseSchema:  'ever',
 
-  /* Proxy Gemini optionnel. Si renseigne, l'app l'utilisé et la
-     clé personnelle devient inutile. */
-  geminiProxyUrl:  '',
+  /* Serveur IA d'EVER (sql/edge/ever-ai.ts). La clé Gemini vit
+     côté serveur : l'IA marche sans rien coller dans Réglages. Une
+     clé personnelle, si elle est saisie, passe devant, et le
+     serveur reprend la main si elle est refusée. */
+  geminiProxyUrl:  'https://qjxeimsinxqvlodsusww.supabase.co/functions/v1/ever-ai',
 
   /* Modèles Gemini : NE PAS figer ici.
      L'application interroge Google au premier appel, classe ce qui

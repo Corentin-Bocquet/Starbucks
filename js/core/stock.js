@@ -363,6 +363,26 @@
     return ['hsl(' + n + ',52%,66%)', 'hsl(' + ((n + 40) % 360) + ',50%,42%)'];
   }
 
+  const ARTS = [
+    ['haltere', /gym|muscu|weight|fitness|halter/], ['velo', /velo|cycl|bike/],
+    ['pas', /running|course|walking|marche|\bpas\b|sport/], ['de', /dice|hasard|\bde\b/],
+    ['roue', /refresh|reglage|settings|station|pratique|gear/], ['calendrier', /calendar|agenda|evenement|festival|planning/],
+    ['marmite', /restaurant|manger|plat|repas|cuisine|food|recette/], ['verre', /\bbar\b|cocktail|boire|verre/],
+    ['tasse', /cafe|coffee|\bthe\b/], ['livre', /culture|histoire|guide|book|museum|musee|heritage|savoir/],
+    ['lieu', /monument|landmark|lieu|place|adresse|ville|city|travel|etablissement/], ['cadeau', /shopping|cadeau|gift|surprise/],
+    ['eclair', /soiree|energie|analys|chart|nuit blanche/], ['cible', /budget|bon plan|objectif|target/],
+    ['loupe', /hidden|insolite|cherch|search/], ['gens', /\bgens\b|ami|friend|crowd|profil|famille|couple|liste/],
+    ['clap', /film|cinema|serie/], ['coeur', /sante|heart|favori|humeur|mood/], ['pomme', /fruit|pomme|aliment/],
+    ['etoile', /star|famous|connue/], ['codebarre', /codebarre|barcode/], ['balance', /poids|scale/],
+    ['lune', /sommeil|sleep/], ['goutte', /\beau\b|water/], ['appareil', /photo|camera|scan/],
+    ['refaire', /historique|deja|history/], ['chemise', /tenue|vetement|shirt|penderie/]
+  ];
+  function artPour(sujet) {
+    const m = String(sujet || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+    for (let i = 0; i < ARTS.length; i++) if (ARTS[i][1].test(m)) return ARTS[i][0];
+    return null;
+  }
+
   function ic(sujet, opts) {
     opts = opts || {};
     /* Une icone 3D dessinee pour l'application bat toujours une
@@ -373,8 +393,20 @@
       const slug = Ic.trouve(sujet);
       if (slug) return Ic.html(slug, { classe: opts.classe });
     }
+    /* Deuxième choix : une des quarante illustrations vectorielles
+       de l'app. Une tuile d'action n'a JAMAIS besoin d'une photo
+       tirée au hasard : c'était la source des images à côté du
+       sujet. La photothèque ne sert plus que si on la demande
+       explicitement (opts.photo). */
+    if (!opts.photo && global.Anime) {
+      const nom = artPour(sujet);
+      if (nom) return '<span class="artic' + (opts.classe ? ' ' + opts.classe : '') + '">' + Anime.art(nom, 72) + '</span>';
+    }
     const t = teinte(sujet);
     const type = opts.type || 'icone';
+    if (!opts.photo) {
+      return '<span class="phic vide' + (opts.classe ? ' ' + opts.classe : '') + '" style="--p1:' + t[0] + ';--p2:' + t[1] + '"></span>';
+    }
     return '<span class="phic' + (opts.classe ? ' ' + opts.classe : '') + '"' +
       ' data-ph="' + UI.attr(sujet) + '" data-pht="' + UI.attr(type) + '"' +
       ' style="--p1:' + t[0] + ';--p2:' + t[1] + '"></span>';

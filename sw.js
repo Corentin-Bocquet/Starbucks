@@ -11,13 +11,13 @@
    Les appels aux API (Gemini, Supabase, météo, Open Food Facts)
    ne sont jamais mis en cache.
    ============================================================ */
-const VERSION = 'ever-v9.3.0';
+const VERSION = 'ever-v10.1.0';
 const SHELL = VERSION + '-shell';
 const MEDIA = VERSION + '-media';
 
 const CORE = [
   './', './index.html', './manifest.webmanifest',
-  './css/tokens.css', './css/base.css', './css/components.css',
+  './css/tokens.css', './css/base.css', './css/components.css', './css/aurora.css',
   './js/config.js',
   './js/core/icons.js', './js/core/art.js', './js/core/gestes.js', './js/core/molette.js', './js/core/banques.js', './js/core/ic.js', './js/core/stock.js', './js/core/portes.js', './js/core/cartes.js', './js/core/graph.js', './js/core/anim.js', './js/core/anime.js', './js/core/imagerie.js', './js/core/feedback.js', './js/core/ui.js', './js/core/store.js', './js/core/photos.js',
   './js/core/ai.js', './js/core/cloud.js', './js/core/calendar.js', './js/core/map.js',

@@ -148,39 +148,116 @@
      droite. C'est le reglage qu'on change le plus souvent. */
   function barreBudget() {
     const b = (ctx && ctx.budget) || 2;
-    return '<div class="section" style="padding-top:14px">' +
-      '<div class="barreligne">' +
-        '<span class="lb">Budget</span>' +
-        '<div class="seg compact">' + [1, 2, 3, 4].map((n) =>
-          '<button data-budget="' + n + '" class="' + (b === n ? 'on' : '') + '">' + '€'.repeat(n) + '</button>').join('') +
-        '</div>' +
+    return '<div class="section" style="padding-top:12px">' +
+      '<div class="seg full" role="group" aria-label="Budget">' + [1, 2, 3, 4].map((n) =>
+        '<button data-budget="' + n + '" class="' + (b === n ? 'on' : '') + '">' + '€'.repeat(n) + '</button>').join('') +
       '</div></div>';
   }
 
-  /* Les six portes d'entree. Deux grandes pour ce qu'on fait
-     vraiment (tourner, choisir son humeur), quatre petites pour le
-     reste. Chacune porte une vraie photo, pas un pictogramme. */
-  const PORTES = [
-    { act: 'roue',    nom: 'Tourner',     sub: 'Le hasard choisit', ph: 'hasard' },
-    { act: 'mood',    nom: 'Ton mood',    sub: 'Selon ton état',    ph: 'humeur' },
-    { act: 'three',   nom: 'Trois idées', sub: 'La roue tranche',   ph: 'surprise' },
-    { act: 'add',     nom: 'Ajouter',     sub: 'Activité ou lieu',  ph: 'ajouter une activite' },
-    { act: 'history', nom: 'Historique',  sub: 'Déjà sorti',        ph: 'historique' },
-    { act: 'guide',   nom: 'Le guide',    sub: 'À voir ici',        ph: 'guide' }
+  /* ============================================================
+     L'accueil : un carrousel de lanceurs, puis les humeurs
+
+     Trois grandes cartes qu'on fait défiler du pouce. Sur chacune,
+     un curseur en verre : on le fait glisser vers la droite et ça
+     part. Un simple toucher marche aussi, pour ceux qui ne
+     glissent pas. Sous le carrousel, les six humeurs en bulles :
+     une touche, et la roue s'ouvre déjà filtrée.
+
+     Avant : six tuiles grises de même poids, sans rien pour dire
+     par où commencer.
+     ============================================================ */
+  const LANCEURS = [
+    { act: 'roue',     nom: 'Tourner la roue', sub: 'Le hasard, selon ta soirée et ton budget', ic: 'de-hasard', t: ['#4C6BFF', '#1B2468'] },
+    { act: 'three',    nom: 'Trois idées',     sub: 'Tu choisis, ou la roue tranche',           ic: '3-idees',   t: ['#F08A4B', '#6B2A12'] },
+    { act: 'surprise', nom: 'Surprends-moi',   sub: 'EVER règle tout et lance pour toi',        ic: 'mood',      t: ['#3FC4A0', '#0E4A3E'] }
   ];
 
+  /* Les humeurs, en mots courts : une bulle ne tient pas une phrase. */
+  const COURT = { aplat: 'Sans énergie', invisible: 'Besoin de réussir', seul: 'Voir du monde',
+    avif: 'Stressé', mou: 'Pas confiant', tendresse: 'Moment calme' };
+
   function grilleActions() {
-    return '<div class="section" style="padding-top:14px">' +
-      '<div class="secbar">' +
-        '<h2>Qu\'est-ce qu\'on fait ?</h2>' +
-        '<button class="rondgris" data-act="reglages" aria-label="Réglages">' + Icon('settings', 18) + '</button>' +
+    const p = prefs();
+    const carte = (d) =>
+      '<div class="lanceur" style="--l1:' + d.t[0] + ';--l2:' + d.t[1] + '">' +
+        (global.Ic ? '<span class="lic">' + Ic.balise(d.ic) + '</span>' : '') +
+        '<span class="fonte"></span>' +
+        '<div class="ltx"><b>' + UI.esc(d.nom) + '</b><small>' + UI.esc(d.sub) + '</small></div>' +
+        '<div class="glisseur" data-glisse="' + d.act + '">' +
+          '<span class="rail">Glisse pour lancer</span>' +
+          '<button class="bouton" aria-label="' + UI.attr(d.nom) + '">' + Icon('next', 20) + '</button>' +
+        '</div>' +
+      '</div>';
+    const bulle = (e) => {
+      const mol = MOODS.MOLECULES[e.molecule] || {};
+      return '<button class="bulle' + (p.mood === e.id ? ' on' : '') + '" data-mood="' + e.id + '" style="--mc:' + UI.attr(mol.teinte || '#6FB2E8') + '">' +
+        '<span class="pt">' + Icon(e.icon, 14) + '</span>' + UI.esc(COURT[e.id] || e.nom) + '</button>';
+    };
+    return '<div class="section" style="padding-top:8px">' +
+      '<div class="lanceurs">' + LANCEURS.map(carte).join('') + '</div>' +
       '</div>' +
-      '<div class="portes">' + PORTES.map((d) =>
-        '<button class="porte" data-act="' + d.act + '">' +
-        (global.Stock ? Stock.ic(d.ph, { classe: 'fond' }) : '') +
-        '<span class="voile"></span>' +
-        '<span class="tx"><b>' + UI.esc(d.nom) + '</b><small>' + UI.esc(d.sub) + '</small></span>' +
-        '</button>').join('') + '</div></div>';
+      '<div class="section" style="padding-top:8px">' +
+      '<div class="secbar"><h2>Comment tu te sens ?</h2>' +
+        '<button class="rondgris" data-act="reglages" aria-label="Réglages">' + Icon('settings', 18) + '</button></div>' +
+      '<div class="bulles">' + MOODS.ETATS.map(bulle).join('') + '</div>' +
+      '<div class="raccourcis">' +
+        '<button class="btn" data-act="add">' + Icon('plus', 16) + 'Ajouter</button>' +
+        '<button class="btn" data-act="history">' + Icon('clock', 16) + 'Historique</button>' +
+        '<button class="btn" data-act="guide">' + Icon('map', 16) + 'Le guide</button>' +
+      '</div></div>';
+  }
+
+  /* Le curseur à glisser. Au-delà de 70 % de la course, ça lance ;
+     en deçà, il revient. Le bouton reste un vrai bouton : au
+     clavier ou d'un simple toucher, il lance aussi. */
+  function brancherGlisseurs() {
+    root.querySelectorAll('[data-glisse]').forEach((g) => {
+      const btn = g.querySelector('.bouton');
+      let x0 = null, dx = 0, max = 0, glisse = false;
+      const poser = (v, anim) => {
+        btn.style.transition = anim ? 'transform .35s cubic-bezier(.2,.85,.3,1)' : 'none';
+        btn.style.transform = 'translateX(' + v + 'px)';
+        g.style.setProperty('--p', max ? (v / max).toFixed(3) : 0);
+      };
+      btn.addEventListener('pointerdown', (e) => {
+        x0 = e.clientX; dx = 0; glisse = false;
+        max = g.clientWidth - btn.offsetWidth - 8;
+        btn.setPointerCapture(e.pointerId);
+        e.stopPropagation();
+      });
+      btn.addEventListener('pointermove', (e) => {
+        if (x0 == null) return;
+        dx = Math.max(0, Math.min(max, e.clientX - x0));
+        if (dx > 6) glisse = true;
+        poser(dx, false);
+        e.stopPropagation();
+      });
+      const fin = () => {
+        if (x0 == null) return;
+        x0 = null;
+        if (glisse && dx >= max * 0.7) {
+          poser(max, true);
+          UI.haptic('success');
+          btn.dataset.lance = '1';
+          setTimeout(() => { poser(0, true); acts[g.dataset.glisse](); }, 220);
+        } else poser(0, true);
+      };
+      btn.addEventListener('pointerup', fin);
+      btn.addEventListener('pointercancel', fin);
+      /* Le clic qui suit une glissade ne doit pas relancer. */
+      btn.addEventListener('click', (e) => {
+        e.stopImmediatePropagation();
+        if (btn.dataset.lance) { delete btn.dataset.lance; return; }
+        if (glisse) return;
+        UI.haptic('light');
+        acts[g.dataset.glisse]();
+      }, true);
+    });
+    root.querySelectorAll('[data-mood]').forEach((b) => b.onclick = () => {
+      UI.haptic('select');
+      setPrefs({ mood: b.dataset.mood, category: 'all' });
+      ouvrirRoue();
+    });
   }
 
   /* ============================================================
@@ -340,26 +417,22 @@
   };
   const MOMENTS = { matin: 'Ce matin', midi: 'Ce midi', 'après-midi': 'Cet apres-midi', soiree: 'Ce soir', nuit: 'Cette nuit' };
 
+  /* L'en-tête de la maquette Aurora : deux pastilles de verre (le
+     lieu, la météo), puis la question en grand. Le lieu reste un
+     bouton : c'est là qu'on change de ville. */
+  const QUAND = { matin: 'ce matin', midi: 'ce midi', 'après-midi': 'cet après-midi', soiree: 'ce soir', nuit: 'cette nuit' };
   function headerBlock(n) {
     const wx = ctx && ctx.weather;
-    const saison = UI.day.season();
-    const g = CIELS[saison] || CIELS.printemps;
-    const moment = MOMENTS[UI.day.slot()] || 'Aujourd\'hui';
-
-    return '<div class="section" style="padding:14px 0 0">' +
-      '<button class="accueil" data-place style="--g1:' + g[0] + ';--g2:' + g[1] + '">' +
-        '<div class="ligne">' +
-          '<span class="quand">' + UI.esc(moment) + '</span>' +
-          (wx ? '<span class="meteo">' + Icon(wx.icon, 18) + '<b>' + wx.temp + '°</b></span>' : '') +
-        '</div>' +
-        '<b class="ville">' + UI.esc(cityName(prefs().city)) + '</b>' +
-        '<div class="ligne bas">' +
-          '<span>' + n + ' idée' + (n > 1 ? 's' : '') + ' pour ici</span>' +
-          '<span class="chg">Changer' + Icon('next', 14) + '</span>' +
-        '</div>' +
-      '</button></div>';
+    const quand = QUAND[UI.day.slot()] || "aujourd'hui";
+    return '<div class="section tete-act">' +
+      '<div class="row" style="gap:8px;flex-wrap:wrap">' +
+        '<button class="chip" data-place>' + Icon('pin', 15) + UI.esc(cityName(prefs().city)) + Icon('next', 13) + '</button>' +
+        (wx ? '<span class="chip">' + Icon(wx.icon, 15) + wx.temp + '° ' + UI.esc(quand) + '</span>' : '') +
+        '<span class="chip">' + n + ' idée' + (n > 1 ? 's' : '') + '</span>' +
+      '</div>' +
+      '<h1>On fait quoi<br>' + UI.esc(quand) + '&nbsp;?</h1>' +
+    '</div>';
   }
-
 
   /* Le bandeau qui explique la règle. C'est lui qui fait la
      différence entre un filtre et un vrai conseil. */
@@ -821,6 +894,7 @@
     const pb = root.querySelector('[data-place]');
     if (pb) pb.onclick = placePicker;
     root.querySelectorAll('[data-act]').forEach((b) => b.onclick = () => acts[b.dataset.act] && acts[b.dataset.act]());
+    brancherGlisseurs();
   }
 
   const acts = {

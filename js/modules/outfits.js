@@ -86,11 +86,7 @@
           Icon('sparkle', 16) + 'Inventer</button>' +
       '</div>' +
       (mode === 'penderie' && garments().length < 3
-        ? '<div class="panel" style="text-align:center;margin-top:14px;padding:24px 18px">' +
-          '<div style="margin-bottom:10px">' + Anime.art('cible', 52) + '</div>' +
-          '<b style="display:block;margin-bottom:6px;font-size:17px">Ta penderie est vide</b>' +
-          '<p class="muted" style="font-size:13px;margin-bottom:14px">Ajoute des vêtements, ou passe sur « Inventer » pour voir des idées.</p>' +
-          '<button class="btn primary" data-act="addGarment">' + Icon('camera', 16) + 'Prendre en photo</button></div>'
+        ? tenueDeBase(wx)
         : (tenues
             ? '<div class="carrousel" style="margin-top:14px">' + tenues.map(carteStyle).join('') + '</div>' +
               '<button class="btn block" style="margin-top:6px" data-act="regenererTout">' +
@@ -100,11 +96,60 @@
       '</div>';
   }
 
+  /* ============================================================
+     La tenue de base
+
+     Une penderie vide affichait « Ta penderie est vide » et rien
+     d'autre : l'onglet ne servait à rien le premier jour. On
+     propose maintenant, toujours, une tenue qui colle à la météo,
+     tirée de règles simples. Aucune IA, aucun réseau requis : elle
+     s'affiche même hors ligne. Les vêtements ajoutés prennent le
+     relais dès qu'il y en a trois.
+     ============================================================ */
+  function piecesDuTemps(wx) {
+    const t = wx ? wx.temp : ({ hiver: 4, automne: 12, printemps: 15, ete: 25 })[UI.day.season()] || 15;
+    const pluie = wx && /pluie|averse|orage|bruine|neige/i.test(wx.text || '');
+    let p;
+    if (t < 8)       p = { haut: 'Pull en laine', bas: 'Jean brut', manteau: 'Manteau chaud', chaussures: 'Boots en cuir' };
+    else if (t < 15) p = { haut: 'Pull fin ou sweat', bas: 'Chino', manteau: 'Veste ou trench', chaussures: 'Baskets en cuir' };
+    else if (t < 22) p = { haut: 'T-shirt ou chemise', bas: 'Chino ou jean', manteau: 'Surchemise pour le soir', chaussures: 'Baskets' };
+    else             p = { haut: 'T-shirt léger ou lin', bas: 'Short ou pantalon en lin', manteau: null, chaussures: 'Sneakers en toile' };
+    if (pluie) { p.manteau = 'Imperméable'; p.chaussures = 'Boots imperméables'; }
+    return { t: t, pluie: pluie, p: p };
+  }
+
+  function tenueDeBase(wx) {
+    const r = piecesDuTemps(wx);
+    const slots = [['haut', 'Haut'], ['bas', 'Bas'], ['manteau', 'Veste'], ['chaussures', 'Chaussures']]
+      .filter((x) => r.p[x[0]]);
+    const conseil = r.pluie ? 'Il va pleuvoir : couvre-toi.'
+      : r.t < 8 ? 'Il fait froid : superpose.'
+      : r.t < 15 ? 'Frais : une couche en plus.'
+      : r.t < 22 ? 'Doux : léger, avec une veste le soir.' : 'Chaud : matières légères.';
+    return '<div class="section" style="padding-top:14px">' +
+      '<div class="secbar"><h2>Ta tenue du jour</h2></div>' +
+      '<p class="muted" style="font-size:13px;margin:-4px 0 12px">' + UI.esc(conseil) + '</p>' +
+      '<div class="tenuebase">' + slots.map((x) =>
+        '<div class="piece"><span class="pv">' + (global.Ic ? Ic.balise(x[0] === 'manteau' ? 'manteau' : x[0]) : '') + '</span>' +
+        '<small>' + x[1] + '</small><b>' + UI.esc(r.p[x[0]]) + '</b></div>').join('') + '</div>' +
+      '<div class="row" style="gap:8px;margin-top:12px">' +
+        '<button class="btn primary grow" data-mode="inventer">' + Icon('sparkle', 16) + 'Des idées avec l\'IA</button>' +
+        '<button class="btn" data-act="addGarment">' + Icon('camera', 16) + 'Mes vêtements</button>' +
+      '</div>' +
+      '<p class="muted" style="font-size:12px;margin-top:10px">Ajoute trois vêtements en photo, et EVER compose avec ce que tu as vraiment.</p>' +
+      '</div>';
+  }
+
+  /* La carte météo de la maquette : la température en très grand,
+     le ciel en une ligne, et un astre de verre à droite. */
   function bandeauMeteo(wx) {
-    return '<div class="meteo-jour">' +
-      '<span class="ic">' + Icon(wx.icon, 26) + '</span>' +
-      '<div class="grow"><b>' + wx.temp + '° · ' + UI.esc(wx.text) + '</b>' +
-      '<small>' + UI.esc(ctx.place.name) + ' · ressenti ' + wx.feels + '°</small></div>' +
+    return '<div class="meteo-hero">' +
+      '<div class="col-g">' +
+        '<small>Aujourd\'hui · ' + UI.esc(ctx.place.name) + '</small>' +
+        '<b class="t">' + wx.temp + '°</b>' +
+        '<span>' + UI.esc(wx.text) + ' · ressenti ' + wx.feels + '°</span>' +
+      '</div>' +
+      '<span class="astre ' + (/pluie|averse|orage|bruine/i.test(wx.text || '') ? 'pluie' : (/nuage|couvert|brume|brouillard/i.test(wx.text || '') ? 'nuage' : 'soleil')) + '">' + Icon(wx.icon, 34) + '</span>' +
     '</div>';
   }
 
