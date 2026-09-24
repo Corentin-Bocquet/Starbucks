@@ -382,3 +382,355 @@ html:not([data-theme="dark"]) .lanceur .lic img { mix-blend-mode: multiply; filt
 }
 .portes.defile::-webkit-scrollbar { display: none; }
 .portes.defile .porte { flex: none; width: min(38vw, 150px); height: 150px; scroll-snap-align: start; }
+
+/* ============================================================
+   Alignement sur la maquette Aurora
+   ============================================================ */
+
+/* Police de la maquette : Manrope. */
+:root[data-theme="dark"] { --font: 'Manrope', -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif; --font-num: 'Manrope', ui-monospace, monospace; }
+
+/* ---------- La barre du haut : une capsule de verre ----------
+   Hub à gauche, titre au centre, compte à droite, dans une seule
+   pilule qui flotte à 16 px des bords. */
+:root[data-theme="dark"] .topbar {
+  position: sticky; top: calc(var(--safe-t) + 8px);
+  height: 56px; margin: calc(var(--safe-t) + 8px) 16px 0; padding: 0 6px;
+  border-radius: 999px; gap: 6px;
+  background: linear-gradient(160deg, rgba(255,255,255,.15), rgba(255,255,255,.05) 55%, rgba(255,255,255,.08));
+  -webkit-backdrop-filter: blur(24px) saturate(185%); backdrop-filter: blur(24px) saturate(185%);
+  box-shadow: inset 0 1px 1px rgba(255,255,255,.35), inset 0 0 0 1px rgba(255,255,255,.07), 0 18px 40px -18px rgba(0,0,0,.8);
+  border: 0;
+}
+:root[data-theme="dark"] .topbar.scrolled { border: 0; }
+:root[data-theme="dark"] .topbar .title { font-size: 16px; font-weight: 700; letter-spacing: -.01em; }
+:root[data-theme="dark"] .topbar .tbtn {
+  width: 44px; height: 44px; background: rgba(255,255,255,.08);
+  box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none;
+}
+/* La zone de l'encoche reste sombre quand on fait défiler. */
+:root[data-theme="dark"] body::after {
+  content: ''; position: fixed; left: 0; right: 0; top: 0; z-index: 69; pointer-events: none;
+  height: calc(var(--safe-t) + 14px);
+  background: linear-gradient(180deg, rgba(5,11,16,.92), rgba(5,11,16,0));
+}
+
+/* ---------- Titres de section ---------- */
+:root[data-theme="dark"] .secbar h2, :root[data-theme="dark"] .sechead h2 { font-size: 20px; font-weight: 700; letter-spacing: -.02em; }
+:root[data-theme="dark"] .secbar h2::before { display: none; }
+
+/* ---------- Feuilles : un panneau de verre qui flotte ---------- */
+:root[data-theme="dark"] .ov { padding: 0 8px 8px; }
+:root[data-theme="dark"] .sheet {
+  border-radius: 40px; max-height: calc(100vh - var(--safe-t) - 24px);
+  padding-bottom: 0;
+}
+:root[data-theme="dark"] .sheet .grabber i { background: rgba(255,255,255,.3); }
+:root[data-theme="dark"] .sheet :is(.close, .retourpop) {
+  background: linear-gradient(160deg, rgba(255,255,255,.18), rgba(255,255,255,.06));
+  box-shadow: inset 0 1px 1px rgba(255,255,255,.35); color: var(--ink);
+}
+
+/* Le hub : plein écran, sans poignée, au-dessus du fond Aurora. */
+:root[data-theme="dark"] .ov.plein { padding: 0; background: rgba(3,8,12,.55); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
+:root[data-theme="dark"] .sheet.plein {
+  max-width: none; height: 100%; max-height: 100vh; border-radius: 0;
+  background: transparent; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none;
+  padding-top: var(--safe-t);
+}
+.sheet.plein .grabber { display: none; }
+.hubplein { display: flex; flex-direction: column; gap: 16px; padding-top: 18px; }
+.hubtete small { display: block; font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.hubtete h2 { font-size: 28px !important; font-weight: 800 !important; letter-spacing: -.03em; }
+.hubcherche { height: 52px; }
+.hubcases { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.hubcase {
+  height: 112px; border-radius: 28px; color: #fff;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  background: linear-gradient(150deg, color-mix(in srgb, var(--g2) 80%, transparent), color-mix(in srgb, var(--g1) 60%, transparent));
+  -webkit-backdrop-filter: blur(20px) saturate(180%); backdrop-filter: blur(20px) saturate(180%);
+  box-shadow: inset 0 1px 1px rgba(255,255,255,.45), inset 0 -10px 20px rgba(0,0,0,.15), 0 16px 30px -14px var(--g1);
+  transition: transform var(--d-fast) var(--spring);
+}
+.hubcase:active { transform: scale(.95); }
+.hubcase .rond {
+  width: 50px; height: 50px; border-radius: 50%; display: grid; place-items: center;
+  background: rgba(255,255,255,.2); box-shadow: inset 0 1px 1px rgba(255,255,255,.6);
+}
+.hubcase .rond svg { width: 24px; height: 24px; }
+.hubcase b { font-size: 14px; font-weight: 700; }
+
+/* ---------- La notification courte ---------- */
+:root[data-theme="dark"] .toast {
+  bottom: calc(var(--tabbar) + 14px); padding: 0 20px; height: 52px;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(170deg, rgba(40,52,62,.88), rgba(16,24,31,.9));
+  -webkit-backdrop-filter: blur(24px) saturate(180%); backdrop-filter: blur(24px) saturate(180%);
+  box-shadow: inset 0 1px 1px rgba(255,255,255,.3), 0 20px 40px -16px rgba(0,0,0,.8);
+  font-size: 14px; font-weight: 650;
+}
+
+/* ---------- Activités : l'en-tête de la maquette ---------- */
+.tete-act { padding-top: 16px; }
+.tete-act h1 { font-size: 34px; font-weight: 800; letter-spacing: -.03em; line-height: 1.04; margin-top: 12px; }
+.tete-act .chip { height: 34px; padding: 0 12px; font-size: 13px; gap: 6px; }
+.tete-act .chip svg { width: 15px; height: 15px; }
+:root[data-theme="dark"] .secbar h2 { padding-left: 0; }
+.seg.full { display: flex; width: 100%; }
+.seg.full > button { flex: 1; }
+
+/* ---------- Tenues : la carte météo de la maquette ---------- */
+.meteo-hero {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin-top: 14px; padding: 18px; border-radius: 32px;
+  background: var(--glass, var(--surface));
+  -webkit-backdrop-filter: blur(24px) saturate(185%); backdrop-filter: blur(24px) saturate(185%);
+  box-shadow: var(--glass-rim, var(--sh-inset)), var(--glass-drop, var(--sh-2));
+}
+.meteo-hero .col-g { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.meteo-hero small { font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.meteo-hero .t { font-size: 56px; font-weight: 800; letter-spacing: -.05em; line-height: 1; font-variant-numeric: tabular-nums; }
+.meteo-hero span:not(.astre) { font-size: 14px; color: var(--ink-2); }
+.meteo-hero .astre {
+  flex: none; width: 92px; height: 92px; border-radius: 50%; display: grid; place-items: center; color: #fff;
+  background: radial-gradient(circle at 35% 30%, #fff, #9FC6E0 45%, #3E6C9A);
+  box-shadow: 0 0 40px rgba(140,190,230,.5);
+}
+.meteo-hero .astre.soleil { background: radial-gradient(circle at 35% 30%, #FFF6D8, #FFC75A 45%, #E0822B); box-shadow: 0 0 40px rgba(255,190,90,.5); }
+.meteo-hero .astre.pluie { background: radial-gradient(circle at 35% 30%, #E3EEF8, #7EA3C8 45%, #2F4F75); }
+.meteo-hero .astre svg { width: 34px; height: 34px; opacity: .9; }
+
+/* La bascule penderie / inventer devient un segment de verre. */
+:root[data-theme="dark"] .bascule { background: var(--glass); box-shadow: var(--glass-rim); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); }
+:root[data-theme="dark"] .bascule .cote { color: var(--muted); }
+:root[data-theme="dark"] .bascule .cote.on { background: linear-gradient(180deg, rgba(255,255,255,.95), rgba(220,232,238,.85)); color: #061015; box-shadow: inset 0 1px 0 #fff, 0 6px 16px -6px rgba(0,0,0,.5); }
+
+/* ============================================================
+   Alimentation, comme la maquette
+   ============================================================ */
+.anneau-jour { display: flex; align-items: center; gap: 18px; padding: 18px !important; border-radius: 32px !important; margin-top: 8px; }
+.ajr { position: relative; flex: none; width: 132px; height: 132px; }
+.ajr svg { width: 100%; height: 100%; filter: drop-shadow(0 0 10px rgba(91,224,245,.35)); }
+.ajc { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.ajc b { font-size: 28px; font-weight: 800; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+.ajc small { font-size: 12px; color: var(--muted); }
+.ajd { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.ajd .eyebrow { font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.ajd b { font-size: 34px; font-weight: 800; letter-spacing: -.03em; line-height: 1; font-variant-numeric: tabular-nums; }
+.ajd span { font-size: 13px; color: var(--ink-2); }
+
+.carres { display: flex; gap: 10px; overflow-x: auto; scrollbar-width: none; margin: 12px calc(-1 * var(--gut)) 0; padding: 2px var(--gut) 6px; }
+.carres::-webkit-scrollbar { display: none; }
+.carre {
+  flex: 1 0 96px; height: 84px; border-radius: 24px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  font-size: 13px; font-weight: 700; color: var(--ink);
+  background: var(--glass, var(--surface));
+  -webkit-backdrop-filter: blur(20px) saturate(180%); backdrop-filter: blur(20px) saturate(180%);
+  box-shadow: var(--glass-rim, var(--sh-inset)), 0 12px 26px -16px rgba(0,0,0,.7);
+  transition: transform var(--d-fast) var(--spring);
+}
+.carre:active { transform: scale(.94); }
+.carre svg { width: 22px; height: 22px; }
+
+.macros-jour { margin-top: 12px; border-radius: 28px !important; display: flex; flex-direction: column; gap: 12px; }
+.macros-jour .macro b { font-size: 13px; font-weight: 700; }
+.macros-jour .macro .muted { font-size: 13px; }
+.macros-jour .bar-track { margin-top: 6px; height: 8px; }
+:root[data-theme="dark"] .macros-jour .bar-fill { box-shadow: 0 0 10px color-mix(in srgb, var(--c) 60%, transparent); }
+
+.repas-jour { display: flex; flex-direction: column; gap: 8px; }
+.repas { border-radius: 22px; overflow: hidden; background: var(--glass, var(--surface));
+  -webkit-backdrop-filter: blur(20px) saturate(180%); backdrop-filter: blur(20px) saturate(180%);
+  box-shadow: var(--glass-rim, var(--sh-inset)), 0 12px 26px -18px rgba(0,0,0,.7); }
+.repas .rtete { width: 100%; min-height: 62px; display: flex; align-items: center; gap: 12px; padding: 0 12px 0 14px; text-align: left; color: var(--ink); }
+.repas .ric { flex: none; width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: rgba(255,255,255,.1); }
+.repas .rtx { flex: 1; min-width: 0; }
+.repas .rtx b { display: block; font-size: 15px; font-weight: 700; }
+.repas .rtx small { display: block; font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.repas .rk { font-size: 14px; font-weight: 700; }
+.repas .rplus { flex: none; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: linear-gradient(180deg, #fff, #D9E7EC); color: #061015; }
+.repas .list { background: transparent; box-shadow: none; border-top: 1px solid rgba(255,255,255,.07); -webkit-backdrop-filter: none; backdrop-filter: none; border-radius: 0; }
+.macros-jour .macro { margin: 0 !important; }
+
+/* ============================================================
+   Santé, comme la maquette
+   ============================================================ */
+.forme-jour { display: flex; align-items: center; gap: 16px; padding: 18px !important; border-radius: 32px !important; }
+.forme-jour .fr { position: relative; flex: none; width: 110px; height: 110px; }
+.forme-jour svg { width: 100%; height: 100%; filter: drop-shadow(0 0 10px rgba(127,224,192,.35)); }
+.forme-jour .frc { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.forme-jour .frc b { font-size: 32px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.forme-jour .frc small { font-size: 11px; color: var(--muted); }
+.forme-jour .fd { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.forme-jour .fd b { font-size: 20px; font-weight: 700; letter-spacing: -.02em; }
+.forme-jour .fd span { font-size: 13px; line-height: 1.4; color: var(--ink-2); }
+
+.mesures { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.mesure {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 14px;
+  border-radius: 24px; text-align: left; color: var(--ink);
+  background: var(--glass, var(--surface));
+  -webkit-backdrop-filter: blur(20px) saturate(180%); backdrop-filter: blur(20px) saturate(180%);
+  box-shadow: var(--glass-rim, var(--sh-inset)), 0 12px 26px -16px rgba(0,0,0,.7);
+}
+.mesure .mh { display: flex; align-items: center; gap: 8px; }
+.mesure .mh small { font-size: 13px; font-weight: 600; color: var(--ink-2); }
+.mesure b { font-size: 24px; font-weight: 800; letter-spacing: -.02em; }
+
+.tasses-jour { display: block; border-radius: 28px !important; color: var(--ink); }
+.tasses-jour b { font-size: 15px; }
+.tasses-jour .muted { font-size: 12px; }
+.tbars { display: flex; gap: 8px; align-items: flex-end; margin-top: 12px; }
+.tbars .tb { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 0; }
+.tbars .tt { width: 100%; height: 70px; border-radius: 14px; background: rgba(255,255,255,.1); position: relative; overflow: hidden; }
+.tbars .tt i { position: absolute; left: 0; right: 0; bottom: 0; border-radius: 14px; background: linear-gradient(180deg, var(--t), color-mix(in srgb, var(--t) 80%, transparent)); box-shadow: 0 0 14px color-mix(in srgb, var(--t) 50%, transparent); }
+.tbars small { font-size: 10px; font-weight: 700; opacity: .8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+
+/* ============================================================
+   Café, Bar, Recettes : comme la maquette
+   ============================================================ */
+/* Le héros photo : l'image entière, fondue en bas dans un verre. */
+.hero.herophoto {
+  height: 200px; margin: 12px var(--gut) 0; border-radius: 32px; overflow: hidden; isolation: isolate;
+  background: #0A131A; display: block;
+}
+.herophoto .hp { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 62% 60%; z-index: -2; }
+.herophoto.t-mm .hp { object-position: 70% 50%; }
+.herophoto .fonte {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 62%; z-index: -1;
+  -webkit-backdrop-filter: blur(22px) saturate(160%); backdrop-filter: blur(22px) saturate(160%);
+  -webkit-mask-image: linear-gradient(to top, #000 42%, rgba(0,0,0,.6) 64%, transparent);
+  mask-image: linear-gradient(to top, #000 42%, rgba(0,0,0,.6) 64%, transparent);
+}
+.herophoto.t-sb .fonte { background: linear-gradient(to top, rgba(4,40,26,.85), transparent); }
+.herophoto.t-ck .fonte { background: linear-gradient(to top, rgba(50,14,34,.85), transparent); }
+.herophoto.t-mm .fonte { background: linear-gradient(to top, rgba(40,14,6,.85), transparent); }
+.herophoto .hptx { position: absolute; left: 18px; right: 18px; bottom: 16px; color: #fff; }
+.herophoto .hptx small { display: block; font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; opacity: .82; }
+.herophoto .hptx b { display: block; font-size: 23px; font-weight: 800; letter-spacing: -.02em; line-height: 1.15; margin-top: 2px; }
+
+/* La barre de recherche du codex, en verre, sans bandeau opaque. */
+:root[data-theme="dark"] .searchbar { background: transparent; border: 0; box-shadow: none; }
+:root[data-theme="dark"] .searchbar .search { height: 50px; }
+:root[data-theme="dark"] #codexBar .iconbtn { width: 50px; height: 50px; }
+
+/* Les choix de l'assistant : trois cartes de verre côte à côte. */
+:root[data-theme="dark"] .track { padding: 6px var(--gut) 10px; gap: 10px; }
+:root[data-theme="dark"] .trackwrap .arrows { display: none; }
+:root[data-theme="dark"] .opt, :root[data-theme="dark"] .opt.opt3d {
+  width: 112px; min-height: 0; padding: 12px 8px 12px; border-radius: 26px; scroll-snap-align: start;
+  background: var(--glass-solid); color: var(--ink);
+  box-shadow: var(--glass-rim), 0 12px 26px -16px rgba(0,0,0,.7);
+}
+:root[data-theme="dark"] .opt .disc { display: none; }
+:root[data-theme="dark"] .opt .im, :root[data-theme="dark"] .opt.opt3d .im.ic3d,
+:root[data-theme="dark"] .opt.mid .im, :root[data-theme="dark"] .opt.opt3d.mid .im.ic3d {
+  width: 64px; height: 64px; margin: 0 auto; border-radius: 50%; filter: none;
+}
+:root[data-theme="dark"] .opt img.im { object-fit: cover; }
+:root[data-theme="dark"] .opt.mid { transform: none; box-shadow: var(--glass-rim), 0 12px 26px -16px rgba(0,0,0,.7); }
+:root[data-theme="dark"] .opt .nm { font-size: 14px; margin-top: 8px; color: var(--ink); }
+:root[data-theme="dark"] .opt .sb { font-size: 11px; color: var(--muted); opacity: 1; }
+:root[data-theme="dark"] .opt .cnt { margin-top: 8px; padding: 3px 9px; background: rgba(255,255,255,.1); color: var(--ink-2); }
+:root[data-theme="dark"] .opt.sel { outline: 2px solid #fff; outline-offset: 2px; }
+:root[data-theme="dark"] .wizhead h2 { font-size: 20px; font-weight: 700; }
+:root[data-theme="dark"] .wizhead .num { color: var(--muted); }
+:root[data-theme="dark"] .crumb.step { background: linear-gradient(180deg, #fff, #D9E7EC); color: #061015; }
+
+/* Les cartes boisson et cocktail : verre, image sur fond blanc en haut. */
+:root[data-theme="dark"] .rail .card, :root[data-theme="dark"] .pfaits .card {
+  border-radius: 26px; padding: 8px; background: var(--glass); box-shadow: var(--glass-rim), var(--glass-drop);
+}
+:root[data-theme="dark"] .card .ph { border-radius: 20px; background: #fff; }
+:root[data-theme="dark"] .card .bd { padding: 10px 6px 6px; }
+:root[data-theme="dark"] .card .fav { background: rgba(255,255,255,.18); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); color: #fff; box-shadow: inset 0 1px 1px rgba(255,255,255,.4); }
+:root[data-theme="dark"] .card .fav.on { color: #FF6B8A; }
+.pfaits .card { width: 150px !important; flex: none; }
+
+/* Recettes : grande carte et grille de photos qui fondent. */
+.rcarte {
+  position: relative; overflow: hidden; isolation: isolate; cursor: pointer;
+  height: 176px; border-radius: 26px; background: #140C08;
+  box-shadow: inset 0 1px 1px rgba(255,255,255,.2), 0 18px 34px -20px rgba(0,0,0,.8);
+  transition: transform var(--d-fast) var(--spring);
+}
+.rcarte:active { transform: scale(.97); }
+.rcarte.grande { height: 236px; border-radius: 30px; }
+.rcarte .rp, .rcarte .ph { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: -2; }
+.rcarte .fonte {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 58%; z-index: -1;
+  background: linear-gradient(to top, rgba(60,20,10,.85), transparent);
+  -webkit-backdrop-filter: blur(20px) saturate(160%); backdrop-filter: blur(20px) saturate(160%);
+  -webkit-mask-image: linear-gradient(to top, #000 42%, rgba(0,0,0,.6) 64%, transparent);
+  mask-image: linear-gradient(to top, #000 42%, rgba(0,0,0,.6) 64%, transparent);
+}
+.rcarte .coeur {
+  position: absolute; top: 10px; right: 10px; width: 38px; height: 38px; border-radius: 50%;
+  display: grid; place-items: center; color: #fff;
+  background: rgba(255,255,255,.18); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+  box-shadow: inset 0 1px 1px rgba(255,255,255,.45);
+}
+.rcarte .coeur.on { color: #FF6B8A; background: rgba(255,255,255,.9); }
+.rcarte .coeur.on svg { fill: currentColor; }
+.rcarte .rtx { position: absolute; left: 14px; right: 14px; bottom: 12px; color: #fff; }
+.rcarte .rtx small { display: block; font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; opacity: .82; }
+.rcarte .rtx b { display: block; font-size: 16px; font-weight: 800; letter-spacing: -.01em; line-height: 1.15; }
+.rcarte.grande .rtx { display: grid; grid-template-columns: 1fr auto; align-items: end; column-gap: 10px; left: 18px; bottom: 14px; }
+.rcarte.grande .rtx small, .rcarte.grande .rtx b { grid-column: 1; }
+.rcarte.grande .rtx b { font-size: 24px; }
+.rcarte .cuisiner {
+  grid-column: 2; grid-row: 1 / span 2; align-self: end;
+  display: inline-flex; align-items: center; gap: 6px; height: 42px; padding: 0 16px; border-radius: 999px;
+  font-size: 14px; font-weight: 700; color: #fff;
+  background: rgba(255,255,255,.22); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+  box-shadow: inset 0 1px 1px rgba(255,255,255,.5);
+}
+.rgrille { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+
+/* La fiche : la photo en grand, le texte sur un verre qui la chevauche. */
+:root[data-theme="dark"] .sheet:has(> .mimg) .mbody, :root[data-theme="dark"] .sheet.bandeau-img .mbody {
+  position: relative; z-index: 4; margin-top: -36px; border-radius: 32px 32px 0 0;
+  background: linear-gradient(170deg, rgba(40,30,20,.6), rgba(12,18,24,.92) 40%);
+  -webkit-backdrop-filter: blur(24px) saturate(170%); backdrop-filter: blur(24px) saturate(170%);
+  box-shadow: inset 0 1px 1px rgba(255,255,255,.25);
+}
+:root[data-theme="dark"] .mimg { aspect-ratio: auto; height: 360px; max-height: 48vh; border-radius: 40px 40px 0 0; }
+:root[data-theme="dark"] .mimg::after { display: none; }
+:root[data-theme="dark"] .mbody h2 { font-size: 28px; font-weight: 800; }
+:root[data-theme="dark"] .mcat { color: var(--muted); }
+:root[data-theme="dark"] .mtags .tg { background: rgba(255,255,255,.12); color: var(--ink); box-shadow: inset 0 1px 1px rgba(255,255,255,.25); }
+:root[data-theme="dark"] .nums { padding: 10px 0; border-radius: 22px; background: var(--glass); box-shadow: var(--glass-rim); gap: 0; }
+:root[data-theme="dark"] .nums .num { background: transparent; padding: 4px; }
+:root[data-theme="dark"] .nums .num b { font-size: 17px; }
+:root[data-theme="dark"] .steps li::marker { color: var(--muted); }
+
+/* Recherche du codex : la barre et ses boutons sur une ligne, les
+   tailles de gobelet dessous, comme sur la maquette. */
+:root[data-theme="dark"] #codexBar .searchrow { display: flex; flex-wrap: wrap; gap: 8px; }
+:root[data-theme="dark"] #codexBar .search { flex: 1 1 0; }
+:root[data-theme="dark"] #codexSizes { order: 5; flex: 1 0 100%; display: flex; }
+:root[data-theme="dark"] #codexSizes.hide { display: none; }
+:root[data-theme="dark"] #codexSizes button { flex: 1; }
+
+/* Les icônes de l'assistant : l'illustration claire dans un rond
+   blanc, sans fondu (le rond est déjà blanc). */
+:root[data-theme="dark"] .opt .im.ic3d { background: #fff; overflow: hidden; box-shadow: 0 8px 18px -8px rgba(0,0,0,.5); }
+:root[data-theme="dark"] .opt .im.ic3d > img { mix-blend-mode: normal; filter: none; padding: 6px; }
+
+/* L'étape : le titre à gauche, « Étape 1 sur 3 » à droite. Le fil
+   d'Ariane ne sert qu'une fois un premier choix fait. */
+:root[data-theme="dark"] .crumbs:not(:has([data-goto])) { display: none; }
+:root[data-theme="dark"] .wizhead { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 10px; }
+:root[data-theme="dark"] .wizhead h2 { order: 1; }
+:root[data-theme="dark"] .wizhead .num { order: 2; font-size: 13px; letter-spacing: 0; text-transform: none; font-weight: 700; }
+:root[data-theme="dark"] .wizhead p { order: 3; flex-basis: 100%; }
+:root[data-theme="dark"] .opt, :root[data-theme="dark"] .opt.opt3d { height: auto !important; align-self: flex-start; }
+:root[data-theme="dark"] .opt.sel[data-null="1"] { outline: none; }
+:root[data-theme="dark"] .opt[data-null="1"] .im { background: rgba(255,255,255,.1) !important; }
+.pfaits .card .tags, .pfaits .card .meta { display: none; }
+.pfaits .card .bd h3 { font-size: 14px; }
+.pfaits .card .ph { aspect-ratio: 1 / 1; }
+.pfaits { align-items: flex-start; }
+.pfaits .card { height: auto !important; min-height: 0 !important; }
+.pfaits .card .bd { padding-bottom: 8px; }

@@ -148,12 +148,9 @@
      droite. C'est le reglage qu'on change le plus souvent. */
   function barreBudget() {
     const b = (ctx && ctx.budget) || 2;
-    return '<div class="section" style="padding-top:14px">' +
-      '<div class="barreligne">' +
-        '<span class="lb">Budget</span>' +
-        '<div class="seg compact">' + [1, 2, 3, 4].map((n) =>
-          '<button data-budget="' + n + '" class="' + (b === n ? 'on' : '') + '">' + '€'.repeat(n) + '</button>').join('') +
-        '</div>' +
+    return '<div class="section" style="padding-top:12px">' +
+      '<div class="seg full" role="group" aria-label="Budget">' + [1, 2, 3, 4].map((n) =>
+        '<button data-budget="' + n + '" class="' + (b === n ? 'on' : '') + '">' + '€'.repeat(n) + '</button>').join('') +
       '</div></div>';
   }
 
@@ -196,13 +193,12 @@
       return '<button class="bulle' + (p.mood === e.id ? ' on' : '') + '" data-mood="' + e.id + '" style="--mc:' + UI.attr(mol.teinte || '#6FB2E8') + '">' +
         '<span class="pt">' + Icon(e.icon, 14) + '</span>' + UI.esc(COURT[e.id] || e.nom) + '</button>';
     };
-    return '<div class="section" style="padding-top:16px">' +
-      '<div class="secbar"><h2>Qu\'est-ce qu\'on fait ?</h2>' +
-        '<button class="rondgris" data-act="reglages" aria-label="Réglages">' + Icon('settings', 18) + '</button></div>' +
+    return '<div class="section" style="padding-top:8px">' +
       '<div class="lanceurs">' + LANCEURS.map(carte).join('') + '</div>' +
       '</div>' +
       '<div class="section" style="padding-top:8px">' +
-      '<div class="secbar"><h2>Comment tu te sens ?</h2></div>' +
+      '<div class="secbar"><h2>Comment tu te sens ?</h2>' +
+        '<button class="rondgris" data-act="reglages" aria-label="Réglages">' + Icon('settings', 18) + '</button></div>' +
       '<div class="bulles">' + MOODS.ETATS.map(bulle).join('') + '</div>' +
       '<div class="raccourcis">' +
         '<button class="btn" data-act="add">' + Icon('plus', 16) + 'Ajouter</button>' +
@@ -421,26 +417,22 @@
   };
   const MOMENTS = { matin: 'Ce matin', midi: 'Ce midi', 'après-midi': 'Cet apres-midi', soiree: 'Ce soir', nuit: 'Cette nuit' };
 
+  /* L'en-tête de la maquette Aurora : deux pastilles de verre (le
+     lieu, la météo), puis la question en grand. Le lieu reste un
+     bouton : c'est là qu'on change de ville. */
+  const QUAND = { matin: 'ce matin', midi: 'ce midi', 'après-midi': 'cet après-midi', soiree: 'ce soir', nuit: 'cette nuit' };
   function headerBlock(n) {
     const wx = ctx && ctx.weather;
-    const saison = UI.day.season();
-    const g = CIELS[saison] || CIELS.printemps;
-    const moment = MOMENTS[UI.day.slot()] || 'Aujourd\'hui';
-
-    return '<div class="section" style="padding:14px 0 0">' +
-      '<button class="accueil" data-place style="--g1:' + g[0] + ';--g2:' + g[1] + '">' +
-        '<div class="ligne">' +
-          '<span class="quand">' + UI.esc(moment) + '</span>' +
-          (wx ? '<span class="meteo">' + Icon(wx.icon, 18) + '<b>' + wx.temp + '°</b></span>' : '') +
-        '</div>' +
-        '<b class="ville">' + UI.esc(cityName(prefs().city)) + '</b>' +
-        '<div class="ligne bas">' +
-          '<span>' + n + ' idée' + (n > 1 ? 's' : '') + ' pour ici</span>' +
-          '<span class="chg">Changer' + Icon('next', 14) + '</span>' +
-        '</div>' +
-      '</button></div>';
+    const quand = QUAND[UI.day.slot()] || "aujourd'hui";
+    return '<div class="section tete-act">' +
+      '<div class="row" style="gap:8px;flex-wrap:wrap">' +
+        '<button class="chip" data-place>' + Icon('pin', 15) + UI.esc(cityName(prefs().city)) + Icon('next', 13) + '</button>' +
+        (wx ? '<span class="chip">' + Icon(wx.icon, 15) + wx.temp + '° ' + UI.esc(quand) + '</span>' : '') +
+        '<span class="chip">' + n + ' idée' + (n > 1 ? 's' : '') + '</span>' +
+      '</div>' +
+      '<h1>On fait quoi<br>' + UI.esc(quand) + '&nbsp;?</h1>' +
+    '</div>';
   }
-
 
   /* Le bandeau qui explique la règle. C'est lui qui fait la
      différence entre un filtre et un vrai conseil. */

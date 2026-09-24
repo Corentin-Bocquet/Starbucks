@@ -123,25 +123,34 @@
 
   /* ---------- Hub ---------- */
   function openHub() {
+    /* Plein écran, comme sur la maquette Aurora : un titre, une
+       recherche qui filtre les tuiles au fil de la frappe, et neuf
+       tuiles de verre teinté à la couleur de chaque module. */
+    const tuiles = MODULES.concat([{ id: 'settings', label: 'Réglages', icon: 'settings', g1: '#5B5754', g2: '#918B86' }]);
     const html =
-      '<div class="mbody" style="padding-top:2px">' +
-        '<h2 style="font-size:24px;margin-bottom:16px">Tout le reste</h2>' +
-        '<div class="hubgrid">' +
-          MODULES.map((m) =>
-            '<button class="hubtile" data-mod="' + m.id + '" style="--g1:' + m.g1 + ';--g2:' + m.g2 + '">' +
-              '<span class="ic">' + (m.art ? Anime.art(m.art, 40) : Icon(m.icon, 25)) + '</span>' +
+      '<div class="mbody hubplein">' +
+        '<div class="hubtete"><small>EVER</small><h2>Tous les modules</h2></div>' +
+        '<label class="search hubcherche">' + Icon('search', 18) +
+          '<input type="search" placeholder="Chercher un module" aria-label="Chercher un module" data-hubq></label>' +
+        '<div class="hubcases">' +
+          tuiles.map((m) =>
+            '<button class="hubcase" data-mod="' + m.id + '" data-nom="' + UI.attr(m.label.toLowerCase()) + '" style="--g1:' + m.g1 + ';--g2:' + m.g2 + '">' +
+              '<span class="rond">' + Icon(m.icon, 24) + '</span>' +
               '<b>' + UI.esc(m.label) + '</b>' +
             '</button>').join('') +
-          '<button class="hubtile" data-mod="settings" style="--g1:#5B5754;--g2:#918B86">' +
-            '<span class="ic">' + Anime.art('roue', 40) + '</span><b>Réglages</b>' +
-          '</button>' +
         '</div>' +
       '</div>';
     UI.openSheet(html, {
+      plein: true,
       onMount: (s) => {
         s.querySelectorAll('[data-mod]').forEach((b) => {
           b.onclick = () => { UI.closeSheet(); go('#/m/' + b.dataset.mod); };
         });
+        const q = s.querySelector('[data-hubq]');
+        if (q) q.oninput = () => {
+          const v = q.value.trim().toLowerCase();
+          s.querySelectorAll('.hubcase').forEach((c) => { c.style.display = !v || c.dataset.nom.indexOf(v) >= 0 ? '' : 'none'; });
+        };
       }
     });
   }

@@ -96,11 +96,11 @@
         dayNav(isToday) +
         ringsBlock(t, g) +
         addBlock() +
+        macroBlock(t, g) +
         iaRow(t, g, isToday) +
         resteBlock(t, g, isToday) +
         analysisBlock() +
         mealsBlock(list) +
-        macroBlock(t, g) +
         waterBlock(g) +
       '</div>';
 
@@ -123,38 +123,43 @@
       '</div>' + astuce;
   }
 
+  /* L'anneau de la maquette Aurora : un dégradé cyan vers indigo,
+     le total mangé au centre, et à droite ce qui reste, en grand. */
   function ringsBlock(t, g) {
-    const left = Math.max(0, g.kcal - t.kcal);
-    return '<div class="panel" style="padding:18px 14px">' +
-      '<div class="rings">' +
-        UI.ring(t.kcal, g.kcal, UI.fmt.n(t.kcal), 'sur ' + UI.fmt.n(g.kcal) + ' kcal') +
-        '<div style="flex:1;min-width:170px">' +
-          '<div class="stat" style="box-shadow:none;background:transparent;padding:0">' +
-            '<div class="k">' + Icon('flame', 13) + (t.kcal > g.kcal ? 'Dépassement' : 'Il te reste') + '</div>' +
-            '<div class="v">' + UI.fmt.n(t.kcal > g.kcal ? t.kcal - g.kcal : left) + '<small>kcal</small></div>' +
-            '<div class="d ' + (t.kcal > g.kcal ? 'down' : 'flat') + '">' +
-              (t.kcal > g.kcal ? "Au-dessus de l'objectif" : Math.round(100 * t.kcal / g.kcal) + ' % de la journée') +
-            '</div>' +
-          '</div>' +
-        '</div>' +
+    const over = t.kcal > g.kcal;
+    const left = Math.max(0, Math.round(g.kcal - t.kcal));
+    const p = Math.min(1, g.kcal ? t.kcal / g.kcal : 0);
+    const R = 59, C = 2 * Math.PI * R;
+    const protReste = Math.max(0, Math.round(g.prot - t.prot));
+    return '<div class="panel anneau-jour">' +
+      '<div class="ajr">' +
+        '<svg viewBox="0 0 132 132" aria-hidden="true"><defs><linearGradient id="ajg" x1="0" x2="1" y1="0" y2="1">' +
+          '<stop offset="0" stop-color="' + (over ? '#FFB36B' : '#5BE0F5') + '"/><stop offset="1" stop-color="' + (over ? '#FF5E7A' : '#7B8CFF') + '"/></linearGradient></defs>' +
+          '<circle cx="66" cy="66" r="' + R + '" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="14"/>' +
+          (p > 0 ? '<circle cx="66" cy="66" r="' + R + '" fill="none" stroke="url(#ajg)" stroke-width="14" stroke-linecap="round" ' : '<circle r="0" ') +
+            'stroke-dasharray="' + (C * p).toFixed(1) + ' ' + C.toFixed(1) + '" transform="rotate(-90 66 66)"/></svg>' +
+        '<div class="ajc"><b>' + UI.fmt.n(t.kcal) + '</b><small>sur ' + UI.fmt.n(g.kcal) + ' kcal</small></div>' +
+      '</div>' +
+      '<div class="ajd">' +
+        '<small class="eyebrow">' + (over ? 'Dépassement' : 'Il te reste') + '</small>' +
+        '<b>' + UI.fmt.n(over ? Math.round(t.kcal - g.kcal) : left) + '</b>' +
+        '<span>' + (over ? 'kcal au-dessus de l\'objectif' : 'kcal, dont ' + UI.fmt.n(protReste) + ' g de protéines') + '</span>' +
       '</div></div>';
   }
 
+  const TEINTES_MACRO = { prot: '#5BC8F5', carb: '#F5B85B', fat: '#F57FA0', fiber: '#7FE08A' };
   function macroBlock(t, g) {
     const rows = MACROS.map((m) => {
       const v = t[m.k] || 0, target = g[m.k] || 0;
       const pct = target ? Math.min(100, 100 * v / target) : 0;
       const over = target && v > target * 1.08;
+      const c = over ? 'var(--warn)' : TEINTES_MACRO[m.k];
       return '<div class="macro"><div class="row-between">' +
-        '<span>' + UI.esc(m.nom) + '</span>' +
-        '<span>' + UI.fmt.n(v) + ' / ' + UI.fmt.n(target) + ' ' + m.unit + '</span></div>' +
-        '<div class="bar-track"><div class="bar-fill" style="width:' + pct.toFixed(0) + '%;background:' + (over ? 'var(--warn)' : 'var(--accent)') + '"></div></div></div>';
+        '<b>' + UI.esc(m.nom) + '</b>' +
+        '<span class="muted tabnum">' + UI.fmt.n(v) + ' / ' + UI.fmt.n(target) + ' ' + m.unit + '</span></div>' +
+        '<div class="bar-track"><div class="bar-fill" style="width:' + pct.toFixed(0) + '%;background:' + c + ';--c:' + c + '"></div></div></div>';
     }).join('');
-    const extra = '<div class="stats" style="margin-top:12px">' +
-      '<div class="stat"><div class="k">Sucrés</div><div class="v">' + UI.fmt.n(t.sugar) + '<small>g</small></div></div>' +
-      '<div class="stat"><div class="k">Sodium</div><div class="v">' + UI.fmt.n(t.sodium) + '<small>mg</small></div></div>' +
-      '</div>';
-    return '<div class="panel" style="margin-top:12px">' + rows + extra + '</div>';
+    return '<div class="panel macros-jour">' + rows + '</div>';
   }
 
   function waterBlock(g) {
@@ -174,33 +179,35 @@
   /* Quatre facons d'ajouter, quatre tuiles photo. Avant, c'etait
      deux boutons pleins et deux boutons fantomes : la hierarchie
      ne voulait rien dire et rien ne donnait envie d'etre touche. */
+  /* Les façons d'ajouter : des carrés de verre, icône et mot, comme
+     sur la maquette. Ils défilent si l'écran est étroit. */
   function addBlock() {
-    return Portes.section('Ajouter', [
-      { act: 'scan',      nom: 'Scanner',   sub: 'Photo du plat',   ph: 'scanner' },
-      { act: 'barcode',   nom: 'Code-barres', sub: 'Produit emballé', ph: 'codebarre' },
-      { act: 'search',    nom: 'Chercher',  sub: 'Dans la base',    ph: 'chercher' },
-      { act: 'manual',    nom: 'À la main', sub: 'Nom et calories', ph: 'a saisir ajouter' },
-      { act: 'fromcodex', nom: 'Mes recettes', sub: 'Déjà enregistrées', ph: 'recettes' }
-    ], { classe: 'defile' });
+    const A = [
+      ['scan', 'camera', 'Photo du plat'], ['barcode', 'scan', 'Code-barres'], ['search', 'search', 'Chercher'],
+      ['manual', 'edit', 'À la main'], ['fromcodex', 'pot', 'Mes recettes']
+    ];
+    return '<div class="carres">' + A.map((x) =>
+      '<button class="carre" data-act="' + x[0] + '">' + Icon(x[1], 22) + '<span>' + x[2] + '</span></button>').join('') + '</div>';
   }
 
+  /* Un repas = une carte de verre : son nom, ce qu'il contient en
+     une ligne, ses calories, et le « + » pour y ajouter. Les plats
+     déjà notés se déplient dessous. */
   function mealsBlock(list) {
-    return SLOTS.map((s) => {
+    return '<div class="section repas-jour">' + SLOTS.map((s) => {
       const items = list.filter((m) => m.slot === s.id);
       const kcal = items.reduce((a, b) => a + (Number(b.kcal) || 0), 0);
-      return '<div class="section" style="padding-bottom:0">' +
-        '<div class="sechead"><h2 style="font-size:16px;display:flex;align-items:center;gap:8px">' + Icon(s.icon, 17) + UI.esc(s.nom) + '</h2>' +
-        '<span>' + (kcal ? UI.fmt.kcal(kcal) : '—') + '</span></div>' +
-        /* Le bouton d'ajout est toujours la derniere ligne du repas,
-           meme quand il contient deja quelque chose : sans ca, on ne
-           pouvait pas ajouter un deuxieme plat a un dejeuner. */
-        '<div class="list">' + items.map(mealRow).join('') +
-          '<button class="rowitem addrow" data-addslot="' + s.id + '">' +
-            '<span class="ic">' + Icon('plus', 17) + '</span>' +
-            '<span class="tx"><b>Ajouter</b></span></button>' +
-        '</div>' +
+      const resume = items.length ? items.map((m) => m.nom).join(', ') : 'Rien de noté';
+      return '<div class="repas">' +
+        '<button class="rtete" data-addslot="' + s.id + '" aria-label="Ajouter au ' + UI.attr(s.nom.toLowerCase()) + '">' +
+          '<span class="ric">' + Icon(s.icon, 18) + '</span>' +
+          '<span class="rtx"><b>' + UI.esc(s.nom) + '</b><small>' + UI.esc(resume) + '</small></span>' +
+          '<span class="rk tabnum">' + (kcal ? UI.fmt.n(kcal) + ' kcal' : '') + '</span>' +
+          '<span class="rplus">' + Icon('plus', 16) + '</span>' +
+        '</button>' +
+        (items.length ? '<div class="list">' + items.map(mealRow).join('') + '</div>' : '') +
       '</div>';
-    }).join('');
+    }).join('') + '</div>';
   }
 
   function mealRow(m) {
@@ -264,8 +271,8 @@
     const vAna = !Store.get('analysis.' + viewDay, null);
     if (!vReste && !vAna) return '';
     return '<div class="section" style="padding-top:12px"><div class="row" style="gap:8px">' +
-      (vReste ? '<button class="btn primary grow" data-act="reste">' + Icon('sparkle', 16) + 'Quoi manger ce soir</button>' : '') +
-      (vAna ? '<button class="btn grow" data-act="analyse">' + Icon('activity', 16) + 'Analyser ma journée</button>' : '') +
+      (vReste ? '<button class="btn primary grow" data-act="reste">' + Icon('sparkle', 16) + 'Quoi manger ?</button>' : '') +
+      (vAna ? '<button class="btn grow" data-act="analyse">' + Icon('activity', 16) + 'Analyser</button>' : '') +
       '</div></div>';
   }
 

@@ -140,11 +140,16 @@
       '</div>';
   }
 
+  /* La carte météo de la maquette : la température en très grand,
+     le ciel en une ligne, et un astre de verre à droite. */
   function bandeauMeteo(wx) {
-    return '<div class="meteo-jour">' +
-      '<span class="ic">' + Icon(wx.icon, 26) + '</span>' +
-      '<div class="grow"><b>' + wx.temp + '° · ' + UI.esc(wx.text) + '</b>' +
-      '<small>' + UI.esc(ctx.place.name) + ' · ressenti ' + wx.feels + '°</small></div>' +
+    return '<div class="meteo-hero">' +
+      '<div class="col-g">' +
+        '<small>Aujourd\'hui · ' + UI.esc(ctx.place.name) + '</small>' +
+        '<b class="t">' + wx.temp + '°</b>' +
+        '<span>' + UI.esc(wx.text) + ' · ressenti ' + wx.feels + '°</span>' +
+      '</div>' +
+      '<span class="astre ' + (/pluie|averse|orage|bruine/i.test(wx.text || '') ? 'pluie' : (/nuage|couvert|brume|brouillard/i.test(wx.text || '') ? 'nuage' : 'soleil')) + '">' + Icon(wx.icon, 34) + '</span>' +
     '</div>';
   }
 

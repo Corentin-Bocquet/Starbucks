@@ -24,7 +24,8 @@
     tab: 'sb', q: '', size: 'g', all: false, step: 0,
     fav: new Set(), stock: { sb: new Set(), ck: new Set(), mm: new Set() },
     wiz: { sb: [null, null, null], ck: [null, null, null], mm: [null, null, null] },
-    cat: { sb: 'all', ck: 'all', mm: 'all' }
+    cat: { sb: 'all', ck: 'all', mm: 'all' },
+    moment: null
   };
 
   function loadState() {
@@ -102,7 +103,7 @@
 
   /* ---------- Cartes ---------- */
   const KEY = (d) => S.tab + ':' + d.id;
-  const favBtn = (k) => '<button class="fav ' + (S.fav.has(k) ? 'on' : '') + '" data-fav="' + UI.attr(k) + '" aria-label="Favori">' + Icon('star', 18) + '</button>';
+  const favBtn = (k) => '<button class="fav ' + (S.fav.has(k) ? 'on' : '') + '" data-fav="' + UI.attr(k) + '" aria-label="J\'aime">' + Icon('heart', 18) + '</button>';
 
   function card(d) {
     const k = KEY(d), ms = missing(d, S.tab);
@@ -177,16 +178,21 @@
     el.querySelectorAll('[data-creer]').forEach((b) => b.onclick = () => createFlow());
   }
 
+  /* Le héros de la maquette : la photo en entier, qui fond dans
+     un verre flouté en bas, avec deux lignes posées dessus. */
+  const ACCROCHE = {
+    sb: ['Toute la carte, en millilitres', 'Refais-la chez toi.'],
+    ck: [null, 'Le bar, à la maison.'],
+    mm: [null, 'Les quantités de mamie, à la lettre.']
+  };
   function renderHero() {
-    const h = HERO[S.tab];
-    UI.$('#codexHero').innerHTML =
-      '<div class="hero-in">' +
-        '<div class="eyebrow">' + Icon(S.tab === 'sb' ? 'coffee' : S.tab === 'ck' ? 'glass' : 'pot', 13) + UI.esc(h.eye) + '</div>' +
-        '<h1>' + UI.esc(h.t) + '</h1>' +
-        '<p>' + UI.esc(h.p) + '</p>' +
-        '<div class="herostats">' + h.stats.map((s) => '<div><b>' + UI.esc(s[0]) + '</b><span>' + UI.esc(s[1]) + '</span></div>').join('') + '</div>' +
-      '</div>' +
-      '<div class="hero-media"><img src="' + h.img + '" alt=""></div>';
+    const h = HERO[S.tab], a = ACCROCHE[S.tab];
+    const el = UI.$('#codexHero');
+    el.className = 'hero herophoto t-' + S.tab;
+    el.innerHTML =
+      '<img class="hp" src="' + h.img + '" alt="">' +
+      '<span class="fonte"></span>' +
+      '<div class="hptx"><small>' + UI.esc(a[0] || h.eye) + '</small><b>' + UI.esc(a[1]) + '</b></div>';
   }
 
   /* ---------- Rendu ---------- */
@@ -212,9 +218,76 @@
       renderFoot(); return;
     }
 
-    app.innerHTML = wizView();
+    if (S.tab === 'mm') {
+      app.innerHTML = recettesView();
+      bindCards(app); bindRecettes(app); bindCreer(app); renderFoot();
+      return;
+    }
+    app.innerHTML = wizView() + (S.step === 0 ? plusFaits() : '');
     bindCards(app); bindWiz(); bindCreer(app); renderFoot();
     Imagerie.peupler(app, { generer: false });
+  }
+
+  /* ============================================================
+     Recettes, comme sur la maquette
+
+     Des pastilles pour le moment (apéro, entrée, plat, dessert),
+     une grande carte en tête avec « Cuisiner », puis toutes les
+     recettes en grille de photos. Un cœur sur chacune.
+     ============================================================ */
+  const mmImg = (d) => estCreation(d) ? null : IMG['mm-' + (d.img || 'crepes-bocuse')];
+  function rcarte(d, grande) {
+    const k = KEY(d), on = S.fav.has(k);
+    const img = mmImg(d);
+    const mo = (WIZ.mm[0].opts.find((o) => o.v === d.moment) || {}).n || '';
+    return '<div class="rcarte' + (grande ? ' grande' : '') + '" data-id="' + UI.attr(d.id) + '">' +
+      (img ? '<img class="rp" src="' + img + '" alt="" loading="lazy">' : vignetteCreation(d, 'mm')) +
+      '<span class="fonte"></span>' +
+      '<button class="coeur' + (on ? ' on' : '') + '" data-fav="' + UI.attr(k) + '" aria-label="J\'aime">' + Icon('heart', 17) + '</button>' +
+      '<div class="rtx">' +
+        (grande ? '<small>' + (on ? 'Ton coup de cœur' : 'À la une') + '</small>' : (mo ? '<small>' + UI.esc(mo) + '</small>' : '')) +
+        '<b>' + UI.esc(d.nom) + '</b>' +
+        (grande ? '<span class="cuisiner">' + Icon('pot', 16) + 'Cuisiner</span>' : '') +
+      '</div></div>';
+  }
+
+  function recettesView() {
+    const all = ALL('mm');
+    const moments = WIZ.mm[0].opts.filter((o) => o.v);
+    const list = S.moment ? all.filter((d) => d.moment === S.moment) : all;
+    const favs = list.filter((d) => S.fav.has(KEY(d)));
+    const une = favs[0] || list[0];
+    const reste = list.filter((d) => d !== une);
+    return '<div class="section" style="padding-top:12px"><div class="chips">' +
+        '<button class="chip ' + (!S.moment ? 'on' : '') + '" data-moment="">Tout</button>' +
+        moments.map((o) => '<button class="chip ' + (S.moment === o.v ? 'on' : '') + '" data-moment="' + UI.attr(o.v) + '">' + UI.esc(o.n) + '</button>').join('') +
+      '</div></div>' +
+      (une ? '<div class="section" style="padding-top:12px">' + rcarte(une, true) + '</div>' : '') +
+      (reste.length ? '<div class="section" style="padding-top:12px"><div class="rgrille">' + reste.map((d) => rcarte(d)).join('') + '</div></div>'
+        : (!une ? UI.empty('pot', 'Rien pour ce moment', 'Choisis un autre moment ou invente un plat.') : '')) +
+      boutonCreer();
+  }
+
+  function bindRecettes(app) {
+    app.querySelectorAll('[data-moment]').forEach((b) => b.onclick = () => {
+      S.moment = b.dataset.moment || null; UI.haptic('select'); render();
+    });
+    app.querySelectorAll('.rcarte').forEach((c) => {
+      c.onclick = (e) => { if (e.target.closest('[data-fav]')) return; openIt(c.dataset.id); };
+    });
+  }
+
+  /* Café et bar : sous le premier choix, les boissons qu'on refait
+     le plus, en carrousel. Tes favoris d'abord, puis les best-sellers. */
+  function plusFaits() {
+    const all = ALL(S.tab);
+    const favs = all.filter((d) => S.fav.has(KEY(d)));
+    const best = all.filter((d) => !S.fav.has(KEY(d)) && (d.tag || []).some((t) => /best|classique|incontournable|iconique/i.test(t)));
+    const l = favs.concat(best).concat(all.filter((d) => favs.indexOf(d) < 0 && best.indexOf(d) < 0)).slice(0, 10);
+    if (!l.length) return '';
+    return '<div class="section"><div class="secbar"><h2>' + (favs.length ? 'Tes favoris' : 'Les plus faits') + '</h2>' +
+      '<button class="lientout" data-toutvoir>Tout voir</button></div>' +
+      '<div class="rail pfaits">' + l.map(card).join('') + '</div></div>';
   }
 
   function allView() {
@@ -288,7 +361,7 @@
       const cards = st.opts.map((o, i) => {
         const col = pal[i % pal.length];
         const n = countFor(S.step, o.v);
-        const slug = (global.Ic && Store.get('icones3dCodex', false)) ? ICONE_OPT[o.img] : null;
+        const slug = (global.Ic && Store.get('icones3dCodex', true)) ? ICONE_OPT[o.img] : null;
         /* Avec une icone 3D, la carte prend le fond de l'icone et la
            couleur de la palette ne sert plus qu'aux accents : sans
            ca, un carre blanc flottait au milieu d'un aplat vert. */
@@ -299,7 +372,7 @@
           (slug ? '' : '<span class="disc" style="background:' + col[1] + '"></span>') +
           (slug && global.Ic
             ? '<span class="im ic3d" data-ic="' + slug + '"><img src="' +
-              Ic.url(slug, Ic.sombre()) + '" alt="" loading="lazy"></span>'
+              Ic.url(slug, false) + '" alt="" loading="lazy"></span>'
             : '<img class="im" src="' + IMG[o.img] + '" alt="">') +
           '<span class="nm">' + UI.esc(o.n) + '</span><span class="sb">' + UI.esc(o.s) + '</span>' +
           '<span class="cnt">' + n + ' ' + (n > 1 ? 'recettes' : 'recette') + '</span></button>';
@@ -327,6 +400,7 @@
 
   function bindWiz() {
     const app = UI.$('#codexApp');
+    app.querySelectorAll('[data-toutvoir]').forEach((b) => b.onclick = () => { S.all = true; render(); });
     app.querySelectorAll('[data-v]').forEach((b) => b.onclick = () => {
       S.wiz[S.tab][S.step] = b.dataset.null === '1' ? null : b.dataset.v;
       S.step++; UI.haptic('light'); render();

@@ -310,9 +310,12 @@
     root.innerHTML = '<div class="wrap">' +
       blocConnexion() +
       barreJour() +
-      blocSaisie() +
+      formeBlock(today) +
+      tuilesMesures(today) +
+      tassesBlock() +
+      actionsSante() +
       blocSport() +
-      (has ? todayBlock(today) + insightBlock(days) + rangeBar() + trendBlock(days) + workoutsBlock() : onboarding()) +
+      (has ? insightBlock(days) + rangeBar() + trendBlock(days) + workoutsBlock() : '') +
       (global.Sport ? Sport.carteDuCorps(7) : '') +
       sourcesBlock() +
       '</div>';
@@ -337,6 +340,88 @@
         (dayOf(jour) ? '<small>Journée renseignée</small>' : '<small>Rien de noté</small>') + '</span>' +
       '<button data-jour="1" aria-label="Jour suivant"' + (futur ? ' disabled' : '') + '>' + Icon('next', 17) + '</button>' +
       '</div>';
+  }
+
+  /* ============================================================
+     La page Santé de la maquette Aurora
+
+     1. la forme du jour : un anneau et une phrase ;
+     2. quatre mesures en tuiles : sommeil, pas, cœur, poids ;
+     3. les six tasses sur sept jours, en barres ;
+     4. deux boutons : saisir la journée, noter une séance.
+
+     La forme n'est pas un chiffre magique : c'est la moyenne de ce
+     qui est atteint par rapport à TES objectifs (pas, sommeil,
+     exercice), sur les mesures qu'on a pour ce jour. Sans mesure,
+     pas de chiffre inventé.
+     ============================================================ */
+  function forme(d) {
+    const g = goals(), parts = [];
+    if (d.steps != null) parts.push(Math.min(1, d.steps / g.steps));
+    if (d.sleep != null) parts.push(Math.min(1, d.sleep / g.sleep));
+    if (d.exercise != null) parts.push(Math.min(1, d.exercise / g.exercise));
+    if (d.active != null) parts.push(Math.min(1, d.active / g.active));
+    if (!parts.length) return null;
+    return Math.round(100 * parts.reduce((a, b) => a + b, 0) / parts.length);
+  }
+
+  function formeBlock(d) {
+    const f = forme(d);
+    const R = 49, C = 2 * Math.PI * R, p = f == null ? 0 : f / 100;
+    const seul = global.Mood ? Mood.joursSansLien() : null;
+    const titre = f == null ? 'Pas encore de mesure'
+      : f >= 80 ? 'Belle forme' : f >= 60 ? 'Bonne forme' : f >= 40 ? 'Journée moyenne' : 'À recharger';
+    const bits = [];
+    if (d.sleep != null) bits.push('nuit de ' + UI.fmt.dur(d.sleep));
+    if (d.steps != null) bits.push(UI.fmt.n(d.steps) + ' pas');
+    let texte = f == null ? 'Connecte Apple Santé ou saisis ta journée : la lecture se fait toute seule.'
+      : (bits.length ? bits.join(', ').replace(/^./, (c) => c.toUpperCase()) + '.' : 'Selon tes objectifs du jour.');
+    if (seul != null && seul >= 4) texte += ' Point faible : ' + seul + ' jours sans voir personne.';
+    return '<div class="section" style="padding-top:12px"><div class="panel forme-jour">' +
+      '<div class="fr"><svg viewBox="0 0 110 110" aria-hidden="true">' +
+        '<circle cx="55" cy="55" r="' + R + '" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="12"/>' +
+        (p > 0 ? '<circle cx="55" cy="55" r="' + R + '" fill="none" stroke="#7FE0C0" stroke-width="12" stroke-linecap="round" stroke-dasharray="' +
+          (C * p).toFixed(1) + ' ' + C.toFixed(1) + '" transform="rotate(-90 55 55)"/>' : '') +
+        '</svg><div class="frc"><b>' + (f == null ? '·' : f) + '</b><small>forme</small></div></div>' +
+      '<div class="fd"><b>' + UI.esc(titre) + '</b><span>' + UI.esc(texte) + '</span></div>' +
+    '</div></div>';
+  }
+
+  function tuilesMesures(d) {
+    const val = (k) => d[k] != null ? d[k] : null;
+    const poids = val('weight') != null ? d.weight.toFixed(1).replace('.', ',') + ' kg' : lastKnown('weight');
+    const T = [
+      ['Sommeil', val('sleep') != null ? UI.fmt.dur(d.sleep) : '—', 'moon', '#8C80F0', 'sleep'],
+      ['Pas', val('steps') != null ? UI.fmt.n(d.steps) : '—', 'steps', '#F5A25B', 'steps'],
+      ['Cardio repos', val('hrRest') != null ? Math.round(d.hrRest) + ' bpm' : '—', 'pulse', '#F5577F', 'hrRest'],
+      ['Poids', poids, 'scale', '#5BC8F5', 'weight']
+    ];
+    return '<div class="section" style="padding-top:10px"><div class="mesures">' + T.map((t) =>
+      '<button class="mesure" data-detail="' + t[4] + '"><span class="mh" style="color:' + t[3] + '">' + Icon(t[2], 18) +
+      '<small>' + t[0] + '</small></span><b class="tabnum">' + UI.esc(t[1]) + '</b></button>').join('') + '</div></div>';
+  }
+
+  function tassesBlock() {
+    if (!global.Mood || !global.MOODS) return '';
+    const b = Mood.balance(7);
+    const ids = Object.keys(MOODS.MOLECULES);
+    const max = Math.max(1, ...ids.map((m) => b[m] || 0));
+    return '<div class="section" style="padding-top:10px"><a class="panel tasses-jour" href="#/m/stats">' +
+      '<div class="row-between"><b>Les six tasses · 7 jours</b><span class="muted">Voir</span></div>' +
+      '<div class="tbars">' + ids.map((m) => {
+        const mol = MOODS.MOLECULES[m], v = b[m] || 0;
+        return '<div class="tb"><div class="tt"><i style="height:' + Math.max(6, Math.round(100 * v / max)) + '%;--t:' + mol.teinte + ';opacity:' + (v ? 1 : .35) + '"></i></div>' +
+          '<small>' + UI.esc(mol.court || mol.nom) + '</small></div>';
+      }).join('') + '</div></a></div>';
+  }
+
+  function actionsSante() {
+    const rempli = dayOf(jour);
+    return '<div class="section" style="padding-top:12px"><div class="row" style="gap:10px">' +
+      '<button class="btn primary grow lg" data-act="manual">' + Icon(rempli ? 'edit' : 'plus', 18) + (rempli ? 'Modifier ce jour' : 'Saisir ce jour') + '</button>' +
+      '<button class="btn lg" data-act="muscu">' + Icon('dumbbell', 18) + 'Séance</button>' +
+      '<button class="iconbtn" style="width:52px;height:52px" data-act="goals" aria-label="Mes objectifs">' + Icon('target', 20) + '</button>' +
+    '</div></div>';
   }
 
   /* Les deux gestes du quotidien, en grand, tout en haut. */
