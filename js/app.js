@@ -58,13 +58,13 @@
 
   /* ---------- Thème ---------- */
   function applyTheme() {
-    const t = Store.get('theme', 'auto');
+    const t = Store.get('theme', 'dark');
     if (t === 'auto') document.documentElement.removeAttribute('data-theme');
     else document.documentElement.setAttribute('data-theme', t);
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) {
       const dark = t === 'dark' || (t === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
-      meta.setAttribute('content', dark ? '#0E0C0C' : '#F6F4F3');
+      meta.setAttribute('content', dark ? '#050B10' : '#F6F4F3');
     }
   }
 

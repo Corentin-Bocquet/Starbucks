@@ -19,7 +19,7 @@
   function render() {
     const u = Cloud.ready() ? Cloud.user() : null;
     const g = Food.goals(), hg = Health.goals();
-    const theme = Store.get('theme', 'auto');
+    const theme = Store.get('theme', 'dark');
 
     root.innerHTML = '<div class="wrap">' +
 
@@ -76,7 +76,7 @@
              permet de comparer sans rien reinstaller. */
           '<button class="rowitem" data-act="ic3d">' + art3d('etoile') +
             '<span class="tx"><b>Icônes 3D sur les cartes</b><small>' +
-            (Store.get('icones3d', false)
+            (Store.get('icones3d', true)
               ? 'Activées · les cartes montrent les icônes en verre'
               : 'Coupées · les cartes montrent des photos') + '</small></span>' +
             '<span class="rt">' + Icon('next', 15) + '</span></button>' +
@@ -348,7 +348,7 @@
     clearcache: () => { AI.clearCache(); AI.forget(); UI.toast('Cache vidé'); render(); },
 
     ic3d: async () => {
-      const on = Store.get('icones3d', false);
+      const on = Store.get('icones3d', true);
       const ok = await UI.confirmSheet(
         on ? 'Revenir aux photos' : 'Passer aux icônes 3D',
         on

@@ -288,7 +288,7 @@
       const cards = st.opts.map((o, i) => {
         const col = pal[i % pal.length];
         const n = countFor(S.step, o.v);
-        const slug = (global.Ic && Ic.actif()) ? ICONE_OPT[o.img] : null;
+        const slug = (global.Ic && Store.get('icones3dCodex', false)) ? ICONE_OPT[o.img] : null;
         /* Avec une icone 3D, la carte prend le fond de l'icone et la
            couleur de la palette ne sert plus qu'aux accents : sans
            ca, un carre blanc flottait au milieu d'un aplat vert. */

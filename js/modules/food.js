@@ -95,12 +95,13 @@
       '<div class="wrap">' +
         dayNav(isToday) +
         ringsBlock(t, g) +
+        addBlock() +
+        iaRow(t, g, isToday) +
         resteBlock(t, g, isToday) +
         analysisBlock() +
+        mealsBlock(list) +
         macroBlock(t, g) +
         waterBlock(g) +
-        addBlock() +
-        mealsBlock(list) +
       '</div>';
 
     bind();
@@ -180,7 +181,7 @@
       { act: 'search',    nom: 'Chercher',  sub: 'Dans la base',    ph: 'chercher' },
       { act: 'manual',    nom: 'À la main', sub: 'Nom et calories', ph: 'a saisir ajouter' },
       { act: 'fromcodex', nom: 'Mes recettes', sub: 'Déjà enregistrées', ph: 'recettes' }
-    ]);
+    ], { classe: 'defile' });
   }
 
   function mealsBlock(list) {
@@ -249,12 +250,22 @@
       return '<div class="section"><div class="sechead"><h2 style="font-size:16px">Pour finir la journée</h2>' +
         '<button data-act="reste">Refaire</button></div>' + resteHtml(cache.data) + '</div>';
     }
-    return '<div class="section"><div class="panel bloc-reste">' +
-      '<div class="chiffre"><b>' + UI.fmt.n(reste) + '</b><span>kcal restantes</span></div>' +
-      '<p class="muted" style="font-size:13px;margin:10px 0 12px">' +
-        'Il te reste ' + UI.fmt.n(Math.max(0, Math.round(g.prot - t.prot))) + ' g de protéines à prendre. ' +
-        'Je te dis quoi manger pour tomber juste.</p>' +
-      '<button class="btn primary block" data-act="reste">' + Icon('sparkle', 17) + 'Quoi manger ce soir</button>' +
+    /* Sans réponse en mémoire, le bouton vit dans la rangée IA. Le
+       grand « 2 400 kcal restantes » répétait l'anneau juste au-dessus. */
+    return '';
+  }
+
+  /* Les deux questions qu'on pose à l'IA, côte à côte, sous l'ajout.
+     Un bouton n'apparaît que tant que sa réponse n'est pas là. */
+  function iaRow(t, g, isToday) {
+    const reste = Math.round(g.kcal - t.kcal);
+    const cr = Store.get('reste.' + viewDay, null);
+    const vReste = isToday && reste >= 150 && !(cr && Math.abs(cr.reste - reste) < 120);
+    const vAna = !Store.get('analysis.' + viewDay, null);
+    if (!vReste && !vAna) return '';
+    return '<div class="section" style="padding-top:12px"><div class="row" style="gap:8px">' +
+      (vReste ? '<button class="btn primary grow" data-act="reste">' + Icon('sparkle', 16) + 'Quoi manger ce soir</button>' : '') +
+      (vAna ? '<button class="btn grow" data-act="analyse">' + Icon('activity', 16) + 'Analyser ma journée</button>' : '') +
       '</div></div>';
   }
 
@@ -322,11 +333,7 @@
       return '<div class="section"><div class="sechead"><h2 style="font-size:16px">Analyse du jour</h2>' +
         '<button data-act="analyse">Refaire</button></div>' + analysisHtml(cached) + '</div>';
     }
-    return '<div class="section"><div class="panel" style="text-align:center">' +
-      '<b style="display:block;margin-bottom:6px">Analyse de la journée</b>' +
-      '<p class="muted" style="font-size:13px;margin-bottom:12px">Ce qui va, ce qui ne va pas, et le même repas corrige avec deux ou trois changements.</p>' +
-      '<button class="btn primary" data-act="analyse">' + Icon('sparkle', 17) + 'Analyser avec l\'IA</button>' +
-      '</div></div>';
+    return '';
   }
 
   function analysisHtml(a) {

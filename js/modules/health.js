@@ -138,7 +138,155 @@
   /* ============================================================
      Rendu
      ============================================================ */
-  function mount(el) { root = el; render(); }
+  function mount(el) {
+    root = el; render();
+    /* Les chiffres envoyés par l'iPhone arrivent tout seuls : on va
+       les chercher à chaque ouverture, au plus toutes les 10 minutes. */
+    const s = Store.get('healthSync', null);
+    if (s && Date.now() - (s.pull || 0) > 10 * 60e3) tirer(true);
+  }
+
+  /* ============================================================
+     Apple Santé en automatique
+
+     iOS interdit à une page web de LIRE Santé, mais rien n'empêche
+     l'iPhone d'ENVOYER ses chiffres. Un Raccourci programmé le soir,
+     ou l'app Health Auto Export, les poste sur la fonction serveur
+     `ever-sante` (sql/edge/ever-sante.ts). L'appli les récupère ici.
+
+     Pas besoin de compte : l'appareil tire un jeton secret au
+     hasard, qui sert d'adresse privée. Qui n'a pas le jeton ne
+     voit rien.
+     ============================================================ */
+  const CLES_SANTE = ['steps', 'distance', 'active', 'basal', 'floors', 'exercise', 'stand', 'hr', 'hrRest', 'hrWalk',
+    'hrv', 'vo2', 'resp', 'spo2', 'weight', 'fat', 'lean', 'hkWater', 'bpSys', 'bpDia', 'sleep', 'mindful'];
+
+  function jeton() {
+    let t = Store.get('healthToken', '');
+    if (!t) {
+      const a = new Uint8Array(24);
+      crypto.getRandomValues(a);
+      t = btoa(String.fromCharCode.apply(null, a)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+      Store.set('healthToken', t);
+    }
+    return t;
+  }
+  function adresseSync() {
+    return ((global.EVER_CONFIG || {}).supabaseUrl || '') + '/functions/v1/ever-sante?t=' + jeton();
+  }
+
+  async function tirer(silencieux) {
+    let r;
+    try {
+      r = await fetch(adresseSync() + '&since=' + UI.day.add(UI.day.today(), -120));
+    } catch (e) {
+      if (!silencieux) UI.toast('Pas de réseau pour le moment');
+      return 0;
+    }
+    const j = await r.json().catch(() => null);
+    if (!r.ok || !j || !j.ok) { if (!silencieux) UI.toast('Synchro impossible pour le moment'); return 0; }
+
+    const existants = {};
+    Store.all('healthDays').forEach((d) => existants[d.day] = d);
+    let n = 0, dernier = null;
+    (j.days || []).forEach((x) => {
+      const row = { day: x.day };
+      CLES_SANTE.forEach((k) => { if (x[k] != null) row[k] = x[k]; });
+      if (Object.keys(row).length < 2) return;
+      if (existants[x.day]) Store.put('healthDays', existants[x.day].id, row);
+      else Store.add('healthDays', row);
+      n++; dernier = x;
+    });
+    const avant = Store.get('healthSync', null) || {};
+    Store.set('healthSync', {
+      pull: Date.now(), jours: n || avant.jours || 0,
+      recu: dernier ? dernier._at : avant.recu || null,
+      src: dernier ? dernier._src : avant.src || null
+    });
+    if (n) Store.set('healthInsight', null);
+    if (root && root.isConnected) render();
+    if (!silencieux) UI.toast(n ? n + (n > 1 ? ' journées à jour' : ' journée à jour') : 'Rien de reçu pour l\'instant');
+    return n;
+  }
+
+  function depuis(iso) {
+    if (!iso) return 'jamais';
+    const m = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+    if (m < 2) return "à l'instant";
+    if (m < 60) return 'il y a ' + m + ' min';
+    const h = Math.round(m / 60);
+    if (h < 48) return 'il y a ' + h + ' h';
+    return 'il y a ' + Math.round(h / 24) + ' jours';
+  }
+
+  /* Le bandeau du haut : une seule ligne, qui dit si ça marche. */
+  function blocConnexion() {
+    const s = Store.get('healthSync', null);
+    if (s && s.recu) {
+      return '<div class="section" style="padding-top:10px"><div class="panel santelien on">' +
+        '<span class="pastille">' + Icon('heart', 18) + '</span>' +
+        '<span class="tx"><b>Apple Santé connecté</b><small>Dernier envoi ' + UI.esc(depuis(s.recu)) + '</small></span>' +
+        '<button class="iconbtn" data-act="tirer" aria-label="Actualiser">' + Icon('refresh', 18) + '</button>' +
+        '</div></div>';
+    }
+    return '<div class="section" style="padding-top:10px"><button class="panel santelien" data-act="connecter">' +
+      '<span class="pastille">' + Icon('heart', 18) + '</span>' +
+      '<span class="tx"><b>Connecter Apple Santé</b><small>' +
+        (s ? 'En attente du premier envoi de ton iPhone' : 'Tes pas, ton sommeil et ton cœur, chaque jour, tout seuls') +
+      '</small></span>' + Icon('next', 17) + '</button></div>';
+  }
+
+  function etape(n, t, sous) {
+    return '<div class="rowitem"><span class="ic">' + n + '</span><span class="tx"><b style="font-weight:600">' + t + '</b>' +
+      (sous ? '<small>' + sous + '</small>' : '') + '</span></div>';
+  }
+
+  function connecter() {
+    const url = adresseSync();
+    Store.set('healthSync', Store.get('healthSync', null) || { pull: 0, jours: 0, recu: null });
+    UI.openSheet(
+      '<div class="mbody" style="padding-top:6px">' +
+        '<h2 style="font-size:22px">Connecter Apple Santé</h2>' +
+        '<p class="mdesc">Ton iPhone envoie ses chiffres à EVER chaque jour. Tu règles ça une fois, ensuite tu n\'y touches plus.</p>' +
+        '<div class="panel" style="margin-top:14px">' +
+          '<small class="muted" style="display:block;margin-bottom:6px">Ton adresse privée (ne la partage pas)</small>' +
+          '<code style="display:block;font-size:11.5px;word-break:break-all;line-height:1.45">' + UI.esc(url) + '</code>' +
+          '<button class="btn primary block" style="margin-top:10px" data-copier>' + Icon('link', 16) + 'Copier l\'adresse</button>' +
+        '</div>' +
+
+        '<div class="sechead" style="margin-top:18px"><h2 style="font-size:16px">Option 1 · La plus simple</h2><span>Health Auto Export</span></div>' +
+        '<div class="list">' +
+          etape(1, 'Installe <a href="https://apps.apple.com/app/health-auto-export-json-csv/id1115567069" target="_blank" rel="noopener">Health Auto Export</a>', 'L\'automatisation REST fait partie de l\'offre payante (quelques euros)') +
+          etape(2, 'Automatisations, puis « Nouvelle », type « REST API »') +
+          etape(3, 'Colle ton adresse dans URL, format JSON', 'Données : Health Metrics · Période : depuis la dernière synchro') +
+          etape(4, 'Active-la, puis touche « Exporter maintenant »', 'Ensuite elle envoie toute seule') +
+        '</div>' +
+
+        '<div class="sechead" style="margin-top:18px"><h2 style="font-size:16px">Option 2 · Gratuite</h2><span>Raccourcis iPhone</span></div>' +
+        '<div class="list">' +
+          etape(1, 'Raccourcis, onglet Automatisation, « + »', '« Heure de la journée », 22:00, Quotidiennement, « Exécuter immédiatement »') +
+          etape(2, 'Action « Rechercher des échantillons de santé »', 'Type : Nombre de pas · Date de début : aujourd\'hui') +
+          etape(3, 'Action « Calculer des statistiques » : Somme', 'Refais 2 et 3 pour Énergie active (Somme) et FC au repos (Moyenne)') +
+          etape(4, 'Action « Dictionnaire »', 'Clés : steps, active, hrRest (et weight, sleepH si tu veux), chacune reliée à son résultat') +
+          etape(5, 'Action « Obtenir le contenu de l\'URL »', 'Colle l\'adresse · Méthode POST · Corps JSON · Fichier : le Dictionnaire') +
+        '</div>' +
+
+        '<button class="btn block lg" style="margin-top:16px" data-verifier>' + Icon('refresh', 17) + 'Vérifier la connexion</button>' +
+        '<button class="btn ghost block" style="margin-top:8px" data-act-import>' + Icon('upload', 16) + 'Plutôt importer un export complet</button>' +
+        '<p class="aide">Les chiffres arrivent sur ton adresse privée, puis dans l\'appli à chaque ouverture de Santé.</p>' +
+      '</div>');
+    const sh = document.getElementById('sheet');
+    if (!sh) return;
+    const c = sh.querySelector('[data-copier]'); if (c) c.onclick = () => UI.copy(url);
+    const v = sh.querySelector('[data-verifier]'); if (v) v.onclick = async () => {
+      v.disabled = true;
+      const n = await tirer(true);
+      v.disabled = false;
+      if (n) { UI.closeSheet(); UI.toast('Apple Santé est connecté'); }
+      else UI.toast('Rien reçu pour l\'instant. Lance l\'envoi sur l\'iPhone, puis réessaie.');
+    };
+    const im = sh.querySelector('[data-act-import]'); if (im) im.onclick = () => { UI.closeSheet(); importFlow(); };
+  }
 
   /* Le jour affiche. Comme dans l'alimentation, on peut remonter :
      on oublie souvent de saisir le soir meme, et les donnees sont
@@ -160,6 +308,7 @@
        arret : ils passent tout en haut, avant meme le bilan.
        Les tendances et l'import, qu'on consulte, restent apres. */
     root.innerHTML = '<div class="wrap">' +
+      blocConnexion() +
       barreJour() +
       blocSaisie() +
       blocSport() +
@@ -251,19 +400,20 @@
     return '<div class="section">' +
       '<div class="panel" style="text-align:center;padding:26px 18px">' +
         '<div class="ei" style="width:56px;height:56px;margin:0 auto 14px;border-radius:18px;display:grid;place-items:center;background:var(--accent-soft);color:var(--accent)">' + Icon('heart', 28) + '</div>' +
-        '<b style="font-size:18px;display:block;margin-bottom:8px">Importe tes données Apple Santé</b>' +
+        '<b style="font-size:18px;display:block;margin-bottom:8px">Tes données Apple Santé, ici</b>' +
         '<p class="muted" style="font-size:13.5px;line-height:1.55;max-width:380px;margin:0 auto 16px">' +
-          'iOS ne laisse aucune page web lire Santé en direct. Le seul chemin est un export, et il est simple.' +
+          'Le plus simple : connecter ton iPhone une fois, il envoie ses chiffres tout seul chaque jour. Sinon, un export complet.' +
         '</p>' +
+        '<button class="btn primary block lg" style="margin-bottom:14px" data-act="connecter">' + Icon('heart', 18) + 'Connecter Apple Santé</button>' +
         '<div class="list" style="text-align:left;margin-bottom:16px">' +
           step(1, 'Ouvre l\'app Santé sur ton iPhone') +
           step(2, 'Touche ta photo de profil, en haut à droite') +
           step(3, 'Descends jusqu\'à « Exporter toutes les données »') +
           step(4, 'Enregistre le fichier, puis reviens ici') +
         '</div>' +
-        '<button class="btn primary block lg" data-act="import">' + Icon('upload', 18) + 'Choisir le fichier</button>' +
+        '<button class="btn block lg" data-act="import">' + Icon('upload', 18) + 'Importer un export</button>' +
         '<button class="btn ghost block" style="margin-top:8px" data-act="manual">' + Icon('plus', 16) + 'Saisir une journée à la main</button>' +
-        '<p class="muted" style="font-size:11.5px;margin-top:14px">Le fichier est lu sur l\'appareil. Rien n\'est envoyé à un serveur.</p>' +
+        '<p class="muted" style="font-size:11.5px;margin-top:14px">Un export est lu sur l\'appareil, rien n\'est envoyé.</p>' +
       '</div></div>';
   }
   const step = (n, t) => '<div class="rowitem"><span class="ic">' + n + '</span><span class="tx"><b style="font-weight:600">' + UI.esc(t) + '</b></span></div>';
@@ -448,8 +598,7 @@
         daily().length ? { id: 'clear', titre: 'Tout effacer', sous: daily().length + ' journées', ph: 'poubelle a jeter', type: 'icone' } : null
       ].filter(Boolean)) + '</div>' +
     '<div class="section" style="padding-top:0"><p class="muted" style="font-size:11.5px;line-height:1.5">' +
-    'Apple Santé ne propose aucune connexion directe pour le web. L\'export met une à deux minutes ' +
-    'à se générer sur l\'iPhone et couvre tout l\'historique.</p></div>';
+    'La connexion automatique envoie les chiffres de chaque jour. L\'export complet, lui, rattrape tout l\'historique d\'un coup.</p></div>';
   }
 
   function bind() {
@@ -542,6 +691,8 @@
     muscu: () => { if (global.Sport) Sport.nouvelleSeance(); },
     sportauto: () => { if (global.Sport) Sport.choisirSport(); },
     import: () => importFlow(),
+    connecter: () => connecter(),
+    tirer: () => tirer(false),
     manual: () => manualDay(),
     goals: () => editGoals(),
     insight: () => insight(),

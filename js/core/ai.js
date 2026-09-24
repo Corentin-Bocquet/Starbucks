@@ -78,6 +78,9 @@
   function key() { return Store.get('geminiKey', '') || ''; }
   function proxy() { return Store.get('geminiProxyUrl', '') || conf().geminiProxyUrl || ''; }
   function available() { return !!(key() || proxy()); }
+  /* Sans clé personnelle, tout passe par le serveur EVER, qui garde
+     la clé et choisit lui-même le modèle. */
+  function viaProxy() { return !key() && !!proxy(); }
 
   /* ============================================================
      Choix du modèle
@@ -192,6 +195,7 @@
   /* Renvoie la liste ordonnée des modèles à essayer. */
   async function candidates(kind, override, forcer) {
     if (override) return [override];
+    if (viaProxy()) return ['auto'];
     const listKey = kind + 'List';
     let cached = Store.get(MODELS_KEY, null);
 
@@ -273,14 +277,16 @@
   function clearCache() { Store.set(CACHE_KEY, {}); }
 
   /* ---------- Appel bas niveau ---------- */
-  async function raw(model, body, signal) {
+  async function raw(model, body, signal, kind, forceProxy) {
     const px = proxy();
     let url, init;
-    if (px) {
+    if (px && (forceProxy || !key())) {
       url = px;
+      const anon = conf().supabaseAnonKey || '';
       init = {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: model, payload: body }), signal: signal
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'apikey': anon, 'Authorization': 'Bearer ' + anon },
+        body: JSON.stringify({ kind: kind || 'text', model: model, payload: body }), signal: signal
       };
     } else {
       const k = key();
@@ -318,6 +324,8 @@
       const err = new Error('HTTP_' + res.status); err.detail = detail; throw err;
     }
 
+    const servi = res.headers.get('x-ever-model');
+    if (servi) model = servi;
     const j = await res.json();
     const cand = j.candidates && j.candidates[0];
     if (!cand) {
@@ -356,7 +364,7 @@
       for (let i = 0; i < list.length; i++) {
         const model = list[i];
         try {
-          const out = await attempt(model, body, opts);
+          const out = await attempt(model, body, opts, kind);
           if (i > 0 || passe > 0) promote(kind, model);
           return out;
         } catch (e) {
@@ -374,6 +382,16 @@
       if (!disparu || opts.model) break;
     }
 
+    /* Clé personnelle refusée ou à court de quota : le serveur EVER
+       prend le relais plutôt que de laisser l'écran sans réponse. */
+    const code = String(last && last.message);
+    if (key() && proxy() && (code === 'BAD_KEY' || code === 'QUOTA' || code === 'MODEL_GONE' || code === 'UPSTREAM')) {
+      try {
+        const out = await attempt('auto', body, opts, kind, true);
+        noter({ ev: 'relais-serveur', kind: kind, apres: code });
+        return out;
+      } catch (e) { last = e; }
+    }
     throw last || new Error('UPSTREAM');
   }
 
@@ -381,13 +399,13 @@
      son budget en réflexion sans rien écrire. Les Gemini 3 pensent
      avant de répondre : un budget trop court renvoie une réponse
      vide, ce qui n'est pas une panne mais un mauvais réglage. */
-  async function attempt(model, body, opts) {
-    let out = await raw(model, body, opts.signal);
+  async function attempt(model, body, opts, kind, forceProxy) {
+    let out = await raw(model, body, opts.signal, kind, forceProxy);
     if (out.truncated && !out.text && !out.images.length) {
       const grown = JSON.parse(JSON.stringify(body));
       grown.generationConfig = grown.generationConfig || {};
       grown.generationConfig.maxOutputTokens = Math.min(32768, (grown.generationConfig.maxOutputTokens || 2048) * 3);
-      out = await raw(model, grown, opts.signal);
+      out = await raw(model, grown, opts.signal, kind, forceProxy);
     }
     if (!out.text && !out.images.length) throw new Error(out.truncated ? 'TRUNCATED' : 'EMPTY');
     return out;
@@ -397,7 +415,7 @@
   function humanError(code) {
     const c = String(code && code.message || code || '');
     if (c === 'NO_KEY')     return "Ajoute ta clé Gemini dans Réglages pour activer l'IA.";
-    if (c === 'BAD_KEY')    return 'Clé Gemini refusée. Vérifie-la dans Réglages.';
+    if (c === 'BAD_KEY')    return viaProxy() ? "L'IA est en maintenance quelques minutes. Réessaie bientôt." : 'Clé Gemini refusée. Vérifie-la dans Réglages.';
     if (c === 'QUOTA')      return 'Quota Google atteint sur ce modèle. Réessaie plus tard.';
     if (c === 'NETWORK')    return 'Pas de connexion : les suggestions arrivent quand le réseau revient.';
     if (c === 'SAFETY')     return 'La demande a été bloquée par le filtre de sécurité.';
