@@ -391,9 +391,9 @@
     const val = (k) => d[k] != null ? d[k] : null;
     const poids = val('weight') != null ? d.weight.toFixed(1).replace('.', ',') + ' kg' : lastKnown('weight');
     const T = [
-      ['Sommeil', val('sleep') != null ? UI.fmt.dur(d.sleep) : '—', 'moon', '#8C80F0', 'sleep'],
-      ['Pas', val('steps') != null ? UI.fmt.n(d.steps) : '—', 'steps', '#F5A25B', 'steps'],
-      ['Cardio repos', val('hrRest') != null ? Math.round(d.hrRest) + ' bpm' : '—', 'pulse', '#F5577F', 'hrRest'],
+      ['Sommeil', val('sleep') != null ? UI.fmt.dur(d.sleep) : '·', 'moon', '#8C80F0', 'sleep'],
+      ['Pas', val('steps') != null ? UI.fmt.n(d.steps) : '·', 'steps', '#F5A25B', 'steps'],
+      ['Cardio repos', val('hrRest') != null ? Math.round(d.hrRest) + ' bpm' : '·', 'pulse', '#F5577F', 'hrRest'],
       ['Poids', poids, 'scale', '#5BC8F5', 'weight']
     ];
     return '<div class="section" style="padding-top:10px"><div class="mesures">' + T.map((t) =>
@@ -520,8 +520,8 @@
         UI.ring(d.steps || 0, g.steps, UI.fmt.n(d.steps || 0), 'pas') +
       '</div></div>' +
       '<div class="stats" style="margin-top:12px">' +
-        stat('Sommeil', d.sleep != null ? UI.fmt.dur(d.sleep) : '—', 'moon') +
-        stat('FC repos', d.hrRest != null ? Math.round(d.hrRest) + ' bpm' : '—', 'pulse') +
+        stat('Sommeil', d.sleep != null ? UI.fmt.dur(d.sleep) : '·', 'moon') +
+        stat('FC repos', d.hrRest != null ? Math.round(d.hrRest) + ' bpm' : '·', 'pulse') +
         stat('VFC', d.hrv != null ? Math.round(d.hrv) + ' ms' : '—', 'pulse') +
         stat('Distance', d.distance != null ? UI.fmt.km(d.distance) : '—', 'map') +
         stat('Étages', d.floors != null ? UI.fmt.n(d.floors) : '—', 'activity') +
