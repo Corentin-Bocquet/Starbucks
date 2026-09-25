@@ -253,9 +253,11 @@
     const cache = Store.get('reste.' + viewDay, null);
     const frais = cache && Math.abs(cache.reste - reste) < 120;
 
-    if (frais) {
+    if (frais && !Store.get('ferme.reste.' + viewDay, false)) {
       return '<div class="section"><div class="sechead"><h2 style="font-size:16px">Pour finir la journée</h2>' +
-        '<button data-act="reste">Refaire</button></div>' + resteHtml(cache.data) + '</div>';
+        '<div class="row" style="gap:6px"><button data-act="reste">Refaire</button>' +
+        '<button class="fermebloc" data-act="fermerReste" aria-label="Fermer">' + Icon('close', 15) + '</button></div></div>' +
+        resteHtml(cache.data) + '</div>';
     }
     /* Sans réponse en mémoire, le bouton vit dans la rangée IA. Le
        grand « 2 400 kcal restantes » répétait l'anneau juste au-dessus. */
@@ -267,8 +269,8 @@
   function iaRow(t, g, isToday) {
     const reste = Math.round(g.kcal - t.kcal);
     const cr = Store.get('reste.' + viewDay, null);
-    const vReste = isToday && reste >= 150 && !(cr && Math.abs(cr.reste - reste) < 120);
-    const vAna = !Store.get('analysis.' + viewDay, null);
+    const vReste = isToday && reste >= 150 && (!(cr && Math.abs(cr.reste - reste) < 120) || Store.get('ferme.reste.' + viewDay, false));
+    const vAna = !Store.get('analysis.' + viewDay, null) || Store.get('ferme.analyse.' + viewDay, false);
     if (!vReste && !vAna) return '';
     return '<div class="section" style="padding-top:12px"><div class="row" style="gap:8px">' +
       (vReste ? '<button class="btn primary grow" data-act="reste">' + Icon('sparkle', 16) + 'Quoi manger ?</button>' : '') +
@@ -312,6 +314,7 @@
         RESTE_SCHEMA, { cache: false, temperature: 0.6 });
 
       Store.set('reste.' + viewDay, { reste: reste, data: res, at: Date.now() });
+      Store.set('ferme.reste.' + viewDay, false);
       render();
     } catch (e) {
       UI.echecIA(e, { titre: 'Pas de suggestion pour ce soir', reessayer: () => quoiManger() });
@@ -336,9 +339,11 @@
 
   function analysisBlock() {
     const cached = Store.get('analysis.' + viewDay, null);
-    if (cached) {
+    if (cached && !Store.get('ferme.analyse.' + viewDay, false)) {
       return '<div class="section"><div class="sechead"><h2 style="font-size:16px">Analyse du jour</h2>' +
-        '<button data-act="analyse">Refaire</button></div>' + analysisHtml(cached) + '</div>';
+        '<div class="row" style="gap:6px"><button data-act="analyse">Refaire</button>' +
+        '<button class="fermebloc" data-act="fermerAnalyse" aria-label="Fermer">' + Icon('close', 15) + '</button></div></div>' +
+        analysisHtml(cached) + '</div>';
     }
     return '';
   }
@@ -421,6 +426,8 @@
     search: (slot) => searchFlow(typeof slot === 'string' ? slot : null),
     manual: () => manualFlow(),
     barcode: (slot) => barcodeFlow(typeof slot === 'string' ? slot : null),
+    fermerReste: () => { Store.set('ferme.reste.' + viewDay, true); UI.haptic('light'); render(); },
+    fermerAnalyse: () => { Store.set('ferme.analyse.' + viewDay, true); UI.haptic('light'); render(); },
     fromcodex: () => codexFlow(),
     analyse: () => analyse(),
     reste: () => quoiManger()
@@ -486,7 +493,7 @@
 
     const tete = m.photoUrl || m.image
       ? '<div class="mimg cover"><img src="' + UI.attr(m.photoUrl || m.image) + '" alt=""></div>'
-      : '<div class="mimg cover" data-photo>' +
+      : '<div class="mimg cover" data-mealphoto>' +
           Imagerie.vignette('plat', m.nom, { classe: 'plein' }) + '</div>';
 
     const ligne = ([k, nom, unite, dec]) =>
@@ -927,7 +934,9 @@
           qui marche partout ou il y a une camera ;
        3. la photo lue par l'IA, en dernier recours.
      ============================================================ */
-  const ZXING = 'https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js';
+  /* La bibliothèque est livrée avec l'application : pas de CDN qui
+     tombe, pas de réseau nécessaire pour lire un code. */
+  const ZXING = 'js/vendor/zxing.min.js';
   let zxing = null;
 
   function chargerZxing() {
@@ -958,7 +967,7 @@
       '<div class="mbody">' +
         '<div class="scanbox"><video data-v playsinline muted autoplay></video><div class="scanline"></div></div>' +
         '<p class="aide" data-etat>Ouverture de la caméra…</p>' +
-        '<button class="btn block" style="margin-top:12px" data-photo>' + Icon('camera', 16) + 'Plutôt une photo</button>' +
+        '<button class="btn block" style="margin-top:12px" data-scanphoto>' + Icon('camera', 16) + 'Plutôt une photo</button>' +
         '<button class="btn ghost block" style="margin-top:8px" data-saisie>Saisir le code à la main</button>' +
       '</div>',
       { onMount: async (sh) => {
@@ -966,7 +975,7 @@
           const etat = sh.querySelector('[data-etat]');
           const dire = (t) => { if (etat) etat.textContent = t; };
 
-          sh.querySelector('[data-photo]').onclick = () => { fin(); UI.closeSheet(); barcodePhoto(slot); };
+          sh.querySelector('[data-scanphoto]').onclick = () => { fin(); UI.closeSheet(); barcodePhoto(slot); };
           sh.querySelector('[data-saisie]').onclick = async () => {
             fin(); UI.closeSheet();
             const r = await UI.promptSheet('Le code du produit',
@@ -996,41 +1005,79 @@
             return true;
           };
 
-          /* 1. Le lecteur du navigateur, quand il existe. */
+          /* Deux lecteurs en même temps, le premier qui lit gagne :
+             - celui du navigateur, s'il existe VRAIMENT (sur iPhone il
+               peut être déclaré mais incapable de lire un EAN, et il
+               échouait alors en silence, à l'infini) ;
+             - ZXing, sur une image recadrée au centre, cinq fois par
+               seconde. C'est lui qui fait le travail sur iPhone. */
+          let natif = null;
           if ('BarcodeDetector' in global) {
-            dire('Lecture en cours…');
-            const det = new global.BarcodeDetector({
-              formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'qr_code']
-            });
+            try {
+              const f = global.BarcodeDetector.getSupportedFormats ? await global.BarcodeDetector.getSupportedFormats() : [];
+              if (f.indexOf('ean_13') >= 0) {
+                natif = new global.BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128'].filter((x) => f.indexOf(x) >= 0) });
+              }
+            } catch (e) { natif = null; }
+          }
+          if (natif) {
+            let echecs = 0;
             const boucle = async () => {
-              if (arret) return;
-              try {
-                const codes = await det.detect(v);
-                if (codes && codes.length && trouve(codes[0].rawValue)) return;
-              } catch (e) {}
-              requestAnimationFrame(boucle);
+              if (arret || !natif) return;
+              if (v.readyState >= 2) {
+                try {
+                  const codes = await natif.detect(v);
+                  if (codes && codes.length && trouve(codes[0].rawValue)) return;
+                } catch (e) { if (++echecs > 20) { natif = null; return; } }
+              }
+              setTimeout(boucle, 120);
             };
-            requestAnimationFrame(boucle);
-            return;
+            boucle();
           }
 
-          /* 2. ZXing : partout ailleurs. */
           try {
             dire('Préparation du lecteur…');
             const Z = await chargerZxing();
-            lecteur = new Z.BrowserMultiFormatReader();
-            dire('Lecture en cours…');
-            lecteur.decodeFromVideoElement(v, (res) => {
-              if (arret || !res) return;
-              trouve(res.getText ? res.getText() : res.text);
-            });
+            const indices = new Map();
+            indices.set(Z.DecodeHintType.POSSIBLE_FORMATS, [Z.BarcodeFormat.EAN_13, Z.BarcodeFormat.EAN_8,
+              Z.BarcodeFormat.UPC_A, Z.BarcodeFormat.UPC_E, Z.BarcodeFormat.CODE_128]);
+            indices.set(Z.DecodeHintType.TRY_HARDER, true);
+            lecteur = new Z.MultiFormatReader();
+            lecteur.setHints(indices);
+            const toile = document.createElement('canvas');
+            const cx = toile.getContext('2d', { willReadFrequently: true });
+            dire('Lecture en cours : vise les barres, bien à plat.');
+            let tour = 0;
+            const lire = () => {
+              if (arret) return;
+              const w = v.videoWidth, h = v.videoHeight;
+              if (w && h) {
+                /* On alterne deux cadrages : une bande centrale large,
+                   puis toute l'image. Un code tenu un peu de travers
+                   ou un peu loin finit toujours par passer. */
+                const bande = (tour++ % 3) !== 2;
+                const sx = bande ? Math.round(w * 0.06) : 0, sw = bande ? Math.round(w * 0.88) : w;
+                const sy = bande ? Math.round(h * 0.28) : 0, sh2 = bande ? Math.round(h * 0.44) : h;
+                const echelle = Math.min(1, 1100 / sw);
+                toile.width = Math.round(sw * echelle); toile.height = Math.round(sh2 * echelle);
+                cx.drawImage(v, sx, sy, sw, sh2, 0, 0, toile.width, toile.height);
+                try {
+                  const lum = new Z.HTMLCanvasElementLuminanceSource(toile);
+                  const res = lecteur.decode(new Z.BinaryBitmap(new Z.HybridBinarizer(lum)), indices);
+                  if (res && trouve(res.getText())) return;
+                } catch (e) { /* rien sur cette image, on continue */ }
+              }
+              setTimeout(lire, 180);
+            };
+            lire();
           } catch (e) {
-            dire("Le lecteur n'a pas pu se charger. Essaie la photo.");
+            if (!natif) dire("Le lecteur n'a pas pu se charger. Essaie la photo.");
           }
 
           function fin() {
             arret = true;
             try { if (lecteur && lecteur.reset) lecteur.reset(); } catch (e2) {}
+            natif = null;
             if (flux) { flux.getTracks().forEach((t) => t.stop()); flux = null; }
           }
           sh._fin = fin;
@@ -1200,6 +1247,7 @@
     try {
       const res = await AI.json(prompt, ANALYSIS_SCHEMA, { cache: false, temperature: 0.6 });
       Store.set('analysis.' + viewDay, res);
+      Store.set('ferme.analyse.' + viewDay, false);
       if (global.Game) Game.award('analyse', 15);
       render();
     } catch (e) {

@@ -116,78 +116,61 @@
      endroit a basculer, aucun risque d'en oublier un.
      ============================================================ */
   function actif() {
-    return !!(global.Store && Store.get('icones3d', true));
+    return true;
   }
 
-  /* Le nom du fichier pour un mot, ou null si rien ne colle. */
+  /* Les anciennes icônes bleues et violettes sont retirées : chaque
+     ancien nom pointe désormais vers son visuel du catalogue. */
+  const VERS = {
+    '3-idees': 'trois-idees', 'a-saisir-ajouter': 'ajouter', accessoires: 'accessoires', apero: 'mm-apero',
+    'apple-sante': 'apple-sante', bas: 'bas', cafe: 'sb-cafe', chaud: 'sb-chaud', chaussures: 'chaussures',
+    chercher: 'chercher', codebarre: 'codebarre', 'de-hasard': 'de', dessert: 'mm-dessert', entree: 'mm-entree',
+    equilibre: 'sb-equilibre', fruite: 'sb-fruit', glace: 'sb-glace', gourmand: 'sb-gourmand', guide: 'guide',
+    haut: 'haut', historique: 'historique', leger: 'sb-leger', lieux: 'lieu', manteau: 'veste', mixe: 'sb-mixe',
+    mood: 'mood', objectifs: 'objectifs', plat: 'mm-plat', 'poubelle-a-jeter': 'effacer', recettes: 'mm-plat',
+    'sans-cafe': 'sb-lait', scanner: 'scanner', 'the-matcha': 'sb-the'
+  };
+  const cible = (slug) => {
+    if (!slug || !global.Vis) return null;
+    if (Vis.SET.has(slug)) return slug;
+    const v = VERS[slug];
+    return v && Vis.SET.has(v) ? v : null;
+  };
+
+  /* Le visuel pour un mot, ou null si rien ne colle. */
   function trouve(mot) {
-    if (!actif()) return null;
+    if (!actif() || !global.Vis) return null;
+    const direct = Vis.trouve(mot, 'icone');
+    if (direct) return direct;
     const m = sansAccent(mot);
     if (!m) return null;
-    if (SET[m.replace(/ /g, '-')]) return m.replace(/ /g, '-');
-    if (EXACT[m]) return EXACT[m];
-    /* Recherche par mot entier : « ajouter un plat » doit tomber
-       sur « ajouter », pas sur « plat », d'où le tri par longueur. */
+    if (SET[m.replace(/ /g, '-')]) return cible(m.replace(/ /g, '-'));
+    if (EXACT[m]) return cible(EXACT[m]);
     for (let i = 0; i < INDEX.length; i++) {
       const [cle, slug] = INDEX[i];
       if (cle.length < 4) continue;
-      if (m === cle || m.indexOf(cle + ' ') === 0 || m.indexOf(' ' + cle) >= 0) return slug;
+      if (m === cle || m.indexOf(cle + ' ') === 0 || m.indexOf(' ' + cle) >= 0) return cible(slug);
     }
     return null;
   }
 
-  const url = (slug, sombre) => BASE + slug + (sombre ? '-d' : '') + '.webp';
+  const url = (slug) => global.Vis ? Vis.src(cible(slug)) : null;
+  const sombre = () => document.documentElement.getAttribute('data-theme') === 'dark';
+  function rafraichir() {}
 
-  /* Le thème courant. « auto » suit le système, sinon le réglage
-     de l'application tranche. */
-  function sombre() {
-    const t = document.documentElement.getAttribute('data-theme');
-    if (t === 'dark') return true;
-    if (t === 'light') return false;
-    return !!(global.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
-  }
-
-  /* Le bloc d'image.
-
-     On passe par une vraie balise `img` et non par une variable CSS :
-     une `url()` rangée dans une propriété personnalisée se résout
-     par rapport à la FEUILLE DE STYLE qui l'utilise, pas par rapport
-     au document. Le chemin partait donc chercher « css/img/ic/… »
-     et ne trouvait rien. L'attribut `src` d'une balise, lui, se
-     résout par rapport au document, ce qui marche aussi bien en
-     local qu'une fois publié dans un sous-dossier. */
   function html(slug, opts) {
     opts = opts || {};
-    if (!SET[slug]) return '';
-    return '<span class="ic3d' + (opts.classe ? ' ' + opts.classe : '') + '" data-ic="' + slug + '">' +
-      '<img src="' + url(slug, sombre()) + '" alt="" loading="lazy" decoding="async">' +
-      '</span>';
-  }
-
-  /* Au changement de thème, on ré-aiguille les images déjà posées.
-     Une seule requête par icône : la version inutile n'est jamais
-     téléchargée. */
-  function rafraichir(racine) {
-    const noir = sombre();
-    (racine || document).querySelectorAll('[data-ic] > img').forEach((im) => {
-      const slug = im.parentNode.dataset.ic;
-      const bon = url(slug, noir);
-      if (im.getAttribute('src') !== bon) im.setAttribute('src', bon);
-    });
-  }
-
-  if (global.matchMedia) {
-    const mq = matchMedia('(prefers-color-scheme: dark)');
-    const ecoute = () => rafraichir();
-    if (mq.addEventListener) mq.addEventListener('change', ecoute);
-    else if (mq.addListener) mq.addListener(ecoute);
+    const s = url(slug);
+    if (!s) return '';
+    return '<span class="ic3d vis3d' + (opts.classe ? ' ' + opts.classe : '') + '">' +
+      '<img src="' + s + '" alt="" loading="lazy" decoding="async" draggable="false"></span>';
   }
 
   /* Pour les endroits qui veulent la balise sans l'enveloppe. */
   function balise(slug, alt) {
-    if (!SET[slug]) return '';
-    return '<img class="ic3dimg" data-ic="' + slug + '" src="' + url(slug, sombre()) +
-      '" alt="' + UI.attr(alt || '') + '" loading="lazy" decoding="async">';
+    const s = url(slug);
+    if (!s) return '';
+    return '<img class="ic3dimg" src="' + s + '" alt="' + UI.attr(alt || '') + '" loading="lazy" decoding="async" draggable="false">';
   }
 
   global.Ic = { trouve, actif, html, balise, url, sombre, rafraichir, DISPO, a: (m) => !!trouve(m) };

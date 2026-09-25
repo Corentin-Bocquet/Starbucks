@@ -225,13 +225,10 @@
     return Math.abs(h) % 1000000;
   }
 
-  function genere(type, sujet, opts) {
-    opts = opts || {};
-    const modele = STYLE_GEN[type] || STYLE_GEN.icone;
-    const prompt = modele.replace('{S}', String(sujet || '').trim());
-    const q = 'width=' + (opts.l || 640) + '&height=' + (opts.h || 640) +
-      '&seed=' + graine(type + ':' + sujet) + '&nologo=true&model=flux&referrer=ever';
-    return GEN + encodeURIComponent(prompt) + '?' + q;
+  /* Plus aucune image dessinée à la volée : le catalogue local, ou
+     rien. Les appelants gèrent l'absence d'image. */
+  function genere(type, sujet) {
+    return global.Vis ? Vis.url(sujet, type) : null;
   }
 
   const QUALIF = {
@@ -308,50 +305,7 @@
   /* URL d'une photo pour un sujet. Ne lève jamais : renvoie null
      quand il n'y a rien, l'appelant garde sa pastille. */
   async function url(type, sujet) {
-    if (!sujet) return null;
-    const c = clef(type, sujet);
-    const cache = enCache(c);
-    if (cache !== undefined) return cache;
-    /* Hors ligne, on ne peut rien faire : une image cassee est pire
-       qu'une pastille. Partout ailleurs on rend TOUJOURS quelque
-       chose. C'est ici que naissaient les « lettres » : des que la
-       photothèque etait coupee (quota Openverse atteint, reglage
-       desactive) ou que le sujet ne donnait aucune requete, la
-       fonction rendait null et l'initiale restait a l'ecran. La
-       generation, elle, ne coute rien et ne tombe jamais. */
-    if (!navigator.onLine) return null;
-
-    const q = requete(type, sujet);
-    if (!actif() || coupe || !q) {
-      const direct = genere(type, sujet);
-      Store.set(c, { u: direct, at: Date.now(), gen: 1 });
-      return direct;
-    }
-
-    return enchainer(async () => {
-      const encore = enCache(c);
-      if (encore !== undefined) return encore;
-
-      /* Base specialisee d'abord : pour un plat, un cocktail ou un
-         ingredient, elle rend LA bonne photo, pas une photo
-         plausible. Elle ne connait pas tout, et c'est prevu. */
-      if (global.Banques) {
-        try {
-          const b = await Banques.chercher(type, sujet);
-          if (b) { Store.set(c, { u: b, at: Date.now(), src: 'bq' }); return b; }
-        } catch (e) { /* on continue */ }
-      }
-
-      try {
-        const u = await interroger(q);
-        if (u) { Store.set(c, { u: u, at: Date.now() }); return u; }
-      } catch (e) { /* on tombe sur la generation */ }
-      /* Openverse n'a rien : on fait dessiner l'image plutot que de
-         laisser une pastille vide. Gratuit, et stable dans le temps. */
-      const g = genere(type, sujet);
-      Store.set(c, { u: g, at: Date.now(), gen: 1 });
-      return g;
-    });
+    return global.Vis ? Vis.url(sujet, type) : null;
   }
 
   /* ---------- Icônes photo ----------
@@ -383,47 +337,21 @@
     return null;
   }
 
+  const TYPES = { plat: 'plat', aliment: 'plat', ingredient: 'ingredient', boisson: 'boisson',
+    vetement: 'vetement', tenue: 'vetement', activite: 'activite', lieu: 'lieu', sport: 'activite' };
+
   function ic(sujet, opts) {
     opts = opts || {};
-    /* Une icone 3D dessinee pour l'application bat toujours une
-       photo cherchee par mot-cle : meme style, meme cadrage, meme
-       lumiere. On ne repart sur la photothèque que si le sujet ne
-       correspond a aucune des trente-trois. */
-    if (global.Ic && !opts.photo) {
-      const slug = Ic.trouve(sujet);
-      if (slug) return Ic.html(slug, { classe: opts.classe });
-    }
-    /* Deuxième choix : une des quarante illustrations vectorielles
-       de l'app. Une tuile d'action n'a JAMAIS besoin d'une photo
-       tirée au hasard : c'était la source des images à côté du
-       sujet. La photothèque ne sert plus que si on la demande
-       explicitement (opts.photo). */
-    if (!opts.photo && global.Anime) {
-      const nom = artPour(sujet);
-      if (nom) return '<span class="artic' + (opts.classe ? ' ' + opts.classe : '') + '">' + Anime.art(nom, 72) + '</span>';
-    }
-    const t = teinte(sujet);
-    const type = opts.type || 'icone';
-    if (!opts.photo) {
-      return '<span class="phic vide' + (opts.classe ? ' ' + opts.classe : '') + '" style="--p1:' + t[0] + ';--p2:' + t[1] + '"></span>';
-    }
-    return '<span class="phic' + (opts.classe ? ' ' + opts.classe : '') + '"' +
-      ' data-ph="' + UI.attr(sujet) + '" data-pht="' + UI.attr(type) + '"' +
-      ' style="--p1:' + t[0] + ';--p2:' + t[1] + '"></span>';
+    const type = TYPES[opts.type] || 'icone';
+    const slug = global.Vis ? (Vis.trouve(sujet, type) || (type !== 'icone' ? Vis.trouve(sujet, 'icone') : null)) : null;
+    if (slug) return Vis.html(slug, { classe: opts.classe });
+    /* Rien dans le catalogue : un verre vide, jamais une lettre ni
+       un point d'interrogation. La mise en page tient sans image. */
+    return '<span class="phic vide' + (opts.classe ? ' ' + opts.classe : '') + '"></span>';
   }
 
-  /* Remplit les icônes photo d'un bloc. */
-  async function peupler(racine) {
-    const cases = Array.from((racine || document).querySelectorAll('[data-ph]:not([data-phok])'));
-    for (const el of cases) {
-      el.dataset.phok = '1';
-      const u = await url(el.dataset.pht || 'icone', el.dataset.ph);
-      if (u && el.isConnected) {
-        el.style.backgroundImage = 'url("' + u.replace(/"/g, '%22') + '")';
-        el.classList.add('pleine');
-      }
-    }
-  }
+  /* Plus rien à remplir après coup : tout est déjà dans la page. */
+  async function peupler() {}
 
   function stats() {
     let n = 0, vides = 0;

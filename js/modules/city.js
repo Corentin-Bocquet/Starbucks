@@ -14,20 +14,20 @@
   let root = null, city = null, data = null;
 
   const SECTIONS = [
-    { k: 'a_savoir',      nom: 'À savoir',            icon: 'info',    art: 'livre',      type: 'list',   ph: 'guide' },
-    { k: 'histoire',      nom: 'Histoire',            icon: 'book',    art: 'livre',      type: 'text',   ph: 'old town heritage' },
+    { k: 'a_savoir',      nom: 'À savoir',            icon: 'info',    art: 'livre',      type: 'list',   ph: 'ic-savoir' },
+    { k: 'histoire',      nom: 'Histoire',            icon: 'book',    art: 'livre',      type: 'text',   ph: 'histoire' },
     { k: 'culture',       nom: 'Culture',             icon: 'book',    art: 'carte',      type: 'text',   ph: 'culture' },
-    { k: 'connue_pour',   nom: 'Pourquoi elle est connue', icon: 'star', art: 'etoile',   type: 'text',   ph: 'landmark famous' },
-    { k: 'a_voir',        nom: 'À voir',              icon: 'eye',     art: 'lieu',       type: 'places', ph: 'monument' },
-    { k: 'a_faire',       nom: 'À faire',             icon: 'activity', art: 'ballon',    type: 'places', ph: 'activite' },
-    { k: 'ou_manger',     nom: 'Où manger',           icon: 'fork',    art: 'marmite',    type: 'places', ph: 'restaurant' },
-    { k: 'ou_boire',      nom: 'Où boire un verre',   icon: 'glass',   art: 'verre',      type: 'places', ph: 'bar' },
-    { k: 'ou_cafe',       nom: 'Où prendre un café',  icon: 'coffee',  art: 'tasse',      type: 'places', ph: 'cafe' },
-    { k: 'ou_sortir',     nom: 'Où sortir',           icon: 'sparkle', art: 'eclair',     type: 'places', ph: 'soiree' },
-    { k: 'shopping',      nom: 'Shopping',            icon: 'bag',     art: 'cadeau',     type: 'places', ph: 'shopping' },
-    { k: 'bons_plans',    nom: 'Bons plans',          icon: 'target',  art: 'cible',      type: 'list',   ph: 'budget' },
-    { k: 'insolite',      nom: 'Les coins discrets',  icon: 'map',     art: 'loupe',      type: 'places', ph: 'hidden alley' },
-    { k: 'pratique',      nom: 'Pratique',            icon: 'settings', art: 'roue',      type: 'list',   ph: 'train station' }
+    { k: 'connue_pour',   nom: 'Pourquoi elle est connue', icon: 'star', art: 'etoile',   type: 'text',   ph: 'connue' },
+    { k: 'a_voir',        nom: 'À voir',              icon: 'eye',     art: 'lieu',       type: 'places', ph: 'a-voir' },
+    { k: 'a_faire',       nom: 'À faire',             icon: 'activity', art: 'ballon',    type: 'places', ph: 'a-faire' },
+    { k: 'ou_manger',     nom: 'Où manger',           icon: 'fork',    art: 'marmite',    type: 'places', ph: 'ic-manger' },
+    { k: 'ou_boire',      nom: 'Où boire un verre',   icon: 'glass',   art: 'verre',      type: 'places', ph: 'ic-verre' },
+    { k: 'ou_cafe',       nom: 'Où prendre un café',  icon: 'coffee',  art: 'tasse',      type: 'places', ph: 'ic-cafe' },
+    { k: 'ou_sortir',     nom: 'Où sortir',           icon: 'sparkle', art: 'eclair',     type: 'places', ph: 'ic-sortir' },
+    { k: 'shopping',      nom: 'Shopping',            icon: 'bag',     art: 'cadeau',     type: 'places', ph: 'ic-shopping' },
+    { k: 'bons_plans',    nom: 'Bons plans',          icon: 'target',  art: 'cible',      type: 'list',   ph: 'bons-plans' },
+    { k: 'insolite',      nom: 'Les coins discrets',  icon: 'map',     art: 'loupe',      type: 'places', ph: 'coins-discrets' },
+    { k: 'pratique',      nom: 'Pratique',            icon: 'settings', art: 'roue',      type: 'list',   ph: 'pratique' }
   ];
   const CONTEXTES = [
     { id: 'auto',    nom: 'Peu importe' },
@@ -100,13 +100,13 @@
       '<div class="section">' +
         '<div class="secbar"><h2>Le guide ' + UI.esc(prep(city, 'de')) + '</h2></div>' +
         Cartes.grille(dispo.map((sec) => ({
-          id: sec.k, titre: sec.nom, ph: sec.ph + ' ' + city, type: 'lieu',
+          id: sec.k, titre: sec.nom, ph: sec.ph, type: 'icone',
           sous: Array.isArray(data[sec.k]) ? data[sec.k].length + ' entrées' : 'À lire'
         }))) +
       '</div>' +
       Portes.section('', [
-        { act: 'roue',    nom: 'Tourner ici', sub: 'Une activité au hasard', ph: 'hasard' },
-        { act: 'refresh', nom: 'Actualiser',  sub: at ? UI.fmt.dateShort(at) : 'Réécrire le guide', ph: 'refresh arrows' }
+        { act: 'roue',    nom: 'Tourner ici', sub: 'Une activité au hasard', ph: 'boussole' },
+        { act: 'refresh', nom: 'Actualiser',  sub: at ? UI.fmt.dateShort(at) : 'Réécrire le guide', ph: 'actualiser' }
       ]) +
       '<div class="section" style="padding-top:0"><p class="muted" style="font-size:11px;line-height:1.5">' +
       'Guide écrit par IA. Les horaires et les établissements changent.</p></div>' +
@@ -128,17 +128,32 @@
     const v = data[sec.k];
     const teinte = ['#7A2E54', '#BE5F8C'];
 
+    /* Une fiche à lire doit donner envie : l'objet de la rubrique en
+       grand, une première phrase mise en avant, puis des paragraphes
+       courts qui respirent. Les listes deviennent des cartes
+       numérotées. */
+    const entete = '<div class="lecvis">' + Vis.html(sec.ph) + '</div>';
     if (sec.type === 'text') {
+      const phrases = String(v).match(/[^.!?]+[.!?]+(\s|$)|[^.!?]+$/g) || [String(v)];
+      const lead = phrases.shift().trim();
+      const paras = [];
+      for (let i = 0; i < phrases.length; i += 2) paras.push(phrases.slice(i, i + 2).join(' ').trim());
       Cartes.ouvrir({
-        tete: Cartes.tete(sec.nom, UI.esc(city), teinte, sec.art),
-        corps: '<p class="textelong">' + UI.esc(v) + '</p>'
+        tete: Cartes.tete(sec.nom, city, teinte, sec.art),
+        corps: '<article class="lecture">' + entete +
+          '<p class="lead">' + UI.esc(lead) + '</p>' +
+          paras.filter(Boolean).map((x) => '<p>' + UI.esc(x) + '</p>').join('') +
+          '</article>'
       });
       return;
     }
     if (sec.type === 'list') {
       Cartes.ouvrir({
         tete: Cartes.tete(sec.nom, v.length + ' points', teinte, sec.art),
-        corps: '<ol class="listelong">' + v.map((x) => '<li>' + UI.esc(x) + '</li>').join('') + '</ol>'
+        corps: '<article class="lecture">' + entete +
+          '<div class="lecliste">' + v.map((x, i) =>
+            '<div class="lecpoint"><span class="n">' + (i + 1) + '</span><p>' + UI.esc(x) + '</p></div>').join('') + '</div>' +
+          '</article>'
       });
       return;
     }
@@ -147,7 +162,7 @@
       tete: Cartes.tete(sec.nom, v.length + ' adresses ' + prep(city), teinte, sec.art),
       corps: Cartes.grille(v.map((x, i) => ({
         id: 'p' + i, titre: x.nom, sous: x.description || x.adresse || '',
-        ph: x.nom + ' ' + city, type: 'lieu'
+        img: Vis.src(Vis.trouve(x.nom, 'lieu') || sec.ph)
       }))),
       onCarte: (id) => {
         const x = v[Number(String(id).slice(1))];

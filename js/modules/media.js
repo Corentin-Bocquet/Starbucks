@@ -199,17 +199,19 @@
     '</button>';
   }
 
+  /* L'affiche : celle de TMDB quand on l'a. Sinon, plus d'affiche
+     inventée par un générateur : une affiche typographique en verre,
+     le titre en grand. Les anciennes affiches dessinées sont ignorées. */
+  const vraieAffiche = (u) => u && !/pollinations|openverse/i.test(u);
+  function afficheVerre(m) {
+    return '<span class="afficheverre ' + (m.type === 'serie' ? 'serie' : 'film') + '">' +
+      '<span class="av-ic">' + Icon(m.type === 'serie' ? 'tv' : 'film', 18) + '</span>' +
+      '<b>' + UI.esc(m.titre) + '</b>' +
+      (m.annee ? '<small>' + UI.esc(String(m.annee)) + '</small>' : '') + '</span>';
+  }
   function visuel(m) {
-    if (m.poster) return '<img loading="lazy" src="' + UI.attr(m.poster) + '" alt="">';
-    /* Sans affiche TMDB, on en fabrique une plutot que d'afficher
-       une initiale sur un degrade. */
-    if (global.Stock) {
-      return '<img loading="lazy" src="' + UI.attr(Stock.genere('lieu',
-        'movie poster for ' + (m.type === 'serie' ? 'the TV series' : 'the film') + ' ' + m.titre,
-        { l: 500, h: 750 })) + '" alt="">';
-    }
-    return Imagerie.vignette('lieu', 'affiche de ' + (m.type === 'serie' ? 'la série ' : 'du film ') + m.titre,
-      { classe: 'haute', cle: Imagerie.cleDe('affiche', m.titre) });
+    if (vraieAffiche(m.poster)) return '<img loading="lazy" src="' + UI.attr(m.poster) + '" alt="">';
+    return afficheVerre(m);
   }
 
   /* ---------- Le carrousel des idées ---------- */
@@ -227,10 +229,7 @@
       '<button data-act="reco">Régénérer</button></div>' +
       '<div class="carrousel">' + r.map((x) =>
         '<div class="affiche idee" data-idee="' + UI.attr(x.id) + '">' +
-          (x.poster
-            ? '<img loading="lazy" src="' + UI.attr(x.poster) + '" alt="">'
-            : Imagerie.vignette('lieu', 'affiche de ' + (x.type === 'serie' ? 'la série ' : 'du film ') + x.titre,
-                { classe: 'haute', cle: Imagerie.cleDe('affiche', x.titre) })) +
+          visuel(x) +
           '<div class="voile"></div>' +
           '<div class="txt"><b>' + UI.esc(x.titre) + '</b>' +
           '<small>' + UI.esc(x.pourquoi || x.annee || '') + '</small></div>' +
@@ -442,8 +441,8 @@
       '<div class="mbody" style="padding-top:6px">' +
         '<h2 style="font-size:22px;margin-bottom:2px">Ajouter des titres</h2>' +
         '<p class="muted" style="font-size:13px;margin-bottom:12px">Le panneau reste ouvert : ajoute-en autant que tu veux.</p>' +
-        '<label class="search" style="box-shadow:var(--sh-inset)">' + Icon('search', 17) +
-        '<input data-q placeholder="Titre du film ou de la série" autocomplete="off"></label>' +
+        '<div class="recherchecollee"><label class="search" style="box-shadow:var(--sh-inset)">' + Icon('search', 17) +
+        '<input data-q placeholder="Chercher" autocomplete="off"></label></div>' +
         '<div data-res style="margin-top:14px"></div>' +
         '<button class="btn primary block lg" style="margin-top:14px" data-fini>Terminé</button>' +
       '</div>',
@@ -457,7 +456,7 @@
               const dedans = dejaLa(r.titre, r.type);
               return '<button class="rowitem" data-i="' + i + '"' + (dedans ? ' data-dedans="1"' : '') + '>' +
                 '<span class="thumb" style="width:38px;height:56px;border-radius:8px">' +
-                  (r.poster ? '<img src="' + UI.attr(r.poster) + '" alt="">' : Icon(r.type === 'serie' ? 'tv' : 'film', 17)) +
+                  (vraieAffiche(r.poster) ? '<img src="' + UI.attr(r.poster) + '" alt="">' : Icon(r.type === 'serie' ? 'tv' : 'film', 17)) +
                 '</span>' +
                 '<span class="tx"><b>' + UI.esc(r.titre) + '</b><small>' +
                   UI.esc([r.annee, r.type === 'serie' ? 'Série' : 'Film', r.note ? r.note + '/10' : ''].filter(Boolean).join(' · ')) +
@@ -500,6 +499,10 @@
               return;
             }
             dessiner();
+            /* Les premiers résultats d'abord : on remonte en haut de la
+               liste au lieu d'atterrir sur les derniers. */
+            sh.scrollTop = 0;
+            const l = out.querySelector('.list'); if (l) l.scrollTop = 0;
           }, 380);
         } }
     );
@@ -640,7 +643,8 @@
   /* Va chercher l'affiche de chaque suggestion. TMDB quand la cle
      est renseignee, sinon une image fabriquee : jamais une lettre. */
   async function affichesDesIdees() {
-    const idees = Store.all('mediaIdeas').filter((x) => !x.poster);
+    const idees = Store.all('mediaIdeas').filter((x) => !vraieAffiche(x.poster));
+    if (!tmdbKey()) return;
     for (const x of idees) {
       let url = null;
       if (tmdbKey()) {
@@ -654,11 +658,6 @@
             if (t && t.poster_path) url = IMG + t.poster_path;
           }
         } catch (e) { /* on passe a l'image fabriquee */ }
-      }
-      if (!url && global.Stock) {
-        url = Stock.genere('lieu',
-          'movie poster for ' + (x.type === 'serie' ? 'the TV series' : 'the film') + ' ' + x.titre,
-          { l: 500, h: 750 });
       }
       if (url) Store.put('mediaIdeas', x.id, { poster: url });
     }
@@ -767,8 +766,8 @@
     if (!m) return;
     UI.openSheet(
       grandeCarte(m).replace('<div class="result">', '<div class="result plein">') +
-      '<div class="mbody" style="padding-top:0">' +
-        '<button class="btn danger block" data-del>' + Icon('trash', 16) + 'Retirer de mes listes</button>' +
+      '<div class="mbody retirerzone">' +
+        '<button class="btn ghost block danger-txt" data-del>' + Icon('trash', 16) + 'Retirer de mes listes</button>' +
       '</div>',
       { onMount: (sh) => {
           brancherCarte(sh, m);

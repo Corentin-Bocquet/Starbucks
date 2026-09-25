@@ -28,7 +28,9 @@
     opts = opts || {};
     const cls = 'kart' + (opts.classe ? ' ' + opts.classe : '') + (d.coche ? ' faite' : '');
     const visuel = d.img
-      ? '<img src="' + UI.attr(d.img) + '" alt="" loading="lazy">'
+      ? (/^img\/v\//.test(d.img)
+          ? '<span class="vis3d fond"><img src="' + UI.attr(d.img) + '" alt="" loading="lazy" decoding="async" draggable="false"></span>'
+          : '<img src="' + UI.attr(d.img) + '" alt="" loading="lazy">')
       : (global.Stock
           ? Stock.ic(d.ph || d.titre, { classe: 'fond', type: d.type || 'icone' })
           : '');

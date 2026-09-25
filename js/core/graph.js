@@ -204,8 +204,15 @@
   /* Une tuile de statistique : couleur douce, illustration, chiffre
      en gros, graphique a droite. C'est le format des images de
      reference : quatre tuiles disent la journee sans une phrase. */
+  /* Les illustrations des tuiles deviennent des icônes 3D quand le
+     catalogue en a une : calories, pas, sommeil, cœur, poids… */
+  const ART_VIS = { flamme: 'calories', pas: 'pas', lune: 'sommeil', coeur: 'cardio', balance: 'poids',
+    haltere: 'muscle', goutte: 'hydratation', eclair: 'cran', etoile: 'favoris', cible: 'objectifs',
+    tasse: 'ic-cafe', verre: 'ic-verre', marmite: 'tous', velo: 'velo', lieu: 'lieu', personne: 'pas' };
+
   function tuile(o) {
     o = o || {};
+    const vis = global.Vis && (o.vis || ART_VIS[o.art]) && Vis.SET.has(o.vis || ART_VIS[o.art]) ? (o.vis || ART_VIS[o.art]) : null;
     const cliquable = !!(o.act || o.detail);
     return '<div class="gtuile' + (cliquable ? ' cliquable' : '') + '"' +
       ' style="--t:' + UI.attr(o.teinte || '#4A9BE0') + '"' +
@@ -213,7 +220,7 @@
       (o.detail ? ' data-detail="' + UI.attr(o.detail) + '"' : '') +
       (cliquable ? ' role="button" tabindex="0"' : '') + '>' +
       '<div class="haut">' +
-        (o.art && global.Art ? '<span class="ill">' + Anime.art(o.art, 26) + '</span>' : '') +
+        (vis ? Vis.html(vis, { classe: 'gvis' }) : (o.art && global.Art ? '<span class="ill">' + Anime.art(o.art, 26) + '</span>' : '')) +
         '<b>' + UI.esc(o.nom) + '</b>' +
       '</div>' +
       '<div class="bas">' +

@@ -95,8 +95,8 @@
               : '<span class="ic">' + Icon('user', 17) + '</span>') +
             '<span class="tx"><b>Ma photo</b><small>' +
             (Store.get('portraitPhoto', null) || Store.get('portraitPhotoUrl', null)
-              ? 'Enregistrée · sert à générer tes tenues portées'
-              : 'Pour te voir habillé avec une tenue') + '</small></span>' +
+              ? 'Enregistrée'
+              : 'Ta photo de profil') + '</small></span>' +
             '<span class="rt">' + Icon('next', 15) + '</span></button>' +
           '<button class="rowitem" data-act="diag">' + art3d('eclair') +
             '<span class="tx"><b>Tester l\'IA</b><small>' +
@@ -105,10 +105,6 @@
           '<button class="rowitem" data-act="clearcache">' + art3d('refaire') +
             '<span class="tx"><b>Vider le cache des réponses IA</b></span><span class="rt">' + Icon('next', 15) + '</span></button>' +
         '</div>' +
-        '<div class="banner warn" style="margin-top:10px">' + Icon('alert', 18) +
-        '<span>Une clé Google posée en clair dans un dépôt public est lisible par tout le monde. ' +
-        'Celle-ci reste sur cet appareil et n\'est jamais publiée. Pour une vraie mise en ligne, ' +
-        'passe par la fonction edge fournie dans <b>sql/edge/gemini-proxy.ts</b>.</span></div>' +
       '</div>' +
 
       /* ---- Objectifs ---- */
@@ -124,11 +120,7 @@
 
       /* ---- Nutrition externe ---- */
       '<div class="section" data-sec="nutrition">' +
-        '<div class="sechead"><h2 style="font-size:16px">MyFitnessPal et compagnie</h2></div>' +
-        '<div class="banner" style="margin-bottom:10px">' + Icon('info', 18) +
-        '<span><b>Ce qui est possible, précisément.</b> MyFitnessPal a ferme son API publique en 2020 : ' +
-        'seuls des partenaires sous contrat y accèdent, et aucune bibliotheque ne contourne cela sans stocker ton mot de passe. ' +
-        'Le pont passe donc par des fichiers, dans les deux sens. Tes exports MFP rentrent, tes journées ressortent.</span></div>' +
+        '<div class="sechead"><h2 style="font-size:16px">Importer et exporter</h2></div>' +
         '<div class="list">' +
           '<button class="rowitem" data-act="mfpImport">' + art3d('carte') +
             '<span class="tx"><b>Importer un export MyFitnessPal</b><small>Fichier CSV</small></span>' +

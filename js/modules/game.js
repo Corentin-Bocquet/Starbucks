@@ -91,22 +91,22 @@
        une carte se reconnait sans etre lue. */
     return [
       { id: 'journal',   nom: 'Noter 5 jours',      court: '5 jours notés',
-        icon: 'fork', art: 'marmite', ph: 'notebook food journal',
+        icon: 'fork', art: 'marmite', ph: 'noter',
         value: daysLogged, target: 5 },
       { id: 'analyse',   nom: 'Analyser 3 jours',   court: '3 analyses',
-        icon: 'sparkle', art: 'eclair', ph: 'chart analysis desk',
+        icon: 'sparkle', art: 'eclair', ph: 'defi',
         value: w.analyse || 0, target: 3 },
       { id: 'bouger',    nom: 'Marcher 4 jours',    court: '4 jours actifs',
-        icon: 'steps', art: 'pas', ph: 'walking city street',
+        icon: 'steps', art: 'pas', ph: 'marche-defi',
         value: activeDays, target: 4 },
       { id: 'seance',    nom: '3 séances de sport', court: '3 séances',
-        icon: 'dumbbell', art: 'haltere', ph: 'gym weights training',
+        icon: 'dumbbell', art: 'haltere', ph: 'muscle',
         value: w.seance || 0, target: 3 },
       { id: 'roulette',  nom: 'Tourner 5 fois',     court: '5 tirages',
-        icon: 'dice', art: 'de', ph: 'dice game',
+        icon: 'dice', art: 'de', ph: 'roue',
         value: w.roulette || 0, target: 5 },
       { id: 'decouvrir', nom: 'Découvrir une ville', court: '1 ville',
-        icon: 'map', art: 'carte', ph: 'travel city guide',
+        icon: 'map', art: 'carte', ph: 'boussole',
         value: w.guide || 0, target: 1 }
     ];
   }

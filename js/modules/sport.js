@@ -423,15 +423,55 @@
     '</svg>';
   }
 
+  /* ============================================================
+     Les entraînements de la montre sur la carte du corps
+
+     Apple Santé ne dit pas quels muscles ont travaillé, seulement
+     le sport et la durée. On traduit donc chaque sport en muscles,
+     avec un poids par muscle : dix minutes de course valent à peu
+     près une série de dix répétitions pour les jambes. Plus un
+     muscle a travaillé dans la semaine, plus sa couleur fonce.
+     ============================================================ */
+  const SPORT_MUSCLES = [
+    [/course|trail|running|footing|tapis/i, { quad: 1, isch: .8, fess: .8, mol: 1, sol: .7, flechh: .5, abdo: .2 }],
+    [/marche|randonn|walking|hiking|escalier|stepper/i, { quad: .6, fess: .6, mol: .7, sol: .5, isch: .4 }],
+    [/velo|vélo|vtt|cycl|spinning/i, { quad: 1, fess: .7, isch: .5, mol: .6 }],
+    [/natation|nage|swim/i, { dors: 1, 'delt-a': .7, 'delt-m': .7, tri: .6, pect: .6, abdo: .4, coiffe: .4 }],
+    [/rameur|aviron|rowing/i, { dors: 1, rhom: .8, bi: .6, quad: .7, fess: .6, isch: .5, lomb: .5 }],
+    [/hiit|renfo|functional|crossfit|circuit/i, { quad: .7, fess: .6, pect: .5, dors: .5, abdo: .6, 'delt-m': .4 }],
+    [/musculation|strength|muscu/i, { pect: .5, dors: .5, quad: .5, fess: .5, 'delt-m': .4, bi: .3, tri: .3 }],
+    [/yoga|pilates|stretch|etirement/i, { abdo: .6, transv: .7, lomb: .6, isch: .5, fess: .3 }],
+    [/gainage|core/i, { abdo: 1, obl: .8, transv: 1, lomb: .6 }],
+    [/tennis|padel|squash|badminton/i, { 'delt-a': .7, 'delt-m': .6, avb: .7, quad: .6, mol: .6, obl: .6 }],
+    [/foot|basket|hand|rugby|volley/i, { quad: .9, isch: .8, mol: .8, fess: .7, flechh: .6, add: .5 }],
+    [/ski|snow/i, { quad: 1, fess: .8, add: .6, abdo: .4, mol: .4 }],
+    [/ellipti/i, { quad: .7, fess: .6, isch: .5, 'delt-a': .3 }],
+    [/boxe|combat|mma|judo|lutte/i, { 'delt-a': .8, tri: .6, pect: .5, abdo: .7, obl: .7, quad: .5, mol: .5 }],
+    [/escalade|grimpe/i, { dors: 1, avb: 1, bi: .8, rhom: .6, abdo: .5 }]
+  ];
+  function musclesDuSport(nom, minutes, scores) {
+    const n = String(nom || '');
+    const r = SPORT_MUSCLES.find(([re]) => re.test(n));
+    if (!r) return;
+    const w = Math.max(0, Number(minutes) || 0) / 10;
+    Object.keys(r[1]).forEach((m) => { scores[m] = (scores[m] || 0) + w * r[1][m]; });
+  }
+
   function carteDuCorps(jours) {
     const cut = Date.now() - (jours || 7) * 86400e3;
     const toutes = [];
+    const autres = [];
     seances().forEach((s) => {
-      if (s.type !== 'muscu') return;
       if (new Date(s.day + 'T12:00:00').getTime() < cut) return;
-      (s.series || []).forEach((x) => toutes.push(x));
+      if (s.type === 'muscu') (s.series || []).forEach((x) => toutes.push(x));
+      else autres.push({ nom: s.nom || s.sport || '', minutes: s.minutes });
+    });
+    Store.all('workouts').forEach((w) => {
+      if ((w.start || 0) < cut) return;
+      autres.push({ nom: w.nom || '', minutes: w.minutes });
     });
     const scores = SPORT.musclesTravailles(toutes);
+    autres.forEach((a) => musclesDuSport(a.nom, a.minutes, scores));
     const max = Math.max(1, ...Object.values(scores));
 
     const tries = Object.entries(scores).sort((a, b) => b[1] - a[1]);
@@ -451,7 +491,7 @@
         '</div>' +
         (top.length
           ? '<p style="font-size:13.5px;margin-top:12px"><b>Le plus travaillé : </b>' + UI.esc(top.join(', ')) + '.</p>'
-          : '<p class="muted" style="font-size:13.5px;margin-top:12px">Aucune séance de musculation cette semaine.</p>') +
+          : '<p class="muted" style="font-size:13.5px;margin-top:12px">Aucune séance enregistrée cette semaine, ni en salle ni à la montre.</p>') +
         (oublies.length && top.length
           ? '<p class="muted" style="font-size:13px;margin-top:6px"><b>Jamais touché : </b>' + UI.esc(oublies.slice(0, 5).join(', ')) + '.</p>'
           : '') +
