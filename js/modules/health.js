@@ -382,10 +382,14 @@
         '<circle cx="55" cy="55" r="' + R + '" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="12"/>' +
         (p > 0 ? '<circle cx="55" cy="55" r="' + R + '" fill="none" stroke="#7FE0C0" stroke-width="12" stroke-linecap="round" stroke-dasharray="' +
           (C * p).toFixed(1) + ' ' + C.toFixed(1) + '" transform="rotate(-90 55 55)"/>' : '') +
-        '</svg><div class="frc"><b>' + (f == null ? '–' : f) + '</b><small>forme</small></div></div>' +
+        '</svg><div class="frc">' + (f == null ? TIRET : '<b>' + f + '</b>') + '<small>forme</small></div></div>' +
       '<div class="fd"><b>' + UI.esc(titre) + '</b><span>' + UI.esc(texte) + '</span></div>' +
     '</div></div>';
   }
+
+  /* Pas de donnée : un trait dessiné, centré, plutôt qu'un caractère. */
+  const TIRET = '<i class="tiret" role="img" aria-label="Pas de donnée"></i>';
+  const valeur = (v) => v === '–' ? '<b class="tabnum vide">' + TIRET + '</b>' : '<b class="tabnum">' + UI.esc(v) + '</b>';
 
   function tuilesMesures(d) {
     const val = (k) => d[k] != null ? d[k] : null;
@@ -398,7 +402,7 @@
     ];
     return '<div class="section" style="padding-top:10px"><div class="mesures">' + T.map((t) =>
       '<button class="mesure avecvis" data-detail="' + t[3] + '">' + Vis.html(t[2], { classe: 'mvis3d' }) +
-      '<span class="mtx"><small>' + t[0] + '</small><b class="tabnum">' + UI.esc(t[1]) + '</b></span></button>').join('') + '</div></div>';
+      '<span class="mtx"><small>' + t[0] + '</small>' + valeur(t[1]) + '</span></button>').join('') + '</div></div>';
   }
 
   function tassesBlock() {
@@ -528,10 +532,10 @@
         stat('Poids', d.weight != null ? d.weight.toFixed(1).replace('.', ',') + ' kg' : lastKnown('weight'), 'scale') +
       '</div></div>';
   }
-  const stat = (k, v, ic) => '<div class="stat"><div class="k">' + Icon(ic, 13) + UI.esc(k) + '</div><div class="v" style="font-size:19px">' + UI.esc(v) + '</div></div>';
+  const stat = (k, v, ic) => '<div class="stat"><div class="k">' + Icon(ic, 13) + UI.esc(k) + '</div><div class="v" style="font-size:19px">' + (v === '–' ? TIRET : UI.esc(v)) + '</div></div>';
   function lastKnown(key) {
     const rows = daily().filter((d) => d[key] != null).sort((a, b) => a.day < b.day ? 1 : -1);
-    if (!rows.length) return '—';
+    if (!rows.length) return '–';
     const v = rows[0][key];
     return (typeof v === 'number' ? v.toFixed(1).replace('.', ',') : v) + (key === 'weight' ? ' kg' : '');
   }
