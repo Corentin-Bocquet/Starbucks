@@ -636,3 +636,12 @@ html:not([data-theme="dark"]) .lecpoint { background: #fff; box-shadow: 0 1px 0 
 @media (min-width: 1200px) {
   .mesures { grid-template-columns: repeat(4, minmax(0, 240px)) !important; justify-content: center; }
 }
+
+/* Thème clair : les cartes à objet 3D gardent un texte foncé lisible. */
+:root:not([data-theme="dark"]) .kart:is(.catpiece, :has(.vis3d)) { background: linear-gradient(165deg, #fff, #F3F1EE); }
+:root:not([data-theme="dark"]) .kart:is(.catpiece, :has(.vis3d))::before { display: none; }
+:root:not([data-theme="dark"]) .kart:is(.catpiece, :has(.vis3d)) .voile { display: none; }
+:root:not([data-theme="dark"]) .kart:is(.catpiece, :has(.vis3d)) .tx b { color: #14151A; text-shadow: none; }
+:root:not([data-theme="dark"]) .kart:is(.catpiece, :has(.vis3d)) .tx small { color: #5A5E68; opacity: 1; text-shadow: none; }
+:root:not([data-theme="dark"]) .tcarte.ajout { background: rgba(20,21,26,.04); box-shadow: inset 0 0 0 1.5px rgba(20,21,26,.1); }
+:root:not([data-theme="dark"]) .tplus { background: rgba(20,21,26,.06); color: #14151A; box-shadow: none; }

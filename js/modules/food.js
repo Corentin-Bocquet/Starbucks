@@ -221,7 +221,7 @@
        aplat colore n'est plus qu'un dernier recours invisible. */
     const vign = m.photoUrl || m.image
       ? '<span class="thumb"><img loading="lazy" src="' + UI.attr(m.photoUrl || m.image) + '" alt=""></span>'
-      : Imagerie.vignette(ref && ref.cat === 'boisson' ? 'boisson' : 'plat', m.nom, { classe: 'petite' });
+      : '';
     const ligne = '<div class="rowitem" data-meal="' + UI.attr(m.id) + '">' + vign +
       '<span class="tx"><b>' + UI.esc(m.nom) + '</b><small>' + q + (m.brand ? ' · ' + UI.esc(m.brand) : '') + '</small></span>' +
       '<span class="rt tabnum">' + UI.fmt.n(m.kcal) + ' kcal</span></div>';
@@ -328,7 +328,7 @@
         '<p style="font-size:14px;line-height:1.5">' + UI.esc(r.resume || '') + '</p></div></div>' +
       '<div class="list" style="margin-top:10px">' + (r.repas || []).map((x) =>
         '<div class="rowitem">' +
-          Imagerie.vignette('plat', x.plat, { classe: 'petite' }) +
+
           '<span class="tx"><b>' + UI.esc(x.plat) + '</b><small>' +
             UI.esc([x.moment, x.quantite, x.pourquoi].filter(Boolean).join(' · ')) + '</small></span>' +
           '<span class="rt tabnum">' + UI.fmt.n(x.kcal) + ' kcal</span>' +
@@ -491,10 +491,12 @@
     const cur = { qty: Number(m.qty) || 100, unit: m.unit || 'g' };
     CHAMPS.forEach(([k]) => { cur[k] = Number(m[k]) || 0; });
 
+    /* Pas d'image inventée pour un aliment : sa photo s'il en a
+       une, sinon un en-tête coloré avec son nom. */
     const tete = m.photoUrl || m.image
       ? '<div class="mimg cover"><img src="' + UI.attr(m.photoUrl || m.image) + '" alt=""></div>'
-      : '<div class="mimg cover" data-mealphoto>' +
-          Imagerie.vignette('plat', m.nom, { classe: 'plein' }) + '</div>';
+      : '<div class="mtete" style="--t1:#2F6B5A;--t2:#58A68C"><h2>' + UI.esc(m.nom) + '</h2>' +
+          '<p>' + UI.esc([m.qty ? UI.fmt.n(m.qty) + ' ' + (m.unit || 'g') : '', m.brand || ''].filter(Boolean).join(' · ')) + '</p></div>';
 
     const ligne = ([k, nom, unite, dec]) =>
       '<div class="macroligne">' +
@@ -507,7 +509,7 @@
     UI.openSheet(
       tete +
       '<div class="mbody">' +
-        '<h2 class="ftitre-gros">' + UI.esc(m.nom) + '</h2>' +
+        ((m.photoUrl || m.image) ? '<h2 class="ftitre-gros">' + UI.esc(m.nom) + '</h2>' : '') +
         (m.brand ? '<p class="mdesc">' + UI.esc(m.brand) + '</p>' : '') +
 
         '<h4 class="ftitre">Quantité</h4>' +
