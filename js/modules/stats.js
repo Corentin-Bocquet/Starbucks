@@ -448,7 +448,7 @@
      ouvre une pop-up, ou chaque famille a son carrousel.
      ============================================================ */
   const LABELS = {
-    activite: 'Activités', etablissement: 'Adresses', aliment: 'Aliments',
+    activite: 'Activités', etablissement: 'Adresses', aliment: 'Délices',
     cadeau: 'Cadeaux', media: 'Films et séries', meal: 'Repas',
     tenue: 'Tenues', calendrier: 'Agenda', 'codex-open': 'Recettes'
   };

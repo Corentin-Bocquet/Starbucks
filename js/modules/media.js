@@ -438,7 +438,7 @@
     let resultats = [];
 
     UI.openSheet(
-      '<div class="mbody" style="padding-top:6px">' +
+      '<div class="mbody" style="padding-top:6px;min-height:min(72vh,640px)">' +
         '<h2 style="font-size:22px;margin-bottom:2px">Ajouter des titres</h2>' +
         '<p class="muted" style="font-size:13px;margin-bottom:12px">Le panneau reste ouvert : ajoute-en autant que tu veux.</p>' +
         '<div class="recherchecollee"><label class="search" style="box-shadow:var(--sh-inset)">' + Icon('search', 17) +
@@ -501,8 +501,12 @@
             dessiner();
             /* Les premiers résultats d'abord : on remonte en haut de la
                liste au lieu d'atterrir sur les derniers. */
-            sh.scrollTop = 0;
-            const l = out.querySelector('.list'); if (l) l.scrollTop = 0;
+            const enHaut = () => {
+              for (let e = out; e && e !== document.documentElement; e = e.parentElement) {
+                if (e.scrollHeight > e.clientHeight + 2) e.scrollTop = 0;
+              }
+            };
+            enHaut(); requestAnimationFrame(enHaut); setTimeout(enHaut, 120);
           }, 380);
         } }
     );

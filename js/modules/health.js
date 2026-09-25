@@ -382,7 +382,7 @@
         '<circle cx="55" cy="55" r="' + R + '" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="12"/>' +
         (p > 0 ? '<circle cx="55" cy="55" r="' + R + '" fill="none" stroke="#7FE0C0" stroke-width="12" stroke-linecap="round" stroke-dasharray="' +
           (C * p).toFixed(1) + ' ' + C.toFixed(1) + '" transform="rotate(-90 55 55)"/>' : '') +
-        '</svg><div class="frc"><b>' + (f == null ? '·' : f) + '</b><small>forme</small></div></div>' +
+        '</svg><div class="frc"><b>' + (f == null ? '–' : f) + '</b><small>forme</small></div></div>' +
       '<div class="fd"><b>' + UI.esc(titre) + '</b><span>' + UI.esc(texte) + '</span></div>' +
     '</div></div>';
   }
@@ -391,9 +391,9 @@
     const val = (k) => d[k] != null ? d[k] : null;
     const poids = val('weight') != null ? d.weight.toFixed(1).replace('.', ',') + ' kg' : lastKnown('weight');
     const T = [
-      ['Sommeil', val('sleep') != null ? UI.fmt.dur(d.sleep) : '·', 'sommeil', 'sleep'],
-      ['Pas', val('steps') != null ? UI.fmt.n(d.steps) : '·', 'pas', 'steps'],
-      ['Cœur au repos', val('hrRest') != null ? Math.round(d.hrRest) + ' bpm' : '·', 'cardio', 'hrRest'],
+      ['Sommeil', val('sleep') != null ? UI.fmt.dur(d.sleep) : '–', 'sommeil', 'sleep'],
+      ['Pas', val('steps') != null ? UI.fmt.n(d.steps) : '–', 'pas', 'steps'],
+      ['Cœur au repos', val('hrRest') != null ? Math.round(d.hrRest) + ' bpm' : '–', 'cardio', 'hrRest'],
       ['Poids', poids, 'poids', 'weight']
     ];
     return '<div class="section" style="padding-top:10px"><div class="mesures">' + T.map((t) =>
@@ -520,8 +520,8 @@
         UI.ring(d.steps || 0, g.steps, UI.fmt.n(d.steps || 0), 'pas') +
       '</div></div>' +
       '<div class="stats" style="margin-top:12px">' +
-        stat('Sommeil', d.sleep != null ? UI.fmt.dur(d.sleep) : '·', 'moon') +
-        stat('FC repos', d.hrRest != null ? Math.round(d.hrRest) + ' bpm' : '·', 'pulse') +
+        stat('Sommeil', d.sleep != null ? UI.fmt.dur(d.sleep) : '–', 'moon') +
+        stat('FC repos', d.hrRest != null ? Math.round(d.hrRest) + ' bpm' : '–', 'pulse') +
         stat('VFC', d.hrv != null ? Math.round(d.hrv) + ' ms' : '—', 'pulse') +
         stat('Distance', d.distance != null ? UI.fmt.km(d.distance) : '—', 'map') +
         stat('Étages', d.floors != null ? UI.fmt.n(d.floors) : '—', 'activity') +

@@ -401,8 +401,8 @@ html:not([data-theme="dark"]) .tgrand { background: linear-gradient(160deg, #3E4
 .kart .badge.plus { display: grid; place-items: center; padding: 0; width: 26px; height: 26px; }
 
 /* La flèche de retour ne passe jamais sur le titre d'une pop-up. */
-.sheet.a-retour > .mtete:first-of-type:not(:has(.ill)) { padding-top: 62px; }
-.sheet.a-retour > .mtete:first-of-type .ill { margin-top: 30px; }
+.sheet.a-retour > .mtete:not(:has(.ill)) { padding-top: 62px; }
+.sheet.a-retour > .mtete .ill { margin-top: 34px; }
 
 /* La croix qui referme une analyse. */
 .fermebloc { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; color: var(--muted);
@@ -419,8 +419,9 @@ html:not([data-theme="dark"]) .tgrand { background: linear-gradient(160deg, #3E4
 .mesure .mtx b { font-size: 21px; font-weight: 800; letter-spacing: -.02em; white-space: nowrap; }
 
 /* Les trois boutons du jour : chacun a la place de respirer. */
-.actsante { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) 54px; gap: 10px; }
-.actsante .btn { min-width: 0; padding: 0 14px; justify-content: center; gap: 8px; white-space: nowrap; }
+.actsante { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) 54px; gap: 8px; }
+.actsante .btn, .actsante .btn.lg { min-width: 0; padding: 0 12px !important; justify-content: center; gap: 7px; white-space: nowrap; font-size: 15px; }
+.actsante .btn svg { flex: none; }
 .actsante .btn span { overflow: hidden; text-overflow: ellipsis; }
 .actsante .btn.rond { width: 54px; padding: 0; border-radius: 50%; }
 @media (max-width: 360px) { .actsante { grid-template-columns: 1fr 1fr; } .actsante .btn.rond { display: none; } }
@@ -476,7 +477,7 @@ html:not([data-theme="dark"]) .tgrand { background: linear-gradient(160deg, #3E4
    verre, et le titre réserve toujours deux lignes pour que toutes
    les cartes d'une rangée fassent la même hauteur.
    ============================================================ */
-:root { --carte-l: 176px; --carte-h: 252px; }
+:root { --carte-l: clamp(170px, calc((100vw - 32px) / 1.62), 236px); --carte-h: calc(var(--carte-l) * 1.4); }
 @media (min-width: 700px) { :root { --carte-l: 200px; --carte-h: 276px; } }
 
 .wiz .track { gap: 12px; padding: 8px var(--gut) 14px; scroll-padding-inline: var(--gut); }
@@ -593,7 +594,7 @@ html:not([data-theme="dark"]) .wiz .track .opt.sel { outline-color: var(--accent
 :root[data-theme="dark"] .recherchecollee { background: linear-gradient(180deg, rgba(14,24,31,.96) 70%, transparent); }
 .plusrond { display: grid !important; place-items: center; padding: 0; line-height: 0; }
 .plusrond svg { display: block; margin: 0; }
-.retirerzone { padding-top: 18px !important; margin-top: 6px; border-top: 1px solid var(--hairline); }
+.retirerzone { padding-top: 16px !important; margin-top: 14px !important; border-top: 1px solid var(--hairline); position: static !important; }
 .attente .attvis { width: 90px; height: 90px; }
 
 /* ============================================================
@@ -645,3 +646,83 @@ html:not([data-theme="dark"]) .lecpoint { background: #fff; box-shadow: 0 1px 0 
 :root:not([data-theme="dark"]) .kart:is(.catpiece, :has(.vis3d)) .tx small { color: #5A5E68; opacity: 1; text-shadow: none; }
 :root:not([data-theme="dark"]) .tcarte.ajout { background: rgba(20,21,26,.04); box-shadow: inset 0 0 0 1.5px rgba(20,21,26,.1); }
 :root:not([data-theme="dark"]) .tplus { background: rgba(20,21,26,.06); color: #14151A; box-shadow: none; }
+
+/* La roue : un nom long rétrécit, puis se coupe proprement, sans
+   jamais sortir du cadre. */
+.roulwin .marker { left: 10px; right: 10px; }
+.roulstrip .it { padding: 0 22px; min-width: 0; }
+.roulstrip .it span { min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.roulstrip .it.long { font-size: 14px; }
+.roulstrip .it.tlong { font-size: 12.5px; letter-spacing: -.01em; }
+
+/* Un objet 3D se montre toujours en entier : aucune règle de carte
+   ou de fiche ne doit le rogner. Les vraies photos gardent le cadrage
+   plein. */
+.vis3d:not(.photo) > img, .vis3d:not(.photo) img { object-fit: contain !important; object-position: center !important; }
+.vis3d:not(.photo) { overflow: visible; }
+
+/* Mini-cartes d'une tenue : l'image occupe sa case, le nom reste
+   dessous, rien ne se chevauche, quelle que soit la photo. */
+.mini { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; justify-items: stretch; align-items: stretch; gap: 4px; padding: 6px; }
+.mini .mvis { position: relative; display: block; width: 100%; height: 100%; min-height: 0; flex: none; }
+.mini .mvis > .vis3d, .mini .mvis > img, .mini .mvis > .phic { position: absolute; inset: 4px; width: auto; height: auto; }
+.mini .mvis.photo > img { inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 13px; }
+.mini small { display: block; padding: 0 2px 1px; text-align: center; }
+
+/* Le détail d'une tenue : un carrousel de grandes cartes, une par
+   pièce, la suivante qui dépasse pour montrer qu'on peut glisser. */
+.pcarrousel { display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none;
+  margin: 0 calc(-1 * var(--gut, 20px)); padding: 4px var(--gut, 20px) 14px; scroll-padding-inline: var(--gut, 20px); }
+.pcarrousel::-webkit-scrollbar { display: none; }
+.pcarte { flex: none; width: min(62vw, 230px); height: 280px; scroll-snap-align: start; display: grid; grid-template-rows: minmax(0, 1fr) auto;
+  border-radius: 26px; overflow: hidden; color: var(--ink);
+  background: linear-gradient(165deg, rgba(255,255,255,.14), rgba(255,255,255,.04));
+  -webkit-backdrop-filter: blur(16px) saturate(160%); backdrop-filter: blur(16px) saturate(160%);
+  box-shadow: inset 0 1px 1px rgba(255,255,255,.4), inset 0 0 0 1px rgba(255,255,255,.1), 0 18px 34px -24px rgba(0,0,0,.6); }
+.pcarte .pvis { position: relative; margin: 10px 10px 0; border-radius: 18px; }
+.pcarte .pvis > .vis3d, .pcarte .pvis > .phic { position: absolute; inset: 12px; width: auto; height: auto; }
+.pcarte .pvis.photo > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 18px; }
+.pcarte .ptx { display: flex; flex-direction: column; gap: 2px; padding: 10px 14px 14px; min-width: 0; }
+.pcarte .ptx small { font-size: 10.5px; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.pcarte .ptx b { font-size: 15px; font-weight: 800; letter-spacing: -.015em; line-height: 1.2;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+:root:not([data-theme="dark"]) .pcarte { background: linear-gradient(165deg, #fff, #F2F0EC); box-shadow: 0 14px 30px -22px rgba(20,21,26,.45), inset 0 0 0 1px rgba(20,21,26,.06); }
+@media (min-width: 900px) { .pcarte { width: 230px; } }
+
+/* Tous les carrousels s'aimantent sur la marge, pas sur le bord de l'écran. */
+.carrousel, .rail, .kcarrousel { scroll-padding-inline: var(--gut, 20px); }
+
+/* Aliments sans image : l'icône seule, bien lisible, pas de carré. */
+.rowitem .thumb.nu { background: none !important; box-shadow: none !important; color: var(--ink-2); width: 36px; display: grid; place-items: center; opacity: .8; }
+.rowitem .thumb.vis { background: none !important; box-shadow: none !important; }
+.rowitem .thumb.vis img { object-fit: contain !important; filter: drop-shadow(0 6px 10px rgba(0,0,0,.25)); }
+
+/* Mon sport : l'haltère et la chaussure au centre de leur carte. */
+.dansbloc .porte .vis3d.fond { left: 0; right: 0; margin: 0 auto; top: 10px; }
+
+/* La baguette magique de « Choisis pour moi » respire un peu. */
+.porte[data-act="ai"] .vis3d.fond { transform: scale(.86); transform-origin: top right; }
+
+/* Fiche film sans affiche : le titre n'apparaît qu'une fois. */
+.mimg.affiche-tete .afficheverre > b, .mimg.affiche-tete .afficheverre > small { display: none; }
+.mimg.affiche-tete .afficheverre { position: absolute; inset: 0; }
+
+/* Les bulles d'humeur : le texte garde de l'air à droite et passe
+   sur deux lignes plutôt que de toucher le bord. */
+.bulle { padding: 0 16px 0 10px; font-size: 13.5px; line-height: 1.15; white-space: normal; }
+.bulle .bt { min-width: 0; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.bulle .pt { flex: none; }
+
+/* Micro-animations : un battement sur les favoris, une entrée douce
+   des sections au changement de page. Rien si « animations
+   réduites » est activé. */
+@keyframes battement { 0% { transform: scale(1); } 30% { transform: scale(1.28); } 55% { transform: scale(.92); } 100% { transform: scale(1); } }
+.battement, .battement > svg, .battement .etoile { animation: battement .5s cubic-bezier(.3,1.5,.5,1); }
+@keyframes entreeSection { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.entree > .wrap > .section, .entree > .section { animation: entreeSection .42s cubic-bezier(.2,.8,.2,1) both; }
+.entree > .wrap > .section:nth-child(2), .entree > .section:nth-child(2) { animation-delay: 40ms; }
+.entree > .wrap > .section:nth-child(3), .entree > .section:nth-child(3) { animation-delay: 80ms; }
+.entree > .wrap > .section:nth-child(n+4), .entree > .section:nth-child(n+4) { animation-delay: 120ms; }
+@media (prefers-reduced-motion: reduce) { .battement, .entree .section { animation: none !important; } }
+.porte:has(.vis3d) { padding-left: 12px; padding-right: 10px; }
+.porte:has(.vis3d) .tx b { font-size: 15.5px; letter-spacing: -.025em; }

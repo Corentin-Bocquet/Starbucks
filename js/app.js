@@ -32,7 +32,7 @@
       g1: '#0E6E4B', g2: '#31A876' },
     { id: 'bar',   label: 'Bar',     icon: 'glass', art: 'verre',  accent: 'bar',  codex: 'ck',
       g1: '#6B2A4E', g2: '#AE4A80' },
-    { id: 'foods', label: 'Aliments', icon: 'fork', art: 'marmite',  accent: 'brand',
+    { id: 'foods', label: 'Délices', titre: 'Les délices de la vie', cherche: 'aliments', icon: 'fork', art: 'marmite',  accent: 'brand',
       g1: '#C05F26', g2: '#EBA255' },
     { id: 'gifts', label: 'Cadeaux', icon: 'gift', art: 'cadeau',   accent: 'brand',
       g1: '#A31F46', g2: '#E45C82' },
@@ -134,7 +134,7 @@
           '<input type="search" placeholder="Chercher un module" aria-label="Chercher un module" data-hubq></label>' +
         '<div class="hubcases">' +
           tuiles.map((m) =>
-            '<button class="hubcase" data-mod="' + m.id + '" data-nom="' + UI.attr(m.label.toLowerCase()) + '" style="--g1:' + m.g1 + ';--g2:' + m.g2 + '">' +
+            '<button class="hubcase" data-mod="' + m.id + '" data-nom="' + UI.attr((m.label + ' ' + (m.cherche || '')).toLowerCase()) + '" style="--g1:' + m.g1 + ';--g2:' + m.g2 + '">' +
               '<span class="rond">' + Icon(m.icon, 24) + '</span>' +
               '<b>' + UI.esc(m.label) + '</b>' +
             '</button>').join('') +
@@ -191,7 +191,7 @@
        onglets finissaient allumes en meme temps sur une page de
        module. */
     UI.$$('#tabbar button').forEach((b) => b.classList.toggle('on', !!(d && d.bas && b.dataset.tab === d.id)));
-    setTitle(reglages ? 'Réglages' : (d ? d.label : 'EVER'));
+    setTitle(reglages ? 'Réglages' : (d ? (d.titre || d.label) : 'EVER'));
 
     /* Café, bar et recettes partagent le même moteur de fiches. */
     if (d && d.codex) {

@@ -105,5 +105,36 @@
     requestAnimationFrame(pas);
   }
 
-  global.Anim = { gouttes, confettis, halo, compter };
+  /* ---------- Micro-gestes ----------
+     Trois retours discrets, branchés une seule fois pour toute
+     l'app : un battement quand on met en favori, une entrée douce
+     des sections quand on change de page (jamais à chaque
+     rafraîchissement), et rien d'autre. */
+  function battre(el) {
+    if (calme() || !el) return;
+    el.classList.remove('battement');
+    void el.offsetWidth;
+    el.classList.add('battement');
+    setTimeout(() => el.classList.remove('battement'), 520);
+  }
+
+  function entree() {
+    if (calme()) return;
+    setTimeout(() => {
+      const v = document.querySelector('.view.on') || document.querySelector('main');
+      if (!v) return;
+      v.classList.remove('entree');
+      void v.offsetWidth;
+      v.classList.add('entree');
+      setTimeout(() => v.classList.remove('entree'), 900);
+    }, 30);
+  }
+
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest && e.target.closest('[data-fav], .fav, .coeur, [data-coeur], [data-favori]');
+    if (b) battre(b);
+  }, true);
+  global.addEventListener('hashchange', entree);
+
+  global.Anim = { gouttes, confettis, halo, compter, battre, entree };
 })(window);

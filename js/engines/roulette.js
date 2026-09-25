@@ -60,6 +60,13 @@
   function label(it) {
     return typeof it === 'string' ? it : (it.label || it.nom || it.name || '');
   }
+  /* Une case de la roue. Les noms longs passent en plus petit, et
+     jamais au-delà du cadre. */
+  function caseHtml(it) {
+    const l = label(it);
+    const t = l.length > 34 ? ' tlong' : (l.length > 22 ? ' long' : '');
+    return '<div class="it' + t + '">' + (it && it.icon ? Icon(it.icon, 18) : '') + '<span>' + UI.esc(l) + '</span></div>';
+  }
 
   function stripHtml(items, winnerIndex, repeats) {
     /* On empile plusieurs passages du jeu complet, melange, et on
@@ -72,9 +79,7 @@
     }
     seq.push(items[winnerIndex]);
     return {
-      html: seq.map((it) => '<div class="it">' +
-        (it && it.icon ? Icon(it.icon, 18) : '') +
-        '<span>' + UI.esc(label(it)) + '</span></div>').join(''),
+      html: seq.map(caseHtml).join(''),
       stopIndex: seq.length - 1
     };
   }
@@ -143,8 +148,7 @@
       el.querySelector('[data-spin]').removeAttribute('disabled');
       strip.style.transition = 'none';
       strip.style.transform = 'translateY(-44px)';
-      strip.innerHTML = items.slice(0, 6).concat(items.slice(0, 3)).map((it) =>
-        '<div class="it">' + (it.icon ? Icon(it.icon, 18) : '') + '<span>' + UI.esc(label(it)) + '</span></div>').join('');
+      strip.innerHTML = items.slice(0, 6).concat(items.slice(0, 3)).map(caseHtml).join('');
     }
 
     async function run() {
@@ -169,6 +173,7 @@
 
       if (o.render) el.querySelector('[data-result]').innerHTML = o.render(winner);
       if (o.onResult) o.onResult(winner, el.querySelector('[data-result]'));
+      if (global.Anim) Anim.halo(el.querySelector('.roulwin .marker'), 'var(--accent)');
     }
 
     shell();
