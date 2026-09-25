@@ -744,22 +744,24 @@
   /* Une vignette pour chaque aliment : photo du produit quand Open
      Food Facts en fournit une, sinon une pastille de couleur par
      famille. Une liste d'aliments doit se lire d'un coup d'oeil. */
-  const CATTINT = {
-    plat: '#E9F1FB', sandwich: '#FBEDE3', viande: '#FBE7E7', poisson: '#E4F1F6',
-    feculent: '#F7EFDF', legume: '#E7F5EC', fruit: '#FBEFF4', laitier: '#F1F0FB',
-    petitdej: '#FAF0DE', entree: '#EFF3E9', dessert: '#FBE9EF', snack: '#F2EFEA',
-    boisson: '#E4F0F6', sauce: '#F5EEE6'
-  };
   const CATICON = {
     plat: 'pot', sandwich: 'fork', viande: 'fork', poisson: 'fork',
     feculent: 'fork', legume: 'apple', fruit: 'apple', laitier: 'apple',
     petitdej: 'coffee', entree: 'fork', dessert: 'apple', snack: 'apple',
     boisson: 'glass', sauce: 'fork'
   };
+  /* L'image propre d'un aliment de la table interne, quand elle
+     existe (img/v/al-<nom>.webp). Jamais d'image approchante. */
+  function imageAliment(nom) {
+    const slug = 'al-' + String(nom || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/œ/g, 'oe').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    return Vis.src(slug);
+  }
   function vignette(r) {
-    if (r.image) return '<span class="thumb"><img loading="lazy" src="' + UI.attr(r.image) + '" alt=""></span>';
-    const tint = CATTINT[r.cat] || 'var(--accent-soft)';
-    return '<span class="thumb" style="background:' + tint + ';color:var(--ink-2)">' + Icon(CATICON[r.cat] || 'fork', 19) + '</span>';
+    const img = r.image || imageAliment(r.nom);
+    if (img) return '<span class="thumb' + (r.image ? '' : ' vis') + '"><img loading="lazy" src="' + UI.attr(img) + '" alt=""></span>';
+    /* Pas d'image fiable : une simple icône, lisible, sans carré. */
+    return '<span class="thumb nu">' + Icon(CATICON[r.cat] || 'fork', 20) + '</span>';
   }
 
   function resultList(rows) {

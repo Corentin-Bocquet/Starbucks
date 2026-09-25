@@ -162,6 +162,16 @@
       } });
   }
 
+  /* ---------- Le budget ----------
+     Un filtre dur, pas une simple préférence : avec « € » coché, rien
+     de plus cher ne sort. Un prix inconnu passe, un gratuit aussi. */
+  function budget() { return (ctx && ctx.budget) || Store.get('budget', 2); }
+  function dansBudget(a) {
+    const prix = a.price != null ? a.price : a.prix;
+    if (prix == null || prix === '') return true;
+    return Number(prix) <= budget();
+  }
+
   /* ---------- Le vivier ---------- */
   function pool(opts) {
     opts = opts || {};
@@ -177,7 +187,7 @@
         temps: (global.Cal ? Cal.timeAvailable() : 0) || null
       });
       if (!opts.ignoreFav && p.favOnly) list = list.filter((a) => Store.isFav('activity', a.id));
-      return list;
+      return list.filter(dansBudget);
     }
 
     let list = Store.all('activities').filter((a) => !a.city || a.city === p.city)
@@ -185,6 +195,7 @@
     if (!opts.ignoreCategory && p.category !== 'all') list = list.filter((a) => a.category === p.category);
     if (!opts.ignoreFav && p.favOnly) list = list.filter((a) => Store.isFav('activity', a.id));
     if (p.source === 'mine') list = list.filter((a) => a.source !== 'seed');
+    list = list.filter(dansBudget);
 
     const season = ctx ? ctx.season : UI.day.season();
     list = list.filter((a) => !a.seasons || !a.seasons.length || a.seasons.indexOf(season) >= 0);
@@ -310,7 +321,7 @@
     const bulle = (e) => {
       const mol = MOODS.MOLECULES[e.molecule] || {};
       return '<button class="bulle' + (p.mood === e.id ? ' on' : '') + '" data-mood="' + e.id + '" style="--mc:' + UI.attr(mol.teinte || '#6FB2E8') + '">' +
-        '<span class="pt">' + Icon(e.icon, 14) + '</span>' + UI.esc(COURT[e.id] || e.nom) + '</button>';
+        '<span class="pt">' + Icon(e.icon, 14) + '</span><span class="bt">' + UI.esc(COURT[e.id] || e.nom) + '</span></button>';
     };
     return '<div class="section" style="padding-top:8px">' +
       '<div class="lanceurs">' + LANCEURS.map(carte).join('') + '</div>' +
@@ -683,7 +694,13 @@
         return;
       }
     }
-    if (!candidates.length) { const s = box.querySelector('[data-venue]'); if (s) s.innerHTML = ''; return; }
+    const avant = candidates.length;
+    candidates = candidates.filter(dansBudget);
+    if (!candidates.length) {
+      const s = box.querySelector('[data-venue]');
+      if (s) s.innerHTML = avant ? '<p class="muted" style="font-size:12.5px">Aucune adresse connue dans ton budget ' + '€'.repeat(budget()) + ' pour ça.</p>' : '';
+      return;
+    }
 
     const ranked = Reco.rank(candidates, ctx, {
       favIds: new Set(Store.all('places').filter((x) => Store.isFav('place', x.id)).map((x) => x.id)),
@@ -1044,6 +1061,7 @@
       "- uniquement des lieux qui existent vraiment et que tu connais ;\n" +
       "- si tu n'es pas sûr d'un établissement, ne l'invente pas, renvoie moins de résultats ;\n" +
       "- mets 0 pour la note et le nombre d'avis quand tu ne les connais pas plutôt que de deviner ;\n" +
+      "- budget maximum : " + '€'.repeat(budget()) + " sur €€€€, rien de plus cher ;\n" +
       "- huit résultats maximum.",
       VENUE_SCHEMA, { ttl: 3 * 86400e3, temperature: 0.4 });
 

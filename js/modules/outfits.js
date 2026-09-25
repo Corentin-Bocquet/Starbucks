@@ -208,6 +208,24 @@
     return '<span class="mosaique n' + l.length + '">' + l.map(miniPiece).join('') + '</span>';
   }
 
+  /* Le détail d'une tenue : toutes ses pièces en grandes cartes, en
+     carrousel. Les mini-cartes ne servent qu'à présenter la tenue. */
+  function cartePieceTenue(g) {
+    const nom = typeof g === 'string' ? g : g.nom;
+    const slot = typeof g === 'string' ? devinerSlot(g) : (g.slot || devinerSlot(g.nom));
+    const aPhoto = typeof g !== 'string' && (g.photo || g.photoUrl);
+    return '<div class="pcarte">' +
+      '<span class="pvis' + (aPhoto ? ' photo' : '') + '">' +
+        (aPhoto ? Photos.img(g, 'photo') : Vis.html(SLOT_VIS[slot] || 'haut')) + '</span>' +
+      '<span class="ptx"><small>' + UI.esc(slotName(slot)) + '</small><b>' + UI.esc(nom) + '</b></span>' +
+    '</div>';
+  }
+  function carrouselPieces(pieces) {
+    const l = (pieces || []).filter(Boolean);
+    if (!l.length) return '<p class="muted">Aucune pièce dans cette tenue.</p>';
+    return '<div class="pcarrousel">' + l.map(cartePieceTenue).join('') + '</div>';
+  }
+
   function visuelTenue(t) {
     if (t.photo || t.photoUrl) return '<span class="tphoto">' + Photos.img(t, 'photo') + '</span>';
     return mosaique(piecesDe(t));
@@ -335,24 +353,18 @@
     const m = SEED.MOODS.find((x) => x.id === mood) || SEED.MOODS[0];
     const teinte = TEINTES_MOOD[mood] || TEINTES_MOOD.chill;
 
-    UI.openSheet(
-      '<div class="result plein">' +
-        '<div class="rtete" style="--g1:' + teinte[0] + ';--g2:' + teinte[1] + '">' +
-          '<div class="sur">' + UI.esc(m.nom) + '</div>' +
-          '<div class="titreligne"><h3>' + UI.esc(t.nom || m.nom) + '</h3></div>' +
-        '</div>' +
-      '</div>' +
-      '<div class="mbody">' +
-        '<div class="tgrand">' + mosaique(piecesDe(t)) + '</div>' +
-        (piecesDe(t).length > 4 ? '<div class="list" style="margin-top:12px">' + piecesDe(t).slice(4).map((x) =>
-          '<div class="rowitem">' + miniPiece(x) + '</div>').join('') + '</div>' : '') +
+    const pieces = piecesDe(t);
+    Cartes.ouvrir({
+      tete: Cartes.tete(t.nom || m.nom, m.nom + ' · ' + pieces.length + ' pièce' + (pieces.length > 1 ? 's' : ''), teinte, 'chemise'),
+      corps:
+        '<h4 class="ftitre">Ce qu\'il y a dedans · ' + pieces.length + '</h4>' +
+        carrouselPieces(pieces) +
         (t.pourquoi ? '<div class="rwhy" style="margin-top:12px">' + UI.esc(t.pourquoi) + '</div>' : '') +
         '<div class="ract" style="margin-top:16px">' +
           '<button class="btn primary grow lg" data-garder>' + Icon('star', 17) + 'Garder cette tenue</button>' +
           '<button class="btn lg" data-relance2 aria-label="Régénérer">' + Icon('refresh', 17) + '</button>' +
-        '</div>' +
-      '</div>',
-      { onMount: async (sh) => {
+        '</div>',
+      onMount: async (sh) => {
           await Photos.hydrate(sh);
           sh.querySelector('[data-garder]').onclick = () => {
             Store.add('outfits', {
@@ -364,8 +376,8 @@
             view = 'tenues'; render();
           };
           sh.querySelector('[data-relance2]').onclick = () => { UI.closeSheet(); relancer(mood); };
-        } }
-    );
+        }
+    });
   }
 
   /* Une couleur par ambiance de tenue. */
@@ -647,14 +659,11 @@
     const aPhoto = o.photo || o.photoUrl;
 
     const vue = {
-      tete: '<div class="mtete" style="--t1:' + t[0] + ';--t2:' + t[1] + '">' +
-        '<h2>' + UI.esc(o.nom || 'Tenue') + '</h2><p>' + UI.esc(moodName(o.mood)) + ' · ' + items.length + ' pièces</p></div>',
+      tete: Cartes.tete(o.nom || 'Tenue', moodName(o.mood) + ' · ' + items.length + ' pièce' + (items.length > 1 ? 's' : ''), t, 'chemise'),
       corps:
         (aPhoto ? '<div class="tphotogrande">' + Photos.img(o, 'photo') + '</div>' : '') +
-        '<h4 class="ftitre">Ce qu\'il y a dedans</h4>' +
-        '<div class="tgrand">' + mosaique(items) + '</div>' +
-        (items.length > 4 ? '<div class="list" style="margin-top:10px">' + items.slice(4).map((x) =>
-          '<div class="rowitem">' + miniPiece(x) + '</div>').join('') + '</div>' : '') +
+        '<h4 class="ftitre">Ce qu\'il y a dedans · ' + items.length + '</h4>' +
+        carrouselPieces(items) +
         (o.note ? '<div class="rwhy" style="margin-top:12px">' + UI.esc(o.note) + '</div>' : '') +
         '<div class="btnrow" style="margin-top:18px">' +
           '<button class="btn primary grow lg" data-maphoto>' + Icon('camera', 17) + (aPhoto ? 'Changer ma photo' : 'Ajouter ma photo') + '</button>' +

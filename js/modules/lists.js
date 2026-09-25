@@ -19,7 +19,7 @@
   ];
 
   const KINDS = {
-    foods:  { nom: 'Aliments', icon: 'fork' },
+    foods:  { nom: 'Délices', icon: 'fork' },
     gifts:  { nom: 'Cadeaux',  icon: 'gift' },
     media:  { nom: 'Films et séries', icon: 'film' },
     places: { nom: 'Lieux',    icon: 'pin' },
