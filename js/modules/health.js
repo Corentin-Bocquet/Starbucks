@@ -391,14 +391,14 @@
     const val = (k) => d[k] != null ? d[k] : null;
     const poids = val('weight') != null ? d.weight.toFixed(1).replace('.', ',') + ' kg' : lastKnown('weight');
     const T = [
-      ['Sommeil', val('sleep') != null ? UI.fmt.dur(d.sleep) : '·', 'moon', '#8C80F0', 'sleep'],
-      ['Pas', val('steps') != null ? UI.fmt.n(d.steps) : '·', 'steps', '#F5A25B', 'steps'],
-      ['Cardio repos', val('hrRest') != null ? Math.round(d.hrRest) + ' bpm' : '·', 'pulse', '#F5577F', 'hrRest'],
-      ['Poids', poids, 'scale', '#5BC8F5', 'weight']
+      ['Sommeil', val('sleep') != null ? UI.fmt.dur(d.sleep) : '·', 'sommeil', 'sleep'],
+      ['Pas', val('steps') != null ? UI.fmt.n(d.steps) : '·', 'pas', 'steps'],
+      ['Cœur au repos', val('hrRest') != null ? Math.round(d.hrRest) + ' bpm' : '·', 'cardio', 'hrRest'],
+      ['Poids', poids, 'poids', 'weight']
     ];
     return '<div class="section" style="padding-top:10px"><div class="mesures">' + T.map((t) =>
-      '<button class="mesure" data-detail="' + t[4] + '"><span class="mh" style="color:' + t[3] + '">' + Icon(t[2], 18) +
-      '<small>' + t[0] + '</small></span><b class="tabnum">' + UI.esc(t[1]) + '</b></button>').join('') + '</div></div>';
+      '<button class="mesure avecvis" data-detail="' + t[3] + '">' + Vis.html(t[2], { classe: 'mvis3d' }) +
+      '<span class="mtx"><small>' + t[0] + '</small><b class="tabnum">' + UI.esc(t[1]) + '</b></span></button>').join('') + '</div></div>';
   }
 
   function tassesBlock() {
@@ -417,10 +417,10 @@
 
   function actionsSante() {
     const rempli = dayOf(jour);
-    return '<div class="section" style="padding-top:12px"><div class="row" style="gap:10px">' +
-      '<button class="btn primary grow lg" data-act="manual">' + Icon(rempli ? 'edit' : 'plus', 18) + (rempli ? 'Modifier ce jour' : 'Saisir ce jour') + '</button>' +
-      '<button class="btn lg" data-act="muscu">' + Icon('dumbbell', 18) + 'Séance</button>' +
-      '<button class="iconbtn" style="width:52px;height:52px" data-act="goals" aria-label="Mes objectifs">' + Icon('target', 20) + '</button>' +
+    return '<div class="section" style="padding-top:12px"><div class="actsante">' +
+      '<button class="btn primary lg" data-act="manual">' + Icon(rempli ? 'edit' : 'plus', 18) + '<span>' + (rempli ? 'Modifier ce jour' : 'Saisir ce jour') + '</span></button>' +
+      '<button class="btn lg" data-act="muscu">' + Icon('dumbbell', 18) + '<span>Séance</span></button>' +
+      '<button class="btn lg rond" data-act="goals" aria-label="Mes objectifs">' + Icon('target', 20) + '</button>' +
     '</div></div>';
   }
 
@@ -436,7 +436,7 @@
             const n = METRIQUES.filter((m) => rempli[m.cle] != null && rempli[m.cle] !== '').length;
             return n + (n > 1 ? ' mesures notées' : ' mesure notée');
           }()) : 'Pas, sommeil, poids…',
-          ph: 'a saisir ajouter', type: 'icone' },
+          ph: 'ajouter', type: 'icone' },
         { id: 'goals', titre: 'Mes objectifs', sous: 'Ce que tu vises chaque jour',
           ph: 'objectifs', type: 'icone' }
       ]) + '</div>';
@@ -469,8 +469,8 @@
           '</div>' +
         '</div>' +
         Portes.grille([
-          { act: 'muscu',     nom: 'Musculation', sub: 'Séries et charges', ph: 'gym weights training' },
-          { act: 'sportauto', nom: 'Un sport',    sub: 'Course, vélo, nage', ph: 'running outdoor sport' }
+          { act: 'muscu',     nom: 'Musculation', sub: 'Séries et charges', ph: 'muscle' },
+          { act: 'sportauto', nom: 'Un sport',    sub: 'Course, vélo, nage', ph: 'pas' }
         ], { classe: 'dansbloc' }) +
         (j.liste.length
           ? '<div class="list" style="margin-top:12px">' + j.liste.map((x) =>
@@ -615,18 +615,205 @@
      qui marche : une note, un verdict, ce qui va, ce qui ne va
      pas, quoi faire, quoi manger.
      ============================================================ */
+  /* ============================================================
+     Le bilan chiffré
+
+     Avant l'IA, des calculs simples et vérifiables. Chaque ligne
+     répond à trois questions, dans des mots de tous les jours :
+       ça va ou pas ?   parce que (le chiffre) ?   je fais quoi ?
+
+     Les repères utilisés :
+       - sommeil : 7 à 9 h par nuit chez l'adulte. La « dette » est
+         la somme de ce qui manque sur 7 nuits par rapport à ton
+         objectif ;
+       - cœur au repos : on compare ta moyenne des 7 derniers jours
+         à ta propre référence des 4 semaines. +3 battements ou plus
+         signale souvent fatigue, stress, alcool ou début de rhume ;
+       - récupération (variabilité cardiaque) : même principe, une
+         baisse de 10 % ou plus sous ta référence = corps pas remis ;
+       - activité : 150 minutes d'effort par semaine (repère OMS) et
+         tes pas par rapport à ton objectif ;
+       - charge d'entraînement : semaine en cours rapportée à la
+         moyenne des 4 dernières (ratio aigu sur chronique). Au-delà
+         de 1,5, le risque de blessure grimpe ; sous 0,8, on perd ;
+       - poids : pente d'une droite de régression sur 4 semaines,
+         en kilos par semaine ;
+       - protéines : grammes par kilo de poids (1,6 g/kg pour
+         entretenir le muscle quand on s'entraîne) ;
+       - oxygène du sang : sous 95 % en moyenne, à surveiller ;
+       - le lien : plusieurs jours sans voir personne pèse autant
+         qu'une mauvaise nuit.
+     ============================================================ */
+  const moy = (l) => l.length ? l.reduce((a, b) => a + b, 0) / l.length : null;
+  const vals = (jours, k) => jours.map((d) => d[k]).filter((v) => v != null && v !== '' && !isNaN(v)).map(Number);
+  function pente(points) {
+    const n = points.length;
+    if (n < 4) return null;
+    const mx = moy(points.map((p) => p[0])), my = moy(points.map((p) => p[1]));
+    let num = 0, den = 0;
+    points.forEach(([x, y]) => { num += (x - mx) * (y - my); den += (x - mx) * (x - mx); });
+    return den ? num / den : null;
+  }
+
+  function bilanChiffre() {
+    const j28 = lastDays(28), j7 = j28.slice(-7), avant = j28.slice(0, 21);
+    const g = goals();
+    const L = [];
+    const ajoute = (id, titre, etat, constat, cause, solution) => L.push({ id, titre, etat, constat, cause, solution });
+
+    /* Sommeil */
+    const sl = vals(j7, 'sleep');
+    if (sl.length >= 3) {
+      const m = moy(sl), dette = sl.reduce((a, v) => a + Math.max(0, g.sleep - v), 0);
+      const ecart = Math.sqrt(moy(sl.map((v) => (v - m) * (v - m))));
+      const etat = m >= g.sleep - 20 && ecart < 75 ? 'ok' : m >= 360 ? 'moyen' : 'mauvais';
+      ajoute('sommeil', 'Sommeil', etat,
+        'Tu dors ' + UI.fmt.dur(m) + ' en moyenne par nuit.',
+        etat === 'ok' ? 'C\'est ce qu\'il faut, et tes nuits sont régulières.'
+          : 'Il te manque ' + UI.fmt.dur(dette) + ' de sommeil sur la semaine' + (ecart >= 75 ? ', et tes heures changent beaucoup d\'une nuit à l\'autre' : '') + '.',
+        etat === 'ok' ? 'Garde les mêmes horaires, même le week-end.'
+          : 'Couche-toi 30 minutes plus tôt ce soir, téléphone hors de la chambre.');
+    }
+
+    /* Cœur au repos */
+    const hr7 = vals(j7, 'hrRest'), hrRef = vals(avant, 'hrRest');
+    if (hr7.length >= 3 && hrRef.length >= 5) {
+      const d = moy(hr7) - moy(hrRef);
+      const etat = d <= 2 ? 'ok' : d <= 5 ? 'moyen' : 'mauvais';
+      ajoute('coeur', 'Cœur au repos', etat,
+        'Ton cœur bat ' + Math.round(moy(hr7)) + ' fois par minute au repos (ta normale : ' + Math.round(moy(hrRef)) + ').',
+        etat === 'ok' ? 'Il est calme : ton corps récupère bien.'
+          : 'Il bat ' + Math.round(d) + ' fois de plus que d\'habitude. Souvent : fatigue, stress, alcool ou un rhume qui arrive.',
+        etat === 'ok' ? 'Rien à changer.' : 'Journée légère aujourd\'hui : pas d\'alcool, de l\'eau, et une vraie nuit.');
+    }
+
+    /* Récupération (variabilité) */
+    const v7 = vals(j7, 'hrv'), vRef = vals(avant, 'hrv');
+    if (v7.length >= 3 && vRef.length >= 5) {
+      const pct = (moy(v7) - moy(vRef)) / moy(vRef) * 100;
+      const etat = pct >= -5 ? 'ok' : pct >= -12 ? 'moyen' : 'mauvais';
+      ajoute('recup', 'Récupération', etat,
+        'Ta récupération est à ' + Math.round(moy(v7)) + ' ms (ta normale : ' + Math.round(moy(vRef)) + ').',
+        etat === 'ok' ? 'Ton corps est bien reposé.' : 'Elle a baissé de ' + Math.abs(Math.round(pct)) + ' % : ton corps est encore fatigué.',
+        etat === 'ok' ? 'Tu peux faire une grosse séance.' : 'Remplace la séance dure par de la marche ou des étirements.');
+    }
+
+    /* Activité */
+    const st = vals(j7, 'steps');
+    const ex = vals(j7, 'exercise').reduce((a, b) => a + b, 0) + (global.Sport ? Sport.semaine(7).minutes || 0 : 0);
+    if (st.length >= 3) {
+      const m = moy(st);
+      const etat = m >= g.steps * 0.9 ? 'ok' : m >= g.steps * 0.6 ? 'moyen' : 'mauvais';
+      ajoute('pas', 'Pas', etat,
+        'Tu fais ' + UI.fmt.n(Math.round(m)) + ' pas par jour (objectif : ' + UI.fmt.n(g.steps) + ').',
+        etat === 'ok' ? 'Tu bouges assez au quotidien.' : 'Il t\'en manque environ ' + UI.fmt.n(Math.round(g.steps - m)) + ' par jour.',
+        etat === 'ok' ? 'Continue comme ça.' : 'Une marche de ' + Math.max(10, Math.round((g.steps - m) / 100)) + ' minutes après le repas suffit.');
+    }
+    if (ex > 0 || st.length >= 3) {
+      const etat = ex >= 150 ? 'ok' : ex >= 75 ? 'moyen' : 'mauvais';
+      ajoute('effort', 'Effort de la semaine', etat,
+        Math.round(ex) + ' minutes d\'effort sur 7 jours.',
+        etat === 'ok' ? 'Tu dépasses les 150 minutes conseillées.' : 'Le repère santé, c\'est 150 minutes par semaine : il en manque ' + Math.max(0, Math.round(150 - ex)) + '.',
+        etat === 'ok' ? 'Garde ce rythme.' : 'Ajoute ' + Math.max(1, Math.ceil((150 - ex) / 30)) + ' séance(s) de 30 minutes cette semaine.');
+    }
+
+    /* Charge d'entraînement : aigu (7 j) sur chronique (28 j) */
+    const charge = (jours) => jours.reduce((a, d) => a + (Number(d.active) || 0), 0);
+    const a7 = charge(j7), c28 = charge(j28) / 4;
+    if (c28 > 300 && vals(j28, 'active').length >= 14) {
+      const r = a7 / c28;
+      const etat = r <= 1.3 && r >= 0.8 ? 'ok' : r <= 1.5 && r >= 0.6 ? 'moyen' : 'mauvais';
+      ajoute('charge', 'Charge d\'entraînement', etat,
+        'Cette semaine : ' + Math.round(r * 100) + ' % de ta semaine habituelle.',
+        r > 1.3 ? 'Tu en fais beaucoup plus que d\'habitude d\'un coup : c\'est là qu\'on se blesse.'
+          : r < 0.8 ? 'Tu en fais nettement moins que d\'habitude : la forme redescend vite.' : 'Tu progresses sans à-coup.',
+        r > 1.3 ? 'Lève le pied deux jours.' : r < 0.8 ? 'Remets une séance, même courte.' : 'Rien à changer.');
+    }
+
+    /* Poids */
+    const pw = j28.map((d, i) => [i, d.weight]).filter((p) => p[1] != null).map((p) => [p[0], Number(p[1])]);
+    const pt = pente(pw);
+    if (pt != null) {
+      const semaine = pt * 7;
+      const etat = Math.abs(semaine) <= 0.5 ? 'ok' : Math.abs(semaine) <= 1 ? 'moyen' : 'mauvais';
+      ajoute('poids', 'Poids', etat,
+        'Ton poids ' + (Math.abs(semaine) < 0.1 ? 'est stable' : (semaine > 0 ? 'monte' : 'baisse') + ' de ' + Math.abs(semaine).toFixed(1).replace('.', ',') + ' kg par semaine') + '.',
+        etat === 'ok' ? 'Un rythme sain.' : 'C\'est rapide : au-delà d\'un demi-kilo par semaine, on perd souvent du muscle ou on en reprend vite.',
+        etat === 'ok' ? 'Rien à changer.' : (semaine > 0 ? 'Enlève un en-cas sucré par jour.' : 'Mange un peu plus, surtout des protéines.'));
+    }
+
+    /* Protéines */
+    const food = global.Food ? Food.summary(7).filter((f) => f.kcal) : [];
+    const poids = pw.length ? pw[pw.length - 1][1] : null;
+    if (food.length >= 3 && poids) {
+      const gk = moy(food.map((f) => f.prot)) / poids;
+      const etat = gk >= 1.5 ? 'ok' : gk >= 1.1 ? 'moyen' : 'mauvais';
+      ajoute('prot', 'Protéines', etat,
+        'Tu manges ' + gk.toFixed(1).replace('.', ',') + ' g de protéines par kilo.',
+        etat === 'ok' ? 'Assez pour garder et construire du muscle.' : 'Il en faut environ 1,6 g par kilo quand on fait du sport.',
+        etat === 'ok' ? 'Continue.' : 'Ajoute ' + Math.round((1.6 - gk) * poids) + ' g par jour : deux œufs et un yaourt grec, par exemple.');
+    }
+
+    /* Oxygène */
+    const o2 = vals(j7, 'spo2');
+    if (o2.length >= 3) {
+      const m = moy(o2);
+      ajoute('o2', 'Oxygène du sang', m >= 95 ? 'ok' : m >= 93 ? 'moyen' : 'mauvais',
+        'Oxygène moyen : ' + Math.round(m) + ' %.',
+        m >= 95 ? 'Normal.' : 'Un peu bas. Ça peut venir de la montre mal serrée, ou de la respiration la nuit.',
+        m >= 95 ? 'Rien à faire.' : 'Serre la montre la nuit ; si ça reste bas, parles-en à un médecin.');
+    }
+
+    /* Le lien */
+    const seul = global.Mood ? Mood.joursSansLien() : null;
+    if (seul != null) {
+      const etat = seul <= 2 ? 'ok' : seul <= 4 ? 'moyen' : 'mauvais';
+      ajoute('lien', 'Voir du monde', etat,
+        seul === 0 ? 'Tu as vu quelqu\'un aujourd\'hui.' : seul + ' jour' + (seul > 1 ? 's' : '') + ' sans rien faire avec quelqu\'un.',
+        etat === 'ok' ? 'Le lien est entretenu.' : 'Le moral et le sommeil en dépendent autant que du sport.',
+        etat === 'ok' ? 'Continue.' : 'Propose un café ou un repas à quelqu\'un aujourd\'hui.');
+    }
+    return L;
+  }
+
+  function bilanHtml(L) {
+    if (!L.length) return '';
+    const ordre = { mauvais: 0, moyen: 1, ok: 2 };
+    const tri = L.slice().sort((a, b) => ordre[a.etat] - ordre[b.etat]);
+    const mauvais = L.filter((x) => x.etat === 'mauvais').length, moyens = L.filter((x) => x.etat === 'moyen').length;
+    const phrase = !mauvais && !moyens ? 'Tout va bien. Tu peux continuer exactement comme ça.'
+      : mauvais ? mauvais + ' point' + (mauvais > 1 ? 's' : '') + ' à corriger en priorité, ' + (L.length - mauvais - moyens) + ' qui vont bien.'
+      : moyens + ' point' + (moyens > 1 ? 's' : '') + ' à surveiller, le reste va bien.';
+    const IC = { ok: 'check', moyen: 'alert', mauvais: 'alert' };
+    return '<div class="bilan">' +
+      '<p class="bilanphrase">' + UI.esc(phrase) + '</p>' +
+      tri.map((x) =>
+        '<div class="bligne ' + x.etat + '">' +
+          '<span class="bpt">' + Icon(IC[x.etat], 15) + '</span>' +
+          '<div class="btx"><b>' + UI.esc(x.titre) + '</b>' +
+            '<p>' + UI.esc(x.constat) + ' ' + UI.esc(x.cause) + '</p>' +
+            (x.etat !== 'ok' ? '<p class="bfaire">' + Icon('next', 13) + UI.esc(x.solution) + '</p>' : '') +
+          '</div>' +
+        '</div>').join('') +
+      '<p class="muted" style="font-size:11px;margin-top:10px">Calculé sur tes données des 28 derniers jours. Une lecture de tendance, pas un avis médical.</p>' +
+    '</div>';
+  }
+
   const TIER = (n) => n >= 8 ? 'or' : n >= 6 ? 'argent' : n >= 4 ? 'bronze' : 'lead';
 
   function insightBlock(days) {
     const cached = Store.get('healthInsight', null);
-    const fresh = cached && Date.now() - cached.at < 20 * 3600e3;
+    const fresh = cached && Date.now() - cached.at < 20 * 3600e3 && !cached.ferme;
+    const L = bilanChiffre();
     return '<div class="section"><div class="sechead"><h2 style="font-size:16px">Mon bilan</h2>' +
-      (fresh ? '<button data-act="insight">Refaire</button>' : '') + '</div>' +
+      (fresh ? '<div class="row" style="gap:6px"><button data-act="insight">Refaire</button>' +
+        '<button class="fermebloc" data-act="fermerBilan" aria-label="Fermer">' + Icon('close', 15) + '</button></div>' : '') + '</div>' +
+      (L.length ? '<div class="panel">' + bilanHtml(L) + '</div>' : '') +
       (fresh
-        ? insightHtml(cached.data)
-        : '<div class="panel" style="text-align:center">' +
-            '<b style="display:block;margin-bottom:6px">Analyse de ma forme</b>' +
-            '<p class="muted" style="font-size:13px;margin-bottom:12px">Une note sur 10, ce qui va, ce qui ne va pas, et quoi faire des aujourd\'hui.</p>' +
+        ? '<div style="margin-top:10px">' + insightHtml(cached.data) + '</div>'
+        : '<div class="panel" style="text-align:center;margin-top:10px">' +
+            '<p class="muted" style="font-size:13px;margin-bottom:12px">' +
+              (L.length ? 'Tu veux l\'explication complète, et un plan pour la semaine ?' : 'Une note sur 10, ce qui va, ce qui ne va pas, et quoi faire dès aujourd\'hui.') + '</p>' +
             '<button class="btn primary" data-act="insight">' + Icon('sparkle', 17) + 'Analyser avec l\'IA</button></div>') +
       '</div>';
   }
@@ -677,13 +864,15 @@
   function sourcesBlock() {
     const meta = Store.get('healthImport', null);
     return '<div class="section"><div class="secbar"><h2>Mes données</h2></div>' +
-      Cartes.grille([
-        { id: 'import', titre: 'Apple Santé', ph: 'apple sante', type: 'icone',
-          sous: meta ? UI.fmt.n(meta.records) + ' mesures' : 'Importer l\'export' },
-        daily().length ? { id: 'clear', titre: 'Tout effacer', sous: daily().length + ' journées', ph: 'poubelle a jeter', type: 'icone' } : null
-      ].filter(Boolean)) + '</div>' +
-    '<div class="section" style="padding-top:0"><p class="muted" style="font-size:11.5px;line-height:1.5">' +
-    'La connexion automatique envoie les chiffres de chaque jour. L\'export complet, lui, rattrape tout l\'historique d\'un coup.</p></div>';
+      '<div class="list">' +
+        '<button class="rowitem" data-act="import">' + Vis.html('apple-sante', { classe: 'lic' }) +
+          '<span class="tx"><b>Apple Santé</b><small>' + (meta ? UI.fmt.n(meta.records) + ' mesures importées' : 'Importer l\'export complet') + '</small></span>' +
+          '<span class="rt">' + Icon('next', 15) + '</span></button>' +
+      '</div>' +
+      (daily().length ? '<div class="row" style="justify-content:flex-end;margin-top:10px">' +
+        '<button class="btn sm ghost danger-txt" data-act="clear">' + Icon('trash', 14) + 'Tout effacer (' + daily().length + ' j)</button></div>' : '') +
+      '<p class="muted" style="font-size:11.5px;line-height:1.5;margin-top:10px">' +
+      'La connexion automatique envoie les chiffres de chaque jour. L\'export complet, lui, rattrape tout l\'historique d\'un coup.</p></div>';
   }
 
   function bind() {
@@ -781,6 +970,7 @@
     manual: () => manualDay(),
     goals: () => editGoals(),
     insight: () => insight(),
+    fermerBilan: () => { const c = Store.get('healthInsight', null); if (c) Store.set('healthInsight', Object.assign(c, { ferme: true })); UI.haptic('light'); render(); },
     clear: async () => {
       if (!await UI.confirmSheet('Effacer les données santé', 'Les journées importées et les entrainements seront supprimes de cet appareil.', true)) return;
       Store.all('healthDays').forEach((d) => Store.del('healthDays', d.id));
@@ -1089,7 +1279,12 @@
         d.sleep != null ? Math.round(d.sleep) + ' min de sommeil' : null,
         d.hrRest != null ? 'FC repos ' + Math.round(d.hrRest) : null,
         d.hrv != null ? 'VFC ' + Math.round(d.hrv) + ' ms' : null,
-        d.weight != null ? d.weight + ' kg' : null
+        d.weight != null ? d.weight + ' kg' : null,
+        d.spo2 != null ? 'oxygène ' + Math.round(d.spo2) + ' %' : null,
+        d.resp != null ? 'respiration ' + Math.round(d.resp) + '/min' : null,
+        d.vo2 != null ? 'VO2max ' + d.vo2 : null,
+        d.distance != null ? d.distance + ' km' : null,
+        d.floors != null ? d.floors + ' étages' : null
       ].filter(Boolean).join(', ')).join('\n');
 
     const nutri = food.filter((f) => f.kcal).map((f) => f.day + ' : ' + Math.round(f.kcal) + ' kcal, ' + Math.round(f.prot) + ' g de protéines').join('\n');
@@ -1100,15 +1295,20 @@
         "DONNEES QUOTIDIENNES :\n" + table + "\n\n" +
         (nutri ? "ALIMENTATION :\n" + nutri + "\n\n" : "") +
         (global.Mood ? "VIE SOCIALE ET ÉQUILIBRE ÉMOTIONNEL :\n" + Mood.describe() + "\n\n" : "") +
+        "CONSTATS DÉJÀ CALCULÉS (fiables, pars de là) :\n" + bilanChiffre().map((x) => '- ' + x.titre + ' [' + x.etat + '] : ' + x.constat + ' ' + x.cause).join('\n') + "\n\n" +
+        (Store.all('workouts').length ? "ENTRAÎNEMENTS DE LA MONTRE (14 j) :\n" + Store.all('workouts').filter((w) => (w.start || 0) > Date.now() - 14 * 86400e3)
+          .map((w) => UI.day.key(w.start) + ' ' + w.nom + ' ' + Math.round(w.minutes || 0) + ' min' + (w.kcal ? ', ' + Math.round(w.kcal) + ' kcal' : '')).join('\n') + "\n\n" : "") +
         "Objectifs : " + JSON.stringify(goals()) + "\n\n" +
         "Croise sommeil, frequence cardiaque au repos, variabilite et activite. Signale une tendance seulement si elle est visible dans les chiffres. " +
         "Si plusieurs jours ont passe sans aucune activite impliquant quelqu'un d'autre, dis-le franchement : c'est un facteur de forme au meme titre que le sommeil, " +
         "et aucune activite solo ne le compense.\n\n" +
+        "Pour chaque problème, donne la CAUSE probable (avec le chiffre) et UNE solution simple qu'on peut appliquer aujourd'hui. " +
+        "Un enfant de douze ans doit comprendre. " +
         "Ecris pour quelqu'un qui n'y connait rien : des phrases courtes, des mots de tous les jours, aucun terme technique sans traduction. " +
         "Dis « battements du coeur au repos » plutot que « FC de repos », « recuperation » plutot que « VFC ». " +
         "Chaque action doit etre faisable aujourd'hui, et chaque aliment doit s'acheter en supermarche. Reponds en francais.",
         INSIGHT_SCHEMA, { cache: false, temperature: 0.5 });
-      Store.set('healthInsight', { at: Date.now(), data: res });
+      Store.set('healthInsight', { at: Date.now(), data: res, ferme: false });
       render();
     } catch (e) { UI.echecIA(e, { titre: "Le bilan de forme n'a pas pu être fait", reessayer: () => insight() }); }
   }

@@ -1,0 +1,647 @@
+/* ============================================================
+   EVER : Finition
+
+   Dernière feuille chargée. Elle ne réinvente rien : elle corrige
+   ce qui dépassait, ce qui n'était pas centré, et donne aux images
+   générées leur place. Tout ce qui est ici gagne sur le reste.
+   ============================================================ */
+
+:root {
+  --maxw: 1180px;
+  --vh-utile: 100vh;
+  --haut-sur: max(var(--safe-t), 20px);
+}
+@supports (height: 100dvh) { :root { --vh-utile: 100dvh; } }
+
+/* ============================================================
+   1. Le gabarit : centré, borné, partout
+
+   Une règle anti-débordement forçait `.wrap` à 100 % de la
+   fenêtre. Sur un écran de 1440 px, tout s'étalait de bord à bord
+   et rien n'était centré. On rétablit la largeur maximale.
+   ============================================================ */
+.wrap, .view > .wrap, #codexApp.wrap {
+  max-width: min(100%, var(--maxw));
+  margin-left: auto; margin-right: auto;
+}
+.view { max-width: 100%; }
+
+/* ============================================================
+   2. La barre d'onglets en verre liquide
+
+   Centrée par ses marges et non par une translation de -50 % :
+   une translation tombe souvent sur un demi-pixel, et c'est ce qui
+   rendait les icônes floues quand elles n'étaient pas actives.
+   ============================================================ */
+.tabbar, :root[data-theme="dark"] .tabbar {
+  left: 0; right: 0; margin: 0 auto; transform: none;
+  width: min(calc(100% - 32px), 420px);
+}
+.tabbar button svg { flex: none; shape-rendering: geometricPrecision; }
+:root[data-theme="dark"] .tabbar button { color: rgba(236, 243, 247, .74); }
+:root[data-theme="dark"] .tabbar button svg { opacity: 1; filter: none; }
+
+@media (min-width: 900px) {
+  body { padding-bottom: 128px; }
+  .tabbar, :root[data-theme="dark"] .tabbar {
+    bottom: 22px;
+    width: fit-content; max-width: calc(100% - 48px);
+    height: 72px; padding: 0 10px; gap: 6px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 999px;
+  }
+  .tabbar button, :root[data-theme="dark"] .tabbar button,
+  :root[data-theme="dark"] .tabbar button.on {
+    width: auto; min-width: 128px; height: 54px; padding: 0 22px;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    border-radius: 999px;
+  }
+  .tabbar button svg, :root[data-theme="dark"] .tabbar button.on svg { width: 22px; height: 22px; }
+  .tabbar button .lb { display: inline; font-size: 14.5px; font-weight: 720; letter-spacing: -.005em; white-space: nowrap; }
+}
+
+/* ============================================================
+   3. Les pop-up
+
+   - aucune bande au-dessus de l'en-tête : la poignée flotte
+     par-dessus, sans fond ;
+   - jamais plus haute que l'écran visible : sur iPhone, 100vh
+     comprend la zone cachée derrière les barres de Safari, et la
+     pop-up remontait sous l'heure et la batterie, croix comprise.
+   ============================================================ */
+.sheet > .grabber,
+:root[data-theme="dark"] .sheet > .grabber {
+  position: absolute; top: 0; left: 0; right: 0; z-index: 9;
+  height: 20px; background: none !important; pointer-events: none;
+}
+.sheet > .grabber i { margin-top: 2px; }
+.sheet:not(.bandeau):not(.plein) { padding-top: 14px; }
+.sheet.bandeau > .mtete:first-of-type,
+.sheet.bandeau > .mimg:first-of-type { margin-top: 0; }
+.sheet::before { display: none; }
+
+.ov, :root[data-theme="dark"] .ov {
+  padding: calc(var(--haut-sur) + 12px) 8px calc(8px + var(--safe-b));
+}
+.sheet, :root[data-theme="dark"] .sheet {
+  max-height: calc(var(--vh-utile) - var(--haut-sur) - 28px - var(--safe-b));
+}
+.ov.plein, :root[data-theme="dark"] .ov.plein { padding: 0; }
+.sheet.plein, :root[data-theme="dark"] .sheet.plein { max-height: var(--vh-utile); }
+.sheet :is(.close, .retourpop) { top: 12px; }
+@media (min-width: 700px) {
+  .ov, :root[data-theme="dark"] .ov { padding: 32px 24px; align-items: center; }
+  .sheet, :root[data-theme="dark"] .sheet { max-height: calc(var(--vh-utile) - 64px); max-width: 640px; }
+}
+
+/* L'en-tête coloré commence au premier pixel et épouse l'arrondi. */
+.mtete { border-radius: inherit; border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+:root[data-theme="dark"] .sheet > .mtete:first-of-type,
+:root[data-theme="dark"] .sheet > .mimg:first-of-type { border-radius: 40px 40px 0 0; }
+
+/* ============================================================
+   4. Le curseur « Glisse pour lancer »
+
+   Son texte portait la classe `.rail`, déjà prise par les
+   carrousels : il héritait de leurs marges négatives et partait
+   de travers. Il a maintenant sa propre classe.
+   ============================================================ */
+.glisseur .glisse-tx {
+  position: absolute; inset: 0; z-index: 1;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0 16px 0 56px;
+  font-size: 13.5px; font-weight: 720; letter-spacing: .01em; line-height: 1;
+  white-space: nowrap; pointer-events: none;
+  opacity: calc(1 - var(--p) * 1.6);
+  background: linear-gradient(90deg, rgba(255,255,255,.55) 0%, #fff 50%, rgba(255,255,255,.55) 100%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  animation: miroitement 2.6s linear infinite;
+}
+.glisseur .bouton { margin-left: 4px; flex: none; }
+@media (prefers-reduced-motion: reduce) { .glisseur .glisse-tx { animation: none; } }
+
+/* ============================================================
+   5. Les visuels générés
+
+   Des objets détourés, sans fond : ils se posent sur le verre et
+   sur les aplats colorés sans jamais laisser de carré blanc.
+   ============================================================ */
+.vis3d { display: grid; place-items: center; background: none; }
+.vis3d > img, img.ic3dimg, .vign.catalogue > img {
+  width: 100%; height: 100%; object-fit: contain; background: none;
+  mix-blend-mode: normal !important; filter: drop-shadow(0 10px 18px rgba(0,0,0,.28)) !important;
+  -webkit-mask-image: none !important; mask-image: none !important;
+  -webkit-user-drag: none; user-select: none;
+}
+.vign.catalogue { background: none !important; box-shadow: none !important; }
+.vign.catalogue b { display: none; }
+.vis3d.fond { position: absolute; inset: 10px 10px 42%; z-index: 1; }
+
+/* Pas de visuel : un verre discret, jamais une lettre. */
+.vign.vide, .phic.vide {
+  background: linear-gradient(150deg, rgba(255,255,255,.14), rgba(255,255,255,.04)) !important;
+  box-shadow: inset 0 1px 1px rgba(255,255,255,.25), inset 0 0 0 1px rgba(255,255,255,.08) !important;
+  opacity: 1 !important;
+}
+html:not([data-theme="dark"]) :is(.vign.vide, .phic.vide) {
+  background: linear-gradient(150deg, rgba(20,30,40,.06), rgba(20,30,40,.02)) !important;
+  box-shadow: inset 0 0 0 1px rgba(20,30,40,.06) !important;
+}
+.vign.vide b { display: none; }
+
+/* ============================================================
+   6. Le carrousel de lanceurs (Activités)
+
+   Téléphone : défilement du pouce, une carte et demie à l'écran.
+   Ordinateur : trois cartes égales qui remplissent la largeur.
+   ============================================================ */
+.lanceur { width: min(72vw, 270px); height: 318px; }
+.lanceur .lic { left: 50%; margin-left: -88px; top: 18px; width: 176px; height: 176px; }
+.lanceur .lic img { filter: drop-shadow(0 16px 24px rgba(0,0,0,.35)) !important; }
+.lanceur .ltx { bottom: 78px; }
+@media (min-width: 900px) {
+  .lanceurs {
+    display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px;
+    overflow: visible; margin: 0; padding: 6px 0 14px;
+  }
+  .lanceur { width: auto; height: 360px; }
+  .lanceur .lic { width: 200px; height: 200px; margin-left: -100px; top: 22px; }
+  .lanceur .ltx { left: 24px; right: 24px; bottom: 84px; }
+  .lanceur .ltx b { font-size: 25px; }
+  .glisseur { left: 16px; right: 16px; bottom: 16px; }
+  .bulles { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+  .raccourcis { max-width: 720px; margin-left: auto; margin-right: auto; }
+}
+
+/* ============================================================
+   7. Les portes (tuiles d'action dans les pop-up)
+
+   Un rectangle de verre, l'objet détouré qui flotte en haut, le
+   titre en bas. Plus de carré d'image posé dans un rectangle.
+   ============================================================ */
+/* Une porte : du verre, l'objet détouré qui flotte en haut à
+   droite, le titre en bas à gauche. Plus de photo assombrie. */
+.porte { overflow: hidden; isolation: isolate; height: 142px; }
+.porte:has(.vis3d), :root[data-theme="dark"] .porte:has(.vis3d) {
+  background: var(--glass, var(--surface)) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(170%); backdrop-filter: blur(20px) saturate(170%);
+  box-shadow: var(--glass-rim, inset 0 0 0 1px var(--hairline)), var(--glass-drop, 0 8px 20px -14px rgba(0,0,0,.6)) !important;
+}
+.porte:has(.vis3d)::before, .porte:has(.vis3d) .voile { display: none !important; }
+.porte .vis3d.fond { position: absolute; inset: auto; top: 8px; right: 8px; width: 92px; height: 92px; z-index: 1; }
+.porte:has(.vis3d) .tx { color: var(--ink); max-width: calc(100% - 4px); }
+.porte:has(.vis3d) .tx b, .porte:has(.vis3d) .tx small { text-shadow: none; }
+.porte:has(.vis3d) .tx small { color: var(--muted); opacity: 1; }
+@media (min-width: 700px) { .porte { height: 156px; } .porte .vis3d.fond { width: 104px; height: 104px; } }
+.kart .vis .vis3d.fond { position: absolute; inset: 10%; }
+
+/* ============================================================
+   8. Activités : les nouveaux morceaux
+   ============================================================ */
+
+/* La ville choisie : une coche verte, À GAUCHE de l'étoile, qui
+   garde toujours sa place. */
+.villeligne { gap: 10px; }
+.villecoche { flex: none; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; }
+.villecoche.on { background: #22A45D; color: #fff; box-shadow: 0 4px 12px -4px rgba(34, 164, 93, .7); }
+.villecoche.on svg { width: 15px; height: 15px; stroke-width: 2.6; }
+.villeligne .etoilebtn { margin-right: -4px; }
+
+/* La petite roue qui tourne dans une puce. */
+.minispin { width: 12px; height: 12px; border-radius: 50%; border: 2px solid rgba(255,255,255,.3); border-top-color: currentColor; animation: tourne .8s linear infinite; }
+@keyframes tourne { to { transform: rotate(360deg); } }
+.tete-act .chip { gap: 6px; }
+
+/* Le curseur de distance. */
+.rayonval { display: flex; align-items: baseline; justify-content: center; gap: 6px; margin: 6px 0 14px; }
+.rayonval b { font-size: 56px; font-weight: 850; letter-spacing: -.04em; line-height: 1; font-variant-numeric: tabular-nums; }
+.rayonval span { font-size: 18px; font-weight: 700; color: var(--muted); }
+.rayonslider {
+  --p: 25%;
+  -webkit-appearance: none; appearance: none; width: 100%; height: 34px; background: transparent; cursor: pointer;
+}
+.rayonslider::-webkit-slider-runnable-track {
+  height: 10px; border-radius: 999px;
+  background: linear-gradient(90deg, #3FAF8A var(--p), rgba(255,255,255,.14) var(--p));
+  box-shadow: inset 0 1px 2px rgba(0,0,0,.3);
+}
+.rayonslider::-moz-range-track { height: 10px; border-radius: 999px; background: rgba(255,255,255,.14); }
+.rayonslider::-moz-range-progress { height: 10px; border-radius: 999px; background: #3FAF8A; }
+.rayonslider::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none; width: 30px; height: 30px; margin-top: -10px; border-radius: 50%;
+  background: linear-gradient(180deg, #fff, #DCE8EC); box-shadow: 0 6px 16px -4px rgba(0,0,0,.55), inset 0 1px 0 #fff;
+}
+.rayonslider::-moz-range-thumb { width: 30px; height: 30px; border: 0; border-radius: 50%; background: #fff; box-shadow: 0 6px 16px -4px rgba(0,0,0,.55); }
+html:not([data-theme="dark"]) .rayonslider::-webkit-slider-runnable-track { background: linear-gradient(90deg, #2E8C6E var(--p), rgba(0,0,0,.1) var(--p)); }
+.rayonbornes { display: flex; justify-content: space-between; font-size: 11.5px; font-weight: 650; color: var(--muted); margin-top: 2px; }
+.rayonvite { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 16px; }
+
+/* Les cartes d'idée : l'objet à gauche, le texte à droite. */
+.idees { display: grid; gap: 10px; }
+.idee {
+  width: 100%; display: flex; align-items: center; gap: 14px; text-align: left;
+  min-height: 96px; padding: 10px 14px 10px 10px; border-radius: 26px; color: var(--ink);
+  background: var(--glass, var(--surface));
+  -webkit-backdrop-filter: blur(20px) saturate(170%); backdrop-filter: blur(20px) saturate(170%);
+  box-shadow: var(--glass-rim, inset 0 0 0 1px var(--hairline));
+  transition: transform var(--d-fast) var(--spring), box-shadow var(--d-base);
+}
+.idee:active { transform: scale(.975); }
+.idee .idvis { flex: none; width: 76px; height: 76px; border-radius: 20px; display: grid; place-items: center;
+  background: radial-gradient(90% 90% at 40% 30%, rgba(255,255,255,.16), rgba(255,255,255,.03)); overflow: hidden; }
+.idee .idvis .vis3d { width: 70px; height: 70px; }
+.idee .idvis .vis3d.photo, .idee .idvis .vis3d.photo img { width: 100%; height: 100%; }
+.vis3d.photo img { object-fit: cover !important; filter: none !important; border-radius: inherit; }
+.idee .idtx { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.idee .idtx b { font-size: 16px; font-weight: 760; letter-spacing: -.015em; line-height: 1.2; }
+.idee .idtx small { font-size: 12.5px; color: var(--muted); }
+.idee .idtx i { font-style: normal; font-size: 12.5px; line-height: 1.4; color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.idee .idgo { flex: none; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: rgba(255,255,255,.1); }
+.idee.choisie { box-shadow: inset 0 0 0 2px #E8B04A, 0 12px 30px -16px #E8B04A; }
+.idee.balaye { box-shadow: inset 0 0 0 2px rgba(255,255,255,.7); transform: scale(1.015); }
+
+/* Surprends-moi : un cadeau qui saute, puis la révélation. */
+.suspense { display: grid; place-items: center; gap: 10px; padding: 18px 0 8px; text-align: center; }
+.suspense .vis3d { width: 150px; height: 150px; }
+.suspense p { font-size: 14px; color: var(--muted); font-weight: 600; }
+.vis3d.bond img { animation: bond 1s var(--spring, cubic-bezier(.3,1.4,.5,1)) infinite; }
+@keyframes bond { 0%, 100% { transform: translateY(0) rotate(-3deg); } 50% { transform: translateY(-12px) rotate(3deg); } }
+@media (prefers-reduced-motion: reduce) { .vis3d.bond img { animation: none; } }
+
+/* La carte de résultat : l'objet détouré flotte à droite de l'en-tête. */
+.result .rtete.avecvis { padding-right: 118px; min-height: 132px; }
+.result .rtete .rvis { position: absolute; right: 10px; top: 50%; width: 108px; height: 108px; margin-top: -54px; z-index: 2; }
+.result .rtete .rvis .vis3d { width: 100%; height: 100%; }
+.result .rtete .rvis .vis3d.photo { border-radius: 22px; overflow: hidden; box-shadow: 0 10px 24px -10px rgba(0,0,0,.6); }
+.result .rtete.avecvis .titreligne { flex-wrap: wrap; }
+
+/* Les deux grandes portes d'Ajouter. */
+.portes2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 6px; }
+.porte2 {
+  position: relative; display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-end;
+  height: 188px; padding: 14px 16px; border-radius: 28px; overflow: hidden; text-align: left; color: var(--ink);
+  background: var(--glass, var(--surface));
+  -webkit-backdrop-filter: blur(20px) saturate(170%); backdrop-filter: blur(20px) saturate(170%);
+  box-shadow: var(--glass-rim, inset 0 0 0 1px var(--hairline)), var(--glass-drop, none);
+  transition: transform var(--d-fast) var(--spring);
+}
+.porte2:active { transform: scale(.97); }
+.porte2 .p2vis { position: absolute; left: 50%; top: 12px; width: 112px; height: 112px; margin-left: -56px; }
+.porte2 .p2vis .vis3d { width: 100%; height: 100%; }
+.porte2 .p2tx b { display: block; font-size: 17px; font-weight: 780; letter-spacing: -.015em; }
+.porte2 .p2tx small { display: block; font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+
+/* L'historique : l'objet en grand dans sa fiche. */
+.histvis { display: grid; place-items: center; height: 220px; }
+.histvis .vis3d { width: 200px; height: 200px; }
+
+/* Le champ photo des formulaires. */
+.photochamp { display: flex; align-items: center; gap: 14px; }
+.photochamp .pcvue {
+  flex: none; width: 84px; height: 84px; border-radius: 22px; display: grid; place-items: center; overflow: hidden;
+  color: var(--muted); background: linear-gradient(150deg, rgba(255,255,255,.12), rgba(255,255,255,.03));
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.1);
+}
+.photochamp .pcvue img { width: 100%; height: 100%; object-fit: cover; }
+.photochamp .pcact { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+
+/* Les tuiles de formulaire illustrées. */
+.tuile .im { width: 56px; height: 56px; display: grid; place-items: center; }
+.tuile .im .vis3d { width: 56px; height: 56px; }
+.tuile .im .phic { width: 40px; height: 40px; }
+.tuiles { grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); }
+
+/* Les puces d'en-tête tiennent sur une ligne, quitte à défiler. */
+.tete-act > .row { flex-wrap: nowrap !important; overflow-x: auto; scrollbar-width: none; margin: 0 calc(-1 * var(--gut)); padding: 2px var(--gut); }
+.tete-act > .row::-webkit-scrollbar { display: none; }
+.tete-act > .row > .chip { flex: none; }
+@media (max-width: 420px) { .tete-act .chip { padding-left: 11px; padding-right: 11px; font-size: 12.5px; } }
+.lanceurs { scroll-padding-inline: var(--gut); }
+
+/* ============================================================
+   9. Tenues : la carte d'une tenue
+
+   Le visuel en haut (ta photo, ou la mosaïque des pièces), le
+   texte en bas, séparés : le titre, le nombre de pièces et le mood
+   ne passent jamais sur les images.
+   ============================================================ */
+.tcarte {
+  position: relative; display: flex; flex-direction: column; text-align: left; cursor: pointer;
+  width: 100%; height: 318px; border-radius: 30px; overflow: hidden; isolation: isolate; color: #fff;
+  background: radial-gradient(120% 90% at 25% 0%, color-mix(in srgb, var(--g1) 92%, white 8%), var(--g2) 82%);
+  box-shadow: inset 0 1px 1px rgba(255,255,255,.35), inset 0 0 0 1px rgba(255,255,255,.08), 0 22px 44px -26px var(--g2);
+  transition: transform var(--d-fast) var(--spring);
+}
+.tcarte:active { transform: scale(.975); }
+.tcarte .tvis { position: relative; flex: 1; min-height: 0; padding: 12px 12px 6px; display: block; }
+.tcarte .ttx { flex: none; display: flex; flex-direction: column; gap: 2px; padding: 8px 16px 16px; }
+.tcarte .tsur { display: flex; align-items: center; gap: 5px; font-size: 10.5px; font-weight: 750; letter-spacing: .1em; text-transform: uppercase; opacity: .85; }
+.tcarte .ttx b { font-size: 19px; font-weight: 800; letter-spacing: -.02em; line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tcarte .ttx small { font-size: 12.5px; opacity: .8; }
+.tcarte .relance {
+  position: absolute; right: 12px; bottom: 16px; z-index: 3; width: 38px; height: 38px; border-radius: 50%;
+  display: grid; place-items: center; color: #fff;
+  background: linear-gradient(160deg, rgba(255,255,255,.28), rgba(255,255,255,.08));
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); box-shadow: inset 0 1px 1px rgba(255,255,255,.5);
+}
+.tcarte .tphoto, .tcarte .tphoto img { display: block; width: 100%; height: 100%; border-radius: 22px; object-fit: cover; }
+
+/* La mosaïque : deux à quatre mini-cartes de verre. */
+.mosaique { display: grid; gap: 8px; width: 100%; height: 100%; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: minmax(0, 1fr); }
+.mosaique.n1 { grid-template-columns: 1fr; }
+.mosaique.n3 > .mini:first-child { grid-row: span 2; }
+.mosaique.n0 { display: grid; place-items: center; grid-template-columns: 1fr; }
+.mosaique.n0 .vis3d { width: 70%; height: 90%; }
+.mini {
+  position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  min-height: 0; padding: 6px 6px 7px; border-radius: 18px; overflow: hidden;
+  background: linear-gradient(160deg, rgba(255,255,255,.22), rgba(255,255,255,.06));
+  -webkit-backdrop-filter: blur(14px) saturate(160%); backdrop-filter: blur(14px) saturate(160%);
+  box-shadow: inset 0 1px 1px rgba(255,255,255,.45), inset 0 0 0 1px rgba(255,255,255,.08);
+}
+.mini .mvis { flex: 1; min-height: 0; width: 100%; display: grid; place-items: center; }
+.mini .mvis .vis3d { width: 100%; height: 100%; }
+.mini .mvis.photo img { width: 100%; height: 100%; object-fit: cover; border-radius: 12px; }
+.mini small { flex: none; max-width: 100%; font-size: 10.5px; font-weight: 700; line-height: 1.2; text-align: center; color: #fff;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: .92; }
+.list .rowitem .mini { flex-direction: row; background: none; box-shadow: none; padding: 0; gap: 12px; justify-content: flex-start; }
+.list .rowitem .mini .mvis { flex: none; width: 48px; height: 48px; }
+.list .rowitem .mini small { font-size: 14px; color: var(--ink); text-align: left; }
+
+/* La mosaïque en grand dans la fiche. */
+.tgrand { height: 300px; padding: 10px; border-radius: 28px;
+  background: linear-gradient(160deg, rgba(255,255,255,.1), rgba(255,255,255,.02)); box-shadow: inset 0 0 0 1px rgba(255,255,255,.08); }
+.tgrand .mini small { font-size: 12px; }
+html:not([data-theme="dark"]) .tgrand { background: linear-gradient(160deg, #3E4A63, #1E2635); }
+.tphotogrande { border-radius: 26px; overflow: hidden; aspect-ratio: 3 / 4; max-height: 60vh; margin: 0 auto 14px; }
+.tphotogrande img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* Carrousel et grille de tenues. */
+.tcarrousel { display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none;
+  margin: 0 -20px; padding: 4px 20px 12px; scroll-padding-inline: 20px; }
+.tcarrousel::-webkit-scrollbar { display: none; }
+.tcarrousel > .tcarte { flex: none; width: min(74vw, 270px); scroll-snap-align: start; }
+.tgrille { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+.tcarte.ajout { background: linear-gradient(160deg, rgba(255,255,255,.08), rgba(255,255,255,.02)); color: var(--muted);
+  box-shadow: inset 0 0 0 1.5px rgba(255,255,255,.14); }
+.tcarte.ajout .tvis { display: grid; place-items: center; }
+.tplus { width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center;
+  background: rgba(255,255,255,.1); box-shadow: inset 0 1px 1px rgba(255,255,255,.3); color: #fff; }
+
+/* Le carrousel des tenues du jour. */
+.carrousel > .tcarte { flex: none; width: min(78vw, 290px); scroll-snap-align: start; }
+@media (min-width: 900px) { .carrousel > .tcarte { width: 280px; } }
+
+/* Penderie et moods : des cartes, les vides en gris. */
+.kgrille.penderie { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+.kart.catpiece .vis .vis3d.fond { inset: 8% 12% 30%; }
+.kart.catpiece.gris { opacity: .55; filter: grayscale(.9); }
+.kart.catpiece.gris:active { opacity: .8; }
+.kart .badge.plus { display: grid; place-items: center; padding: 0; width: 26px; height: 26px; }
+
+/* La flèche de retour ne passe jamais sur le titre d'une pop-up. */
+.sheet.a-retour > .mtete:first-of-type:not(:has(.ill)) { padding-top: 62px; }
+.sheet.a-retour > .mtete:first-of-type .ill { margin-top: 30px; }
+
+/* La croix qui referme une analyse. */
+.fermebloc { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; color: var(--muted);
+  background: rgba(255,255,255,.08); box-shadow: inset 0 0 0 1px rgba(255,255,255,.1); }
+.fermebloc:active { transform: scale(.9); }
+
+/* ============================================================
+   10. Santé
+   ============================================================ */
+.mesure.avecvis { display: flex; align-items: center; gap: 10px; text-align: left; }
+.mesure .mvis3d { flex: none; width: 50px; height: 50px; }
+.mesure .mtx { display: flex; flex-direction: column; min-width: 0; }
+.mesure .mtx small { font-size: 12.5px; font-weight: 650; color: var(--ink-2, var(--muted)); white-space: nowrap; }
+.mesure .mtx b { font-size: 21px; font-weight: 800; letter-spacing: -.02em; white-space: nowrap; }
+
+/* Les trois boutons du jour : chacun a la place de respirer. */
+.actsante { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) 54px; gap: 10px; }
+.actsante .btn { min-width: 0; padding: 0 14px; justify-content: center; gap: 8px; white-space: nowrap; }
+.actsante .btn span { overflow: hidden; text-overflow: ellipsis; }
+.actsante .btn.rond { width: 54px; padding: 0; border-radius: 50%; }
+@media (max-width: 360px) { .actsante { grid-template-columns: 1fr 1fr; } .actsante .btn.rond { display: none; } }
+
+/* Le bilan chiffré. */
+.bilanphrase { font-size: 15px; font-weight: 700; line-height: 1.4; margin-bottom: 10px; }
+.bligne { display: flex; gap: 12px; padding: 12px 0; border-top: 1px solid var(--hairline); }
+.bligne:first-of-type { border-top: 0; }
+.bligne .bpt { flex: none; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; color: #fff; margin-top: 1px; }
+.bligne.ok .bpt { background: #22A45D; }
+.bligne.moyen .bpt { background: #E0A11B; }
+.bligne.mauvais .bpt { background: #D8453A; }
+.bligne .btx { flex: 1; min-width: 0; }
+.bligne .btx b { font-size: 14.5px; font-weight: 760; }
+.bligne .btx p { font-size: 13.5px; line-height: 1.45; color: var(--ink-2, var(--ink)); margin-top: 2px; }
+.bligne .bfaire { display: flex; align-items: flex-start; gap: 6px; font-weight: 650; color: var(--ink) !important; margin-top: 6px !important;
+  padding: 8px 10px; border-radius: 12px; background: rgba(255,255,255,.07); }
+.bligne .bfaire svg { flex: none; margin-top: 3px; }
+
+/* Mes données : une ligne sobre, et un « tout effacer » discret. */
+.rowitem .vis3d.lic { flex: none; width: 40px; height: 40px; }
+.danger-txt { color: #E0685E !important; }
+
+/* ============================================================
+   11. La ligne qu'on balaie (journal alimentaire)
+
+   Les boutons Copier et Retirer passaient par-dessus les calories.
+   Téléphone : ils restent invisibles tant qu'on ne tire pas la
+   ligne. Ordinateur : ils ont leur propre place, à droite des
+   calories, et ne recouvrent plus rien.
+   ============================================================ */
+.glissable .actions { opacity: 0; transition: opacity var(--d-base) var(--ease); }
+.glissable.ouvert .actions, .glissable.glisse .actions { opacity: 1; }
+@media (pointer: fine) {
+  .glissable { display: flex; align-items: center; }
+  .glissable .dessus { flex: 1; min-width: 0; background: transparent; transform: none !important; }
+  .glissable .actions, .glissable:hover .actions, .glissable:focus-within .actions {
+    position: static; inset: auto; transform: none; pointer-events: auto;
+    flex: none; gap: 6px; padding: 0 12px 0 4px; opacity: .35;
+  }
+  .glissable:hover .actions, .glissable:focus-within .actions { opacity: 1; }
+  .glissable .actions::before { display: none; }
+  .glissable .act { width: 34px; height: 34px; }
+  .glissable .act svg { width: 16px; height: 16px; }
+}
+
+/* ============================================================
+   12. Café, Bar, Recettes
+
+   Une seule taille de carte dans tous les carrousels : les choix de
+   l'assistant (« Tu le veux comment ? ») étaient trois fois plus
+   petits que « Les plus faits ». Même largeur, même hauteur, même
+   verre, et le titre réserve toujours deux lignes pour que toutes
+   les cartes d'une rangée fassent la même hauteur.
+   ============================================================ */
+:root { --carte-l: 176px; --carte-h: 252px; }
+@media (min-width: 700px) { :root { --carte-l: 200px; --carte-h: 276px; } }
+
+.wiz .track { gap: 12px; padding: 8px var(--gut) 14px; scroll-padding-inline: var(--gut); }
+.wiz .track .opt, .wiz .track .opt.opt3d, :root[data-theme="dark"] .wiz .track .opt.opt3d {
+  flex: none; width: var(--carte-l); height: var(--carte-h) !important; min-height: 0; align-self: stretch;
+  display: flex; flex-direction: column; align-items: stretch; padding: 8px; border-radius: 28px; text-align: left;
+  scroll-snap-align: start; transform: none;
+  background: var(--glass, var(--surface)); color: var(--ink);
+  box-shadow: var(--glass-rim, inset 0 0 0 1px var(--hairline)), 0 14px 30px -18px rgba(0,0,0,.7);
+}
+.wiz .track .opt .optvis {
+  position: relative; flex: 1; min-height: 0; border-radius: 22px; display: grid; place-items: center; overflow: hidden;
+  background: radial-gradient(90% 90% at 40% 25%, color-mix(in srgb, var(--oa) 55%, #fff 10%), color-mix(in srgb, var(--oa) 85%, #000 25%));
+}
+.wiz .track .opt .optvis .vis3d { width: 86%; height: 86%; }
+.wiz .track .opt .optvis .vis3d img { filter: drop-shadow(0 14px 20px rgba(0,0,0,.35)) !important; }
+.wiz .track .opt .optvis img.photo { width: 100%; height: 100%; object-fit: cover; }
+.wiz .track .opt .opttx { flex: none; display: flex; flex-direction: column; gap: 2px; padding: 10px 6px 4px; }
+.wiz .track .opt .nm { margin: 0; font-size: 16px; font-weight: 780; letter-spacing: -.015em; color: var(--ink); }
+.wiz .track .opt .sb { margin: 0; font-size: 12px; color: var(--muted); opacity: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wiz .track .opt .cnt { align-self: flex-start; margin-top: 6px; padding: 3px 10px; font-size: 11px; font-weight: 750; border-radius: 999px;
+  background: rgba(255,255,255,.12); color: var(--ink-2, var(--ink)); }
+html:not([data-theme="dark"]) .wiz .track .opt .cnt { background: rgba(0,0,0,.06); }
+.wiz .track .opt.sel, :root[data-theme="dark"] .wiz .track .opt.sel { outline: 2.5px solid #fff; outline-offset: 2px; }
+html:not([data-theme="dark"]) .wiz .track .opt.sel { outline-color: var(--accent); }
+.wiz .track .opt.mid { transform: none; }
+@media (min-width: 900px) { .trackwrap .arrows { display: flex !important; } }
+
+/* « Les plus faits » et les rails : même hauteur pour toutes. */
+.pfaits .card, :root[data-theme="dark"] .pfaits .card { width: var(--carte-l) !important; height: var(--carte-h) !important; display: flex; flex-direction: column; }
+.pfaits .card .ph { flex: 1; min-height: 0; aspect-ratio: auto; }
+.pfaits .card .bd { flex: none; }
+.pfaits .card .bd h3 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 2.4em; line-height: 1.2; }
+.rail > .card { display: flex; flex-direction: column; }
+.rail > .card .bd h3 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 2.4em; }
+
+/* Le cœur et les étoiles, centrés au pixel. */
+.card .fav, .rcarte .coeur { display: grid; place-items: center; padding: 0; line-height: 0; }
+.card .fav svg, .rcarte .coeur svg { display: block; margin: 0; transform: translateY(.5px); }
+#codexCreate { display: grid; place-items: center; padding: 0; }
+#codexCreate svg { display: block; margin: 0 auto; }
+.appel .go { display: grid; place-items: center; }
+.appel .go svg { display: block; }
+
+/* Les créations : un visuel générique pour une boisson ou un
+   cocktail inventé, du verre avec le nom pour un plat inventé. */
+.ph.creation.avecvis { display: grid; place-items: center; }
+.ph.creation .crvis { width: 78%; height: 78%; }
+.ph.creation.sansvis { display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-end; gap: 8px; padding: 14px;
+  background: linear-gradient(150deg, var(--g1), var(--g2)) !important; color: #fff; }
+.ph.creation .crico { width: 44px; height: 44px; border-radius: 14px; display: grid; place-items: center;
+  background: rgba(255,255,255,.18); box-shadow: inset 0 1px 1px rgba(255,255,255,.4); }
+.ph.creation.avecvis b { display: none; }
+
+/* Les ingrédients : une carte par ingrédient avec son image ; pour
+   une recette inventée, des lignes de verre, nom et quantité. */
+.grilleing { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 10px; }
+.carteing { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 4px;
+  padding: 8px 6px 10px; border-radius: 20px; background: var(--glass, var(--surface)); box-shadow: var(--glass-rim, inset 0 0 0 1px var(--hairline)); }
+.carteing .vis { position: relative; width: 76px; height: 76px; display: grid; place-items: center; }
+.carteing .vis .vis3d { width: 100%; height: 100%; }
+.carteing .vis .pill { position: absolute; bottom: -2px; right: -6px; }
+.carteing .tx b { font-size: 12.5px; font-weight: 700; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.carteing .tx small { font-size: 11.5px; color: var(--muted); }
+.grilleing.texte { grid-template-columns: 1fr; gap: 8px; }
+.carteing.texte { flex-direction: row; justify-content: space-between; align-items: center; text-align: left; padding: 12px 16px; border-radius: 18px;
+  background: linear-gradient(150deg, rgba(255,255,255,.1), rgba(255,255,255,.03));
+  -webkit-backdrop-filter: blur(16px) saturate(160%); backdrop-filter: blur(16px) saturate(160%);
+  box-shadow: inset 0 1px 1px rgba(255,255,255,.22), inset 0 0 0 1px rgba(255,255,255,.06); }
+.carteing.texte .tx { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.carteing.texte .tx b { font-size: 14px; -webkit-line-clamp: 1; }
+.carteing.texte .qt { flex: none; font-size: 13.5px; font-weight: 750; font-variant-numeric: tabular-nums; }
+.grilleing:not(.texte) .carteing.texte { grid-column: 1 / -1; }
+.dline .dvis { flex: none; width: 36px; height: 36px; margin-right: 2px; }
+.dline span { color: var(--ink) !important; }
+.carteing .tx { width: 100%; min-width: 0; }
+.carteing .tx b { white-space: normal; word-break: break-word; }
+
+/* ============================================================
+   13. Aliments
+   ============================================================ */
+.rbody.alimres { position: relative; padding-right: 118px; min-height: 130px; }
+.rbody.alimres .alvis { position: absolute; right: 12px; top: 12px; width: 100px; height: 100px; }
+.rbody.alimres .alvis .vis3d { width: 100%; height: 100%; }
+.rbody.alimres .alvis .vis3d.photo { border-radius: 20px; overflow: hidden; }
+.rbody.alimres .ract { flex-wrap: wrap; }
+.aliligne { cursor: pointer; }
+.rowitem .vis3d.lic, .rowitem .vis3d.photo.lic { flex: none; width: 44px; height: 44px; }
+.rowitem .vis3d.photo.lic img { border-radius: 12px; }
+.gtuile .haut .gvis { flex: none; width: 34px; height: 34px; margin: -4px 0; }
+
+/* L'illustration d'en-tête des formulaires : un objet 3D posé à
+   gauche du titre, jamais une icône qui flotte au milieu. */
+.mtete .ill { display: block; width: 64px; height: 64px; margin-bottom: 6px; }
+.mtete .ill .vis3d.gr { width: 64px; height: 64px; }
+.mtete .ill .phic.vide { display: none; }
+.mtete .ill:empty { display: none; }
+
+/* ============================================================
+   14. Films et séries
+   ============================================================ */
+.afficheverre { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: flex-end; gap: 6px;
+  padding: 14px 12px; text-align: left; color: #fff; overflow: hidden;
+  background: radial-gradient(120% 80% at 20% 0%, #3A4A5C, #121820 75%); }
+.afficheverre.serie { background: radial-gradient(120% 80% at 20% 0%, #5A3A4C, #1A1218 75%); }
+.afficheverre::before { content: ''; position: absolute; inset: 8px; border-radius: 12px; box-shadow: inset 0 0 0 1px rgba(255,255,255,.12); pointer-events: none; }
+.afficheverre .av-ic { position: absolute; top: 12px; left: 12px; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center;
+  background: rgba(255,255,255,.14); box-shadow: inset 0 1px 1px rgba(255,255,255,.35); }
+.afficheverre b { font-size: 17px; font-weight: 820; letter-spacing: -.02em; line-height: 1.1;
+  display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.afficheverre small { font-size: 11.5px; opacity: .75; font-weight: 650; }
+.recherchecollee { position: sticky; top: -1px; z-index: 5; padding: 8px 0; margin: -8px 0 0;
+  background: linear-gradient(180deg, var(--bg-elev, #0E1820) 70%, transparent); }
+:root[data-theme="dark"] .recherchecollee { background: linear-gradient(180deg, rgba(14,24,31,.96) 70%, transparent); }
+.plusrond { display: grid !important; place-items: center; padding: 0; line-height: 0; }
+.plusrond svg { display: block; margin: 0; }
+.retirerzone { padding-top: 18px !important; margin-top: 6px; border-top: 1px solid var(--hairline); }
+.attente .attvis { width: 90px; height: 90px; }
+
+/* ============================================================
+   15. Le guide : des fiches qui donnent envie d'être lues
+   ============================================================ */
+.lecture { max-width: 620px; margin: 0 auto; }
+.lecture .lecvis { display: grid; place-items: center; height: 150px; margin: 4px 0 10px; }
+.lecture .lecvis .vis3d { width: 140px; height: 140px; }
+.lecture .lead { font-size: 19px; font-weight: 720; line-height: 1.45; letter-spacing: -.012em; margin-bottom: 16px; color: var(--ink); }
+.lecture p { font-size: 16px; line-height: 1.72; color: var(--ink-2, var(--ink)); margin-bottom: 14px; }
+.lecture p:not(.lead):first-of-type::first-letter { float: left; font-size: 46px; line-height: .9; font-weight: 850; margin: 6px 8px 0 0; color: #E07BA8; }
+.lecliste { display: grid; gap: 10px; }
+.lecpoint { display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; border-radius: 20px;
+  background: linear-gradient(150deg, rgba(255,255,255,.1), rgba(255,255,255,.03)); box-shadow: inset 0 1px 1px rgba(255,255,255,.18), inset 0 0 0 1px rgba(255,255,255,.06); }
+.lecpoint .n { flex: none; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 14px;
+  color: #fff; background: linear-gradient(150deg, #BE5F8C, #7A2E54); }
+.lecpoint p { margin: 0; font-size: 15px; line-height: 1.55; }
+html:not([data-theme="dark"]) .lecpoint { background: #fff; box-shadow: 0 1px 0 rgba(0,0,0,.04), inset 0 0 0 1px rgba(0,0,0,.06); }
+
+/* ============================================================
+   16. Grand écran : des grilles, pas des cartes géantes
+   ============================================================ */
+@media (min-width: 900px) {
+  #codexHero, .hero.herophoto { max-width: calc(var(--maxw) - 2 * var(--gut)); margin-left: auto; margin-right: auto; }
+  .rgrille { display: grid !important; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)) !important; gap: 16px !important; }
+  .rgrille .rcarte { height: 220px; }
+  .rcarte.grande { height: 320px; }
+  .mesures { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
+  .kgrille { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)) !important; }
+  .kgrille.penderie { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)) !important; }
+  .tenuebase { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
+  .portes { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .portes2 { max-width: 560px; }
+  .idees { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+  .tgrille { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
+  .grilleing { grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); }
+  .actsante { max-width: 620px; }
+  .section > .list, .wrap > .list { max-width: 900px; }
+}
+@media (min-width: 1200px) {
+  .mesures { grid-template-columns: repeat(4, minmax(0, 240px)) !important; justify-content: center; }
+}
+
+/* Thème clair : les cartes à objet 3D gardent un texte foncé lisible. */
+:root:not([data-theme="dark"]) .kart:is(.catpiece, :has(.vis3d)) { background: linear-gradient(165deg, #fff, #F3F1EE); }
+:root:not([data-theme="dark"]) .kart:is(.catpiece, :has(.vis3d))::before { display: none; }
+:root:not([data-theme="dark"]) .kart:is(.catpiece, :has(.vis3d)) .voile { display: none; }
+:root:not([data-theme="dark"]) .kart:is(.catpiece, :has(.vis3d)) .tx b { color: #14151A; text-shadow: none; }
+:root:not([data-theme="dark"]) .kart:is(.catpiece, :has(.vis3d)) .tx small { color: #5A5E68; opacity: 1; text-shadow: none; }
+:root:not([data-theme="dark"]) .tcarte.ajout { background: rgba(20,21,26,.04); box-shadow: inset 0 0 0 1.5px rgba(20,21,26,.1); }
+:root:not([data-theme="dark"]) .tplus { background: rgba(20,21,26,.06); color: #14151A; box-shadow: none; }

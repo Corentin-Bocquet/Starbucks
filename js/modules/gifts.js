@@ -318,11 +318,13 @@
       const r = await UI.promptSheet("Ajouter quelqu'un", [
         { name: 'nom', label: 'Prénom' },
         { name: 'relation', label: 'Relation', type: 'tiles', options: [
-            { v: 'copine', n: 'Copine' }, { v: 'frère', n: 'Frère' }, { v: 'sœur', n: 'Sœur' },
-            { v: 'mère', n: 'Mère' }, { v: 'père', n: 'Père' }, { v: 'ami', n: 'Ami' },
-            { v: 'amie', n: 'Amie' }, { v: 'collègue', n: 'Collègue' }, { v: 'autre', n: 'Autre' } ] },
+            { v: 'copine', n: 'Copine', ph: 'couple' }, { v: 'frère', n: 'Frère', ph: 'fratrie' }, { v: 'sœur', n: 'Sœur', ph: 'fratrie' },
+            { v: 'mère', n: 'Mère', ph: 'parent' }, { v: 'père', n: 'Père', ph: 'parent' }, { v: 'ami', n: 'Ami', ph: 'ami' },
+            { v: 'amie', n: 'Amie', ph: 'ami' }, { v: 'enfant', n: 'Enfant', ph: 'enfant' },
+            { v: 'grand-parent', n: 'Grand-parent', ph: 'grands-parents' }, { v: 'collègue', n: 'Collègue', ph: 'collegue' },
+            { v: 'autre', n: 'Autre', ph: 'cadeau' } ] },
         { name: 'date', label: 'Date importante', type: 'date', value: '' }
-      ], { submit: 'Ajouter', art: 'personne', teinte: ['#215D93', '#4E93CE'] });
+      ], { submit: 'Ajouter', photo: 'cadeau', teinte: ['#9C3D54', '#D0667E'] });
       if (!r || !r.nom) return;
       const p = Store.add('people', { nom: r.nom, relation: r.relation, date: r.date });
       personId = p.id; render();
@@ -334,9 +336,14 @@
       const p = Store.find('people', personId);
       const r = await UI.promptSheet('Modifier', [
         { name: 'nom', label: 'Prénom', value: p.nom },
-        { name: 'relation', label: 'Relation', value: p.relation || '' },
+        { name: 'relation', label: 'Relation', type: 'tiles', value: p.relation || 'autre', options: [
+            { v: 'copine', n: 'Copine', ph: 'couple' }, { v: 'frère', n: 'Frère', ph: 'fratrie' }, { v: 'sœur', n: 'Sœur', ph: 'fratrie' },
+            { v: 'mère', n: 'Mère', ph: 'parent' }, { v: 'père', n: 'Père', ph: 'parent' }, { v: 'ami', n: 'Ami', ph: 'ami' },
+            { v: 'amie', n: 'Amie', ph: 'ami' }, { v: 'enfant', n: 'Enfant', ph: 'enfant' },
+            { v: 'grand-parent', n: 'Grand-parent', ph: 'grands-parents' }, { v: 'collègue', n: 'Collègue', ph: 'collegue' },
+            { v: 'autre', n: 'Autre', ph: 'cadeau' } ] },
         { name: 'date', label: 'Date importante', type: 'date', value: p.date || '' }
-      ], { submit: 'Enregistrer', art: 'personne', teinte: ['#215D93', '#4E93CE'], sub: p.nom });
+      ], { submit: 'Enregistrer', photo: 'cadeau', teinte: ['#9C3D54', '#D0667E'], sub: p.nom, pasDeFocus: true });
       if (!r) return;
       Store.put('people', personId, { nom: r.nom, relation: r.relation, date: r.date });
       render();

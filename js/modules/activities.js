@@ -45,6 +45,123 @@
 
   const slug = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
+  /* ============================================================
+     Autour de toi : une base d'idées pour n'importe quelle ville
+
+     Une ville ou un village sans liste enregistrée ne donnait rien
+     à tourner. L'IA regarde maintenant ce qui existe vraiment dans
+     le rayon choisi (karting, bowling, plage, musée, balade...), en
+     privilégiant ce que tu aimes déjà, et le verse dans la roue.
+     Le résultat est gardé une semaine par ville et par rayon.
+     ============================================================ */
+  let locales = [], localesEtat = 'idle';
+  const rayon = () => UI.clamp(Number(Store.get('rayonKm', 50)) || 50, 1, 200);
+  const cleLocale = () => 'actLoc.' + slug((ctx && ctx.place && ctx.place.name) || prefs().city) + '.' + rayon();
+
+  const LOCAL_SCHEMA = AI.T.obj({
+    activites: AI.T.arr(AI.T.obj({
+      nom: AI.T.str('Nom court et concret, ex. Karting de Berck'),
+      type: AI.T.str('Un seul mot parmi la liste des types'),
+      categorie: AI.T.str('Sport, Fun, Food, Culture, Plage et nature, Insolite ou Détente'),
+      lieu: AI.T.str('Commune ou adresse'),
+      distance_km: AI.T.num('Distance approximative depuis le centre, en km'),
+      prix: AI.T.int('0 gratuit, 1 à 4'),
+      exterieur: AI.T.bool('Vrai si ça se fait dehors'),
+      pourquoi: AI.T.str('Une phrase simple : pourquoi ça peut plaire')
+    }))
+  });
+
+  function profilGouts() {
+    const favs = Store.all('activities').filter((a) => Store.isFav('activity', a.id)).map((a) => a.nom);
+    const faits = {};
+    Store.history('activite', 200).forEach((h) => { const k = h.payload && (h.payload.kind || h.payload.label); if (k) faits[k] = (faits[k] || 0) + 1; });
+    const top = Object.keys(faits).sort((a, b) => faits[b] - faits[a]).slice(0, 10);
+    const w = Reco.prefs ? Reco.prefs() : Store.get('prefWeights', {});
+    const aime = Object.keys(w).filter((k) => w[k] > 0.2);
+    const evite = Object.keys(w).filter((k) => w[k] < -0.2);
+    return [
+      favs.length ? 'Favoris : ' + favs.slice(0, 12).join(', ') : '',
+      top.length ? 'Déjà fait souvent : ' + top.join(', ') : '',
+      aime.length ? 'Aime : ' + aime.join(', ') : '',
+      evite.length ? 'Évite : ' + evite.join(', ') : ''
+    ].filter(Boolean).join('\n') || 'Pas encore de goûts connus : propose un éventail varié.';
+  }
+
+  async function chargerLocales(force) {
+    if (!ctx || !ctx.place || !global.AI || !AI.available()) return;
+    const cle = cleLocale();
+    const c = Store.get(cle, null);
+    if (c && !force && Date.now() - c.at < 7 * 86400e3) { locales = c.items || []; return; }
+    if (localesEtat === 'load') return;
+    localesEtat = 'load';
+    if (root && root.isConnected) render();
+    const pl = ctx.place;
+    const types = Object.keys(Vis.KINDS).join(', ');
+    try {
+      const res = await AI.json(
+        "Tu es un guide local qui connaît très bien la région.\n" +
+        'Point de départ : ' + pl.name + (pl.admin ? ' (' + pl.admin + ')' : '') +
+        (pl.lat ? ', coordonnées ' + Number(pl.lat).toFixed(3) + ', ' + Number(pl.lon).toFixed(3) : '') + '.\n' +
+        'Rayon : ' + rayon() + ' km autour.\n' + Ctx.describe(ctx) + '\n\n' +
+        'Goûts de la personne :\n' + profilGouts() + '\n\n' +
+        "Liste entre 18 et 26 activités qu'on peut RÉELLEMENT faire dans ce rayon : établissements et lieux qui existent " +
+        "(karting, bowling, escape game, laser game, cinéma, musée, parc, plage, randonnée, piscine, spa, patinoire, " +
+        "équitation, golf, accrobranche, marché, restaurant réputé...).\n" +
+        "Règles :\n- d'abord ce qui colle à ses goûts, puis de quoi varier ;\n" +
+        "- n'invente rien : si tu n'es pas sûr qu'un lieu existe, ne le mets pas ;\n" +
+        "- tient compte de la saison et de la météo ;\n" +
+        '- type : un seul mot parmi ' + types + ' ;\n- distance réaliste, jamais plus que le rayon.',
+        LOCAL_SCHEMA, { ttl: 7 * 86400e3, temperature: 0.4 });
+      locales = (res.activites || []).filter((x) => x && x.nom).map((x) => ({
+        id: 'loc-' + slug(x.nom), nom: x.nom,
+        kind: Vis.KINDS[x.type] ? x.type : 'autre',
+        category: x.categorie || 'Autour de toi',
+        lieu: x.lieu || '', distance: x.distance_km > 0 ? x.distance_km : null,
+        price: x.prix == null ? null : UI.clamp(Number(x.prix), 0, 4),
+        outdoor: !!x.exterieur, description: x.pourquoi || '',
+        city: prefs().city, source: 'ia-local'
+      })).filter((a) => a.distance == null || a.distance <= rayon() + 2);
+      Store.set(cle, { at: Date.now(), items: locales });
+    } catch (e) {
+      UI.toast(AI.humanError(e));
+    }
+    localesEtat = 'idle';
+    if (root && root.isConnected) render();
+  }
+
+  /* Le rayon se règle d'un geste : un curseur dans une pop-up. */
+  function ouvrirRayon() {
+    let v = rayon();
+    UI.openSheet(
+      teteSheet('Distance', 'Jusqu\'où tu veux bien aller ?', ['#2F6B5A', '#58A68C'], 'lieu') +
+      '<div class="mbody">' +
+        '<div class="rayonval"><b data-rv>' + v + '</b><span>km</span></div>' +
+        '<input class="rayonslider" type="range" min="1" max="200" step="1" value="' + v + '" data-rs aria-label="Rayon en kilomètres">' +
+        '<div class="rayonbornes"><span>1 km</span><span>100</span><span>200 km</span></div>' +
+        '<div class="rayonvite">' + [5, 15, 30, 50, 100, 200].map((n) =>
+          '<button class="chip' + (n === v ? ' on' : '') + '" data-rk="' + n + '">' + n + ' km</button>').join('') + '</div>' +
+        '<button class="btn primary block lg" style="margin-top:18px" data-ok>' + Icon('check', 17) + 'Chercher dans ce rayon</button>' +
+      '</div>',
+      { onMount: (sh) => {
+        const r = sh.querySelector('[data-rs]'), out = sh.querySelector('[data-rv]');
+        const poser = (n) => {
+          v = n; r.value = n; out.textContent = n;
+          r.style.setProperty('--p', ((n - 1) / 199 * 100).toFixed(1) + '%');
+          sh.querySelectorAll('[data-rk]').forEach((b) => b.classList.toggle('on', +b.dataset.rk === n));
+        };
+        poser(v);
+        r.oninput = () => { poser(+r.value); UI.haptic('tick'); };
+        sh.querySelectorAll('[data-rk]').forEach((b) => b.onclick = () => { poser(+b.dataset.rk); UI.haptic('select'); });
+        sh.querySelector('[data-ok]').onclick = () => {
+          Store.set('rayonKm', v);
+          UI.closeSheet();
+          locales = [];
+          chargerLocales(false);
+          render();
+        };
+      } });
+  }
+
   /* ---------- Le vivier ---------- */
   function pool(opts) {
     opts = opts || {};
@@ -63,7 +180,8 @@
       return list;
     }
 
-    let list = Store.all('activities').filter((a) => !a.city || a.city === p.city);
+    let list = Store.all('activities').filter((a) => !a.city || a.city === p.city)
+      .concat(locales.filter((a) => a.distance == null || a.distance <= rayon() + 2));
     if (!opts.ignoreCategory && p.category !== 'all') list = list.filter((a) => a.category === p.category);
     if (!opts.ignoreFav && p.favOnly) list = list.filter((a) => Store.isFav('activity', a.id));
     if (p.source === 'mine') list = list.filter((a) => a.source !== 'seed');
@@ -107,6 +225,7 @@
       if (!root.isConnected) return;
       ctx = full;
       render();
+      chargerLocales(false);
       if (prefs().events) loadEvents();
     }).catch(() => {});
     if (global.Cal && Cal.googleReady()) Cal.refreshGoogleDay();
@@ -167,9 +286,9 @@
      par où commencer.
      ============================================================ */
   const LANCEURS = [
-    { act: 'roue',     nom: 'Tourner la roue', sub: 'Le hasard, selon ta soirée et ton budget', ic: 'de-hasard', t: ['#4C6BFF', '#1B2468'] },
-    { act: 'three',    nom: 'Trois idées',     sub: 'Tu choisis, ou la roue tranche',           ic: '3-idees',   t: ['#F08A4B', '#6B2A12'] },
-    { act: 'surprise', nom: 'Surprends-moi',   sub: 'EVER règle tout et lance pour toi',        ic: 'mood',      t: ['#3FC4A0', '#0E4A3E'] }
+    { act: 'roue',     nom: 'Tourner la roue', sub: 'Tu filtres, tu lances, la roue choisit',   ic: 'de',          t: ['#E0784A', '#5A2412'] },
+    { act: 'three',    nom: 'Trois idées',     sub: 'Trois propositions, tu gardes la tienne', ic: 'trois-idees', t: ['#E8B04A', '#6A4210'] },
+    { act: 'surprise', nom: 'Surprends-moi',   sub: 'Zéro réglage : une seule idée, tout de suite', ic: 'surprise', t: ['#3FA887', '#0E3F33'] }
   ];
 
   /* Les humeurs, en mots courts : une bulle ne tient pas une phrase. */
@@ -184,7 +303,7 @@
         '<span class="fonte"></span>' +
         '<div class="ltx"><b>' + UI.esc(d.nom) + '</b><small>' + UI.esc(d.sub) + '</small></div>' +
         '<div class="glisseur" data-glisse="' + d.act + '">' +
-          '<span class="rail">Glisse pour lancer</span>' +
+          '<span class="glisse-tx">Glisse pour lancer</span>' +
           '<button class="bouton" aria-label="' + UI.attr(d.nom) + '">' + Icon('next', 20) + '</button>' +
         '</div>' +
       '</div>';
@@ -335,27 +454,30 @@
       } });
   }
 
-  /* Ajouter : une activite ou une adresse. Deux choix, deux
-     tuiles, pas un menu deroulant. */
+  /* Ajouter : une activité ou une adresse, en deux grandes cartes.
+     Dessous, ce qu'on a déjà ajouté, modifiable d'une touche. */
   function ouvrirAjout() {
-    const mine = Store.all('activities').filter((a) => a.source !== 'seed').length;
+    const mine = Store.all('activities').filter((a) => a.source !== 'seed');
     const places = Store.all('places').length;
+    const porte = (k, slug, titre, sous) =>
+      '<button class="porte2" data-n="' + k + '">' +
+        '<span class="p2vis">' + Vis.html(slug) + '</span>' +
+        '<span class="p2tx"><b>' + titre + '</b><small>' + sous + '</small></span>' +
+      '</button>';
     UI.openSheet(
-      teteSheet('Ajouter', 'Qu\'est-ce que tu veux enregistrer ?', ['#215D93', '#4E93CE'], 'etoile') +
-      '<div class="mbody"><div class="portes deux">' +
-        '<button class="porte" data-n="activite">' +
-          (global.Stock ? Stock.ic('ajouter une activite', { classe: 'fond' }) : '') +
-          '<span class="voile"></span><span class="tx"><b>Une activité</b><small>' +
-          mine + ' à toi</small></span></button>' +
-        '<button class="porte" data-n="lieu">' +
-          (global.Stock ? Stock.ic('mes etablissements', { classe: 'fond' }) : '') +
-          '<span class="voile"></span><span class="tx"><b>Une adresse</b><small>' +
-          places + ' enregistrée' + (places > 1 ? 's' : '') + '</small></span></button>' +
-      '</div></div>',
+      teteSheet('Ajouter', 'Qu\'est-ce que tu veux enregistrer ?', ['#1F6E5A', '#3FAF8A'], 'etoile') +
+      '<div class="mbody"><div class="portes2">' +
+        porte('activite', 'activite', 'Une activité', mine.length + ' à toi') +
+        porte('lieu', 'lieu', 'Une adresse', places + ' enregistrée' + (places > 1 ? 's' : '')) +
+      '</div>' +
+      (mine.length ? '<h4 class="ftitre">Mes activités</h4><div class="idees">' +
+        mine.map((a, i) => carteIdee(a, i)).join('') + '</div>' : '') +
+      '</div>',
       { onMount: (sh) => {
-        if (global.Stock) Stock.peupler(sh);
-        sh.querySelector('[data-n="activite"]').onclick = () => { UI.closeSheet(); addActivity(); };
+        Photos.hydrate(sh);
+        sh.querySelector('[data-n="activite"]').onclick = () => addActivity();
         sh.querySelector('[data-n="lieu"]').onclick = () => { UI.closeSheet(); managePlaces(); };
+        sh.querySelectorAll('.idees [data-i]').forEach((b) => b.onclick = () => addActivity(mine[+b.dataset.i]));
       } });
   }
 
@@ -428,7 +550,8 @@
       '<div class="row" style="gap:8px;flex-wrap:wrap">' +
         '<button class="chip" data-place>' + Icon('pin', 15) + UI.esc(cityName(prefs().city)) + Icon('next', 13) + '</button>' +
         (wx ? '<span class="chip">' + Icon(wx.icon, 15) + wx.temp + '° ' + UI.esc(quand) + '</span>' : '') +
-        '<span class="chip">' + n + ' idée' + (n > 1 ? 's' : '') + '</span>' +
+        '<span class="chip">' + (localesEtat === 'load' ? '<span class="minispin"></span>' : '') + n + ' idée' + (n > 1 ? 's' : '') + '</span>' +
+        '<button class="chip" data-rayon aria-label="Régler la distance">' + Icon('location', 14) + rayon() + ' km' + Icon('next', 12) + '</button>' +
       '</div>' +
       '<h1>On fait quoi<br>' + UI.esc(quand) + '&nbsp;?</h1>' +
     '</div>';
@@ -530,13 +653,14 @@
      Résultat
      ============================================================ */
   async function onResult(a, box, why) {
-    Store.log('activite', { id: a.id, label: a.nom, kind: a.kind });
+    Store.log('activite', { id: a.id, label: a.nom, kind: a.kind, category: a.category });
     if (global.Game) Game.award('roulette', 5);
 
     if (a.isMood && global.Mood) Mood.log(prefs().mood, a);
 
     box.innerHTML = resultCard(a, null, true, why);
     bindResult(box, a, null);
+    Photos.hydrate(box);
     if (a.isEvent) { const s = box.querySelector('[data-venue]'); if (s) s.innerHTML = ''; return; }
 
     /* Une source d'humeur qui ne se rattache à aucun lieu — un câlin,
@@ -568,7 +692,8 @@
     const venue = Roulette.pick(ranked, { weight: (x) => x._score, sharpness: 1.9 });
     box.innerHTML = resultCard(a, Object.assign(venue, { _pool: ranked.length }), false, why);
     bindResult(box, a, venue);
-    Store.log('etablissement', { id: venue.id, label: venue.nom });
+    Photos.hydrate(box);
+    Store.log('etablissement', { id: venue.id, label: venue.nom, kind: a.kind, act: a.nom });
   }
 
   const VENUE_KINDS = new Set(['bar', 'cafe', 'restaurant', 'brunch', 'glacier', 'musee', 'galerie', 'exposition', 'cinema', 'bowling', 'karting', 'escape', 'spa', 'golf', 'shopping', 'marche', 'equitation', 'tennis']);
@@ -629,7 +754,8 @@
                  : (a.price != null ? (a.price === 0 ? 'Gratuit' : '€'.repeat(a.price)) : '');
 
     return '<div class="result">' +
-      '<div class="rtete" style="--g1:' + teinte[0] + ';--g2:' + teinte[1] + '">' +
+      '<div class="rtete avecvis" style="--g1:' + teinte[0] + ';--g2:' + teinte[1] + '">' +
+        '<span class="rvis">' + visuel(venue ? Object.assign({}, a, { photo: venue.photo, photoUrl: venue.photoUrl }) : a) + '</span>' +
         '<div class="sur">' + UI.esc(kicker) + '</div>' +
         '<div class="titreligne"><h3>' + UI.esc(title) + '</h3>' +
         (valeur ? '<span class="valeur">' + UI.esc(valeur) + '</span>' : '') + '</div>' +
@@ -778,13 +904,38 @@
      Surprends-moi et 3 idées
      ============================================================ */
 
-  /* L'app règle tout : elle ignore les filtres, prend le contexte
-     complet, choisit et lance. L'utilisateur ne décide de rien. */
+  /* Le visuel d'une activité : la photo qu'on lui a donnée, sinon
+     l'image de son type, sinon celle de sa catégorie. */
+  function visuel(a, classe) {
+    if (a && (a.photo || a.photoUrl)) {
+      return '<span class="vis3d photo' + (classe ? ' ' + classe : '') + '">' + Photos.img(a, 'photo') + '</span>';
+    }
+    return Vis.html(Vis.activite(a), { classe: classe });
+  }
+
+  /* Une carte d'idée : l'objet détouré à gauche, le texte à droite. */
+  function carteIdee(a, i) {
+    const sous = [a.isEvent ? Events.label(a) : a.category, UI.fmt.dur(a.minutes || Cal.durationOf(a)),
+      a.price ? '€'.repeat(a.price) : (a.price === 0 ? 'Gratuit' : ''), a.distance != null ? UI.fmt.km(a.distance) : '']
+      .filter(Boolean).join(' · ');
+    return '<button class="idee" data-i="' + i + '">' +
+      '<span class="idvis">' + visuel(a) + '</span>' +
+      '<span class="idtx"><b>' + UI.esc(a.nom) + '</b><small>' + UI.esc(sous) + '</small>' +
+      (a.description ? '<i>' + UI.esc(a.description) + '</i>' : '') + '</span>' +
+      '<span class="idgo">' + Icon('next', 16) + '</span></button>';
+  }
+
+  /* Surprends-moi : aucun réglage, aucune roue. L'app regarde le
+     moment, la météo et tes goûts, et révèle UNE idée. C'est la
+     différence avec « Tourner la roue », où tu filtres et tu
+     regardes défiler. */
   async function surprise() {
     UI.haptic('launch');
     const all = pool({ ignoreCategory: true, ignoreFav: true });
-    if (!all.length) { UI.toast('Rien à proposer ici'); return; }
-
+    if (!all.length) {
+      UI.toast(localesEtat === 'load' ? 'Je regarde ce qu\'il y a autour de toi, une seconde…' : 'Rien à proposer ici pour l\'instant');
+      return;
+    }
     const wx = ctx.weather;
     const bits = [];
     if (wx) bits.push(wx.text.toLowerCase() + ', ' + wx.temp + ' degrés');
@@ -793,52 +944,77 @@
     const free = Cal.timeAvailable();
     if (free && free < 240) bits.push(UI.fmt.dur(free) + ' devant toi');
 
-    const winner = Roulette.pick(all, { weight: weightOf, sharpness: 2.2 });
+    const tirer = () => Roulette.pick(all, { weight: weightOf, sharpness: 2.2 });
+    let winner = tirer();
     if (!winner) return;
 
-    const box = UI.$('#actRoul').querySelector('[data-result]');
-    await Roulette.spin(UI.$('#actRoul').querySelector('.roulwin'),
-      all.map((a) => Object.assign({}, a, { label: a.nom, icon: iconFor(a) })),
-      Object.assign({}, winner, { label: winner.nom, icon: iconFor(winner) }), 2200);
-    onResult(winner, box, bits.join(', '));
-    box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    UI.openSheet(
+      teteSheet('Surprends-moi', 'Rien à régler : je choisis pour toi.', ['#3FA887', '#0E3F33'], 'cadeau') +
+      '<div class="mbody">' +
+        '<div class="suspense" data-sus>' + Vis.html('surprise', { classe: 'bond' }) +
+          '<p>Je regarde l\'heure, la météo et ce que tu aimes…</p></div>' +
+        '<div data-result></div>' +
+        '<button class="btn block lg hide" style="margin-top:12px" data-encore>' + Icon('refresh', 17) + 'Une autre surprise</button>' +
+      '</div>',
+      { onMount: (sh) => {
+        const box = sh.querySelector('[data-result]'), sus = sh.querySelector('[data-sus]');
+        const encore = sh.querySelector('[data-encore]');
+        const reveler = () => {
+          sus.classList.add('hide');
+          onResult(winner, box, bits.join(', '));
+          encore.classList.remove('hide');
+        };
+        setTimeout(reveler, 1100);
+        encore.onclick = () => {
+          let n = tirer(), essais = 0;
+          while (n && n.id === winner.id && essais++ < 6) n = tirer();
+          winner = n || winner;
+          UI.haptic('launch');
+          box.innerHTML = ''; sus.classList.remove('hide'); encore.classList.add('hide');
+          setTimeout(reveler, 800);
+        };
+      } });
   }
 
-  /* Trois propositions distinctes, puis la roue tranche si on hésite. */
+  /* Trois idées : trois cartes, on touche celle qu'on veut. Si on
+     hésite, la roue tranche entre les trois. */
   function threeIdeas() {
     const all = pool();
-    if (all.length < 3) { UI.toast('Pas assez d\'activités pour trois idées'); return; }
+    if (all.length < 3) {
+      UI.toast(localesEtat === 'load' ? 'Je regarde ce qu\'il y a autour de toi, une seconde…' : 'Pas assez d\'idées ici pour en proposer trois');
+      return;
+    }
     const picks = Roulette.pickMany(all, 3, { weight: weightOf, sharpness: 2 });
 
     UI.openSheet(
-      '<div class="mbody" style="padding-top:6px">' +
-        '<h2 style="font-size:22px;margin-bottom:4px">Trois idées</h2>' +
-        '<p class="secdesc">Choisis, ou laisse la roue décider entre les trois.</p>' +
-        '<div class="list">' + picks.map((a, i) =>
-          '<button class="rowitem" data-i="' + i + '"><span class="ic">' + Icon(iconFor(a), 17) + '</span>' +
-          '<span class="tx"><b>' + UI.esc(a.nom) + '</b><small>' +
-          UI.esc(a.isEvent ? Events.label(a) : a.category) + ' · ' + UI.fmt.dur(Cal.durationOf(a)) +
-          (a.price ? ' · ' + '€'.repeat(a.price) : '') + '</small></span>' +
-          '<span class="rt">' + Icon('next', 15) + '</span></button>').join('') + '</div>' +
+      teteSheet('Trois idées', 'Touche celle qui te plaît, ou laisse la roue trancher.', ['#E8B04A', '#6A4210'], 'etoile') +
+      '<div class="mbody">' +
+        '<div class="idees" data-idees>' + picks.map(carteIdee).join('') + '</div>' +
         '<button class="btn primary block lg" style="margin-top:14px" data-wheel>' + Icon('dice', 17) + 'Laisser la roue décider</button>' +
+        '<div data-result></div>' +
       '</div>',
       { onMount: (s) => {
-        s.querySelectorAll('[data-i]').forEach((b) => b.onclick = () => {
-          const a = picks[+b.dataset.i];
-          UI.closeSheet();
-          const box = UI.$('#actRoul').querySelector('[data-result]');
-          onResult(a, box, 'tu l\'as choisie parmi trois');
-          box.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        });
+        Photos.hydrate(s);
+        const box = s.querySelector('[data-result]');
+        const choisir = (i, why) => {
+          s.querySelectorAll('[data-i]').forEach((b) => b.classList.toggle('choisie', +b.dataset.i === i));
+          onResult(picks[i], box, why);
+          setTimeout(() => box.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
+        };
+        s.querySelectorAll('[data-i]').forEach((b) => b.onclick = () => { UI.haptic('select'); choisir(+b.dataset.i, 'tu l\'as choisie parmi trois'); });
         s.querySelector('[data-wheel]').onclick = async () => {
-          UI.closeSheet();
           const winner = Roulette.pick(picks, { weight: weightOf });
-          const box = UI.$('#actRoul').querySelector('[data-result]');
-          await Roulette.spin(UI.$('#actRoul').querySelector('.roulwin'),
-            picks.map((a) => Object.assign({}, a, { label: a.nom, icon: iconFor(a) })),
-            Object.assign({}, winner, { label: winner.nom, icon: iconFor(winner) }), 2000);
-          onResult(winner, box, 'la roue a tranché entre trois idées');
-          box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          const i = picks.indexOf(winner);
+          const cartes = Array.from(s.querySelectorAll('[data-i]'));
+          /* Un petit balayage entre les trois cartes, puis l'arrêt. */
+          for (let k = 0; k < 7 + i; k++) {
+            cartes.forEach((c, j) => c.classList.toggle('balaye', j === k % 3));
+            UI.haptic('tick');
+            await UI.sleep(90 + k * 18);
+          }
+          cartes.forEach((c) => c.classList.remove('balaye'));
+          UI.haptic('success');
+          choisir(i, 'la roue a tranché entre trois idées');
         };
       } }
     );
@@ -893,6 +1069,8 @@
     });
     const pb = root.querySelector('[data-place]');
     if (pb) pb.onclick = placePicker;
+    const rb = root.querySelector('[data-rayon]');
+    if (rb) rb.onclick = ouvrirRayon;
     root.querySelectorAll('[data-act]').forEach((b) => b.onclick = () => acts[b.dataset.act] && acts[b.dataset.act]());
     brancherGlisseurs();
   }
@@ -944,13 +1122,18 @@
     const favs = villesFav();
     const recentes = villesRecentes();
 
+    /* La coche de la ville active se pose à GAUCHE de l'étoile :
+       l'étoile garde toujours la même place, qu'une ville soit
+       choisie ou non. */
+    const coche = (id) => '<span class="villecoche' + (prefs().city === id ? ' on' : '') + '" aria-hidden="true">' +
+      (prefs().city === id ? Icon('check', 15) : '') + '</span>';
     const ligne = (id, nom, sous) =>
       '<div class="rowitem villeligne" data-c="' + UI.attr(id) + '" data-nom="' + UI.attr(nom) + '">' +
         '<span class="ic">' + Icon('location', 17) + '</span>' +
         '<span class="tx"><b>' + UI.esc(nom) + '</b>' + (sous ? '<small>' + UI.esc(sous) + '</small>' : '') + '</span>' +
+        coche(id) +
         '<button class="etoilebtn" data-fav="' + UI.attr(id) + '" data-favnom="' + UI.attr(nom) + '" aria-label="Favori">' +
           etoile(estFav(id)) + '</button>' +
-        (prefs().city === id ? '<span class="rt">' + Icon('check', 16) + '</span>' : '') +
       '</div>';
 
     const bloc = (titre, lignes) => lignes.length
@@ -970,7 +1153,7 @@
       '<div class="mbody" style="padding-top:6px">' +
         '<h2 style="font-size:22px;margin-bottom:12px">Où es-tu ?</h2>' +
         '<label class="search" style="box-shadow:var(--sh-inset)">' + Icon('search', 17) +
-          '<input data-q placeholder="Chercher une ville" autocomplete="off"></label>' +
+          '<input data-q placeholder="Chercher" autocomplete="off"></label>' +
         '<div data-res>' +
           bloc('Mes favorites', listeFav.concat(favsHorsListe)) +
           bloc('Récemment', listeRecentes) +
@@ -1021,6 +1204,7 @@
               return '<div class="rowitem villeligne" data-i="' + i + '">' +
                 (global.MapPick && MapPick.vignette(c) || '<span class="ic">' + Icon('location', 17) + '</span>') +
                 '<span class="tx"><b>' + UI.esc(c.name) + '</b><small>' + UI.esc(c.label) + '</small></span>' +
+                coche(id) +
                 '<button class="etoilebtn" data-fav="' + UI.attr(id) + '" data-favnom="' + UI.attr(c.name) + '" aria-label="Favori">' +
                   etoile(estFav(id)) + '</button>' +
               '</div>';
@@ -1074,28 +1258,61 @@
 
   async function refreshCtx() {
     events = [];
+    locales = [];
     ctx = await Ctx.snapshot();
     render();
+    chargerLocales(false);
     if (prefs().events) loadEvents();
   }
 
-  async function addActivity() {
-    const res = await UI.promptSheet('Nouvelle activité', [
-      { name: 'nom', label: 'Nom', placeholder: 'Karting indoor' },
-      { name: 'category', label: 'Catégorie', placeholder: 'Fun' },
-      { name: 'kind', label: 'Type', type: 'select', value: 'autre', options: [
-        { v: 'bar', n: 'Bar' }, { v: 'cafe', n: 'Café' }, { v: 'restaurant', n: 'Restaurant' },
-        { v: 'glacier', n: 'Glacier' }, { v: 'musee', n: 'Musée' }, { v: 'cinema', n: 'Cinéma' },
-        { v: 'plage', n: 'Plage' }, { v: 'randonnee', n: 'Randonnée' }, { v: 'shopping', n: 'Shopping' },
-        { v: 'spa', n: 'Spa' }, { v: 'karting', n: 'Karting' }, { v: 'autre', n: 'Autre' } ] },
-      { name: 'price', label: 'Budget (0 à 4)', type: 'number', inputmode: 'numeric', value: 2 }
-    ], 'Ajouter');
-    if (!res || !res.nom) return;
-    Store.add('activities', {
-      nom: res.nom, category: res.category || 'Mes activités', kind: res.kind,
-      price: Number(res.price) || 0, city: prefs().city, source: 'user'
-    });
-    UI.toast('Activité ajoutée'); render();
+  /* Les catégories et les types, chacun avec son visuel. */
+  const CATS_ACT = [
+    { v: 'Plage et nature', n: 'Nature', ph: 'cat-plage' }, { v: 'Sport', n: 'Sport', ph: 'cat-sport' },
+    { v: 'Fun', n: 'Fun', ph: 'cat-fun' }, { v: 'Food', n: 'Manger', ph: 'cat-food' },
+    { v: 'Culture', n: 'Culture', ph: 'cat-culture' }, { v: 'Insolite', n: 'Insolite', ph: 'cat-insolite' },
+    { v: 'Hiver', n: 'Hiver', ph: 'cat-hiver' }, { v: 'Ete', n: 'Été', ph: 'cat-ete' },
+    { v: 'Mes activités', n: 'Autre', ph: 'cat-autre' }
+  ];
+  const TYPES_ACT = [
+    { v: 'restaurant', n: 'Restaurant' }, { v: 'bar', n: 'Bar' }, { v: 'cafe', n: 'Café' },
+    { v: 'glacier', n: 'Glacier' }, { v: 'brunch', n: 'Brunch' }, { v: 'apero', n: 'Apéro' },
+    { v: 'plage', n: 'Plage' }, { v: 'promenade', n: 'Balade' }, { v: 'randonnee', n: 'Randonnée' },
+    { v: 'velo', n: 'Vélo' }, { v: 'tennis', n: 'Tennis' }, { v: 'golf', n: 'Golf' },
+    { v: 'karting', n: 'Karting' }, { v: 'bowling', n: 'Bowling' }, { v: 'escape', n: 'Escape game' },
+    { v: 'petanque', n: 'Pétanque' }, { v: 'musee', n: 'Musée' }, { v: 'exposition', n: 'Expo' },
+    { v: 'cinema', n: 'Cinéma' }, { v: 'spa', n: 'Spa' }, { v: 'ski', n: 'Ski' },
+    { v: 'escalade', n: 'Escalade' }, { v: 'marche', n: 'Marché' }, { v: 'autre', n: 'Autre' }
+  ].map((t) => Object.assign(t, { ph: Vis.KINDS[t.v] || 'activite' }));
+
+  async function addActivity(existante) {
+    const e = existante || null;
+    const res = await UI.promptSheet(e ? 'Modifier' : 'Nouvelle activité', [
+      { name: 'nom', label: 'Nom', placeholder: 'Karting indoor', value: e ? e.nom : '' },
+      { name: 'category', label: 'Catégorie', type: 'tiles', options: CATS_ACT, value: e ? e.category : 'Fun' },
+      { name: 'kind', label: 'Type', type: 'tiles', options: TYPES_ACT, value: e ? e.kind : 'autre' },
+      { name: 'photo', label: 'Photo (facultatif)', type: 'photo', value: '',
+        apercu: e && (e.photo || e.photoUrl) ? e : null,
+        hint: 'Sans photo, l\'image du type choisi s\'affiche.' },
+      { name: 'price', label: 'Budget', type: 'seg', value: String(e ? (e.price || 0) : 2), options: [
+        { v: '0', n: 'Gratuit' }, { v: '1', n: '€' }, { v: '2', n: '€€' }, { v: '3', n: '€€€' }, { v: '4', n: '€€€€' }] }
+    ], { submit: e ? 'Enregistrer' : 'Ajouter', teinte: ['#1F6E5A', '#3FAF8A'], photo: 'activite', pasDeFocus: !!e });
+    if (!res || !res.nom) { if (e) ouvrirAjout(); return; }
+    const data = {
+      nom: res.nom, category: res.category || 'Mes activités', kind: res.kind || 'autre',
+      price: Number(res.price) || 0
+    };
+    if (res.photo && /^data:/.test(res.photo)) {
+      try { const ph = await Photos.save(res.photo, 'illustrations', 1000); data.photo = ph.id; data.photoUrl = ph.url || null; }
+      catch (err) { UI.toast('Photo non enregistrée'); }
+    } else if (res.photo === '__suppr__') { data.photo = null; data.photoUrl = null; }
+    if (e) {
+      Store.put('activities', e.id, data);
+      UI.toast('Modifié');
+    } else {
+      Store.add('activities', Object.assign(data, { city: prefs().city, source: 'user' }));
+      UI.toast('Activité ajoutée');
+    }
+    render();
   }
 
   /* ============================================================
@@ -1258,12 +1475,16 @@
       const nom = x.payload.label || '';
       const kind = x.payload.kind || '';
       const fam = x.kind === 'etablissement' ? 'Manger et boire' : familleDe(kind);
+      const act = Store.all('activities').find((a) => a.nom === nom);
+      const slugImg = x.kind === 'etablissement'
+        ? (Vis.trouve(nom, 'activite') || (kind && Vis.KINDS[kind]) || 'lieu')
+        : (act ? Vis.activite(act) : Vis.activite({ nom: nom, kind: kind, category: x.payload.category }));
       (paquets[fam] = paquets[fam] || []).push({
         id: 'h' + i,
         titre: nom,
         sous: UI.fmt.date(x.at),
-        ph: nom,
-        type: 'activite',
+        img: Vis.src(slugImg),
+        slug: slugImg,
         at: x.at
       });
     });
@@ -1284,9 +1505,7 @@
         if (!c) return;
         Cartes.empiler({
           tete: Cartes.tete(c.titre, c.sous, ['#6B5330', '#A98A55'], 'lieu'),
-          corps: '<div class="kart grand">' +
-              '<span class="vis">' + Stock.ic(c.titre, { classe: 'fond', type: 'activite' }) + '</span>' +
-            '</div>' +
+          corps: '<div class="histvis">' + Vis.html(c.slug) + '</div>' +
             '<p class="mdesc" style="margin-top:14px">Fait le ' + UI.esc(UI.fmt.date(c.at)) + '.</p>' +
             '<button class="btn primary block lg" style="margin-top:14px" data-refaire>' +
               Icon('refresh', 17) + 'Le refaire</button>',

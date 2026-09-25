@@ -32,7 +32,7 @@
   const CLE_JOUR = 'imgQuota';
   const DEFAUT_PLAFOND = 60;
 
-  const actif = () => Store.get('imagesIA', true) && AI.available();
+  const actif = () => false;
   const plafond = () => Number(Store.get('imgPlafond', DEFAUT_PLAFOND)) || DEFAUT_PLAFOND;
 
   function quota() {
@@ -124,38 +124,9 @@
      ============================================================ */
   async function obtenir(type, sujet, opts) {
     opts = opts || {};
-    const cle = opts.cle || cleDe(type, sujet);
-
-    const deja = await lire(cle);
-    if (deja) return deja;
-    if (!actif() || !resteAujourdhui()) return null;
-    if (opts.cacheSeulement) return null;
-
-    return enfiler(async () => {
-      /* Une deuxième vérification : la file a pu la produire
-         pendant l'attente. */
-      const encore = await lire(cle);
-      if (encore) return encore;
-      if (!resteAujourdhui()) return null;
-
-      const gabarit = STYLES[type] || STYLES.plat;
-      const prompt = gabarit.replace('{sujet}', sujet) +
-        (opts.precision ? ' ' + opts.precision : '');
-
-      try {
-        consommer();
-        const out = await AI.image(prompt);
-        const dataUrl = extraire(out);
-        if (!dataUrl) return null;
-
-        const saved = await Photos.save(dataUrl, 'illustrations', 900);
-        poser(cle, { id: saved.id, url: saved.url || null, at: Date.now() });
-        return saved.url || dataUrl;
-      } catch (e) {
-        console.warn('[EVER] image non generee', type, sujet, e && e.message);
-        return null;
-      }
-    });
+    const cat = global.Vis ? Vis.url(sujet, type) : null;
+    if (cat) return cat;
+    return lire(opts.cle || cleDe(type, sujet));
   }
 
   /* Le modèle renvoie soit des parties inlineData, soit une chaîne
@@ -189,50 +160,31 @@
   function vignette(type, sujet, opts) {
     opts = opts || {};
     const cle = opts.cle || cleDe(type, sujet);
-    const t = teinteDe(sujet);
-    const initiale = String(sujet || '?').trim().charAt(0).toUpperCase();
     const cls = 'vign' + (opts.classe ? ' ' + opts.classe : '');
-    return '<span class="' + cls + '" data-img="' + UI.attr(cle) + '"' +
-      ' data-imgtype="' + UI.attr(type) + '" data-imgsujet="' + UI.attr(sujet) + '"' +
-      ' style="--v1:' + t[0] + ';--v2:' + t[1] + '"' + (opts.style ? ' data-style="' + UI.attr(opts.style) + '"' : '') + '>' +
-      '<b>' + UI.esc(initiale) + '</b></span>';
+    const cat = global.Vis ? Vis.url(sujet, type) : null;
+    if (cat) {
+      return '<span class="' + cls + ' catalogue" data-remplie="1"' + (opts.style ? ' data-style="' + UI.attr(opts.style) + '"' : '') + '>' +
+        '<img loading="lazy" decoding="async" src="' + cat + '" alt="" draggable="false"></span>';
+    }
+    /* Pas de visuel : un bloc de verre, jamais une lettre. Une photo
+       prise par l'utilisateur, si elle existe, viendra le remplir. */
+    return '<span class="' + cls + ' vide" data-img="' + UI.attr(cle) + '"' +
+      (opts.style ? ' data-style="' + UI.attr(opts.style) + '"' : '') + '></span>';
   }
 
-  /* Remplit les vignettes d'un bloc. Le cache d'abord, pour que
-     tout ce qui existe apparaisse immédiatement ; la génération
-     ensuite, seulement si on la demande. */
-  async function peupler(racine, opts) {
-    opts = opts || {};
+  /* Remplit les vignettes avec les photos déjà rangées sur
+     l'appareil. Plus aucune génération, plus aucune banque. */
+  async function peupler(racine) {
     const cases = Array.from((racine || document).querySelectorAll('[data-img]:not([data-remplie])'));
-    if (!cases.length) return;
-
     for (const el of cases) {
       const src = await lire(el.dataset.img);
-      if (src) poserImage(el, src);
-    }
-
-    /* Deuxieme source, gratuite : la photothèque libre. La plupart
-       des sujets (un plat, un lieu, un ingrédient) existent déjà en
-       photo quelque part ; inutile de les faire dessiner. */
-    if (global.Stock) {
-      for (const el of cases) {
-        if (el.dataset.remplie) continue;
-        const u = await Stock.url(el.dataset.imgtype, el.dataset.imgsujet);
-        if (u && el.isConnected) poserImage(el, u);
-      }
-    }
-
-    if (!opts.generer || !actif()) return;
-
-    const restants = cases.filter((el) => !el.dataset.remplie).slice(0, opts.max || 4);
-    for (const el of restants) {
-      const src = await obtenir(el.dataset.imgtype, el.dataset.imgsujet, { cle: el.dataset.img });
       if (src && el.isConnected) poserImage(el, src);
     }
   }
 
   function poserImage(el, src) {
     el.dataset.remplie = '1';
+    el.classList.remove('vide');
     el.innerHTML = '<img loading="lazy" src="' + UI.attr(src) + '" alt="">';
   }
 

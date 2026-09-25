@@ -41,7 +41,7 @@
           id: q.id,
           titre: q.nom,
           sous: q.value >= q.target ? 'Terminé' : q.value + ' sur ' + q.target,
-          ph: q.ph, type: 'activite',
+          ph: q.ph, type: 'icone',
           badge: q.value >= q.target ? null : (q.target - q.value) + ' à faire',
           coche: q.value >= q.target
         })), { classe: 'petit' }) + '</div>' +
@@ -79,8 +79,8 @@
       /* L'historique prenait le tiers de la page. C'est maintenant
          une carte qui ouvre le detail. */
       '<div class="section">' + Cartes.grille([
-        { id: '__histo', titre: 'Mon historique', sous: 'Tout ce que j\'ai fait', ic: 'historique' },
-        { id: '__ligue', titre: 'Ma ligue', sous: 'Le classement entre amis', ic: 'objectifs' }
+        { id: '__histo', titre: 'Mon historique', sous: 'Tout ce que j\'ai fait', ph: 'historique', type: 'icone' },
+        { id: '__ligue', titre: 'Ma ligue', sous: 'Le classement entre amis', ph: 'connue', type: 'icone' }
       ]) + '</div>' +
 
       '<div class="section"><p class="muted" style="font-size:11.5px;line-height:1.55">' +
@@ -307,12 +307,12 @@
      soleil pour la fierté, le cœur pour la tendresse, la tasse
      chaude pour le réconfort, le dé pour le cran. */
   const PHOTO_MOL = {
-    dopamine:      'objectifs',
-    serotonine:    'mood',
-    ocytocine:     'apple sante',
-    cannabinoides: 'trois idees',
-    opioides:      'chaud',
-    testosterone:  'de hasard'
+    dopamine:      'elan',
+    serotonine:    'fierte',
+    ocytocine:     'tendresse',
+    cannabinoides: 'rire',
+    opioides:      'reconfort',
+    testosterone:  'cran'
   };
 
   function cupsBlock() {
@@ -328,7 +328,7 @@
         titre: mol.court || mol.nom,
         sous: v === 0 ? 'Rien cette semaine' : v + (v > 1 ? ' moments' : ' moment'),
         ph: PHOTO_MOL[m] || mol.nom,
-        type: 'activite',
+        type: 'icone',
         badge: v === 0 ? '0' : String(v)
       };
     });

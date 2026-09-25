@@ -246,6 +246,18 @@
             '</select>', true);
         }
         if (f.type === 'seg') return bloc(f, segments(f), true);
+        if (f.type === 'photo') {
+          /* Une photo, facultative : l'aperçu, et deux gestes, en
+             mettre une ou la retirer. La valeur rendue est l'image
+             en data:, ou « __suppr__ » si on l'a enlevée. */
+          const deja = f.apercu && global.Photos ? Photos.img(f.apercu, 'photo') : '';
+          return bloc(f, '<div class="photochamp' + (deja ? ' pleine' : '') + '" data-photochamp="' + attr(f.name) + '">' +
+            '<span class="pcvue">' + (deja || Icon('camera', 26)) + '</span>' +
+            '<span class="pcact"><button type="button" class="btn sm" data-pcajout>' + Icon('camera', 15) +
+              '<span>' + (deja ? 'Changer' : 'Ajouter une photo') + '</span></button>' +
+            '<button type="button" class="btn sm ghost' + (deja ? '' : ' hide') + '" data-pcsuppr>' + Icon('trash', 15) + 'Retirer</button></span>' +
+            '</div>', true);
+        }
         if (f.type === 'stars') return bloc(f, etoiles(f), true);
         if (f.type === 'number') {
           /* Les fleches natives d'un champ numerique font deux
@@ -311,6 +323,31 @@
                 g.querySelectorAll('button').forEach((x) => x.classList.toggle('on', Number(x.dataset.v) <= v));
                 haptic('select');
               });
+            });
+
+            s.querySelectorAll('[data-photochamp]').forEach((g) => {
+              const nom = g.dataset.photochamp, vue = g.querySelector('.pcvue');
+              const sup = g.querySelector('[data-pcsuppr]');
+              g.querySelector('[data-pcajout]').onclick = () => {
+                if (!global.Photos) return;
+                Photos.pick(async (file) => {
+                  try {
+                    const url = await AI.shrink(file, 1100, 0.84);
+                    etat[nom] = url;
+                    vue.innerHTML = '<img src="' + url + '" alt="">';
+                    g.classList.add('pleine'); sup.classList.remove('hide');
+                    g.querySelector('[data-pcajout] span').textContent = 'Changer';
+                    haptic('success');
+                  } catch (e) { toast('Photo illisible'); }
+                });
+              };
+              sup.onclick = () => {
+                etat[nom] = '__suppr__';
+                vue.innerHTML = Icon('camera', 26);
+                g.classList.remove('pleine'); sup.classList.add('hide');
+                g.querySelector('[data-pcajout] span').textContent = 'Ajouter une photo';
+              };
+              if (global.Photos) Photos.hydrate(g);
             });
 
             s.querySelectorAll('[data-cpt]').forEach((g) => {

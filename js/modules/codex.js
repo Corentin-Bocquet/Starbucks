@@ -59,13 +59,17 @@
   /* Vignette de remplacement : une creation n'a pas de photo, mais
      une liste d'images ne doit pas avoir de trou. */
   const TEINTE = { sb: ['#0E6E4B', '#31A876'], ck: ['#6B2A4E', '#AE4A80'], mm: ['#A8542A', '#D08A4E'] };
+  const VIS_CREATION = { sb: 'boisson-inventee', ck: 'cocktail-invente' };
   function vignetteCreation(d, tab) {
-    const g = TEINTE[tab || S.tab] || TEINTE.sb;
-    /* Si l'image du plat a ete fabriquee, elle prend la place du
-       degrade : une carte avec sa photo vaut mieux qu'un aplat. */
-    return '<div class="ph creation" style="--g1:' + g[0] + ';--g2:' + g[1] + '">' +
-      Imagerie.vignette('plat', d.visuel || d.nom, { cle: Imagerie.cleDe('plat', d.nom), classe: 'large fondu' }) +
-      '<span>' + Icon(tab === 'ck' || S.tab === 'ck' ? 'glass' : (tab === 'mm' || S.tab === 'mm') ? 'pot' : 'coffee', 30) + '</span>' +
+    const t = tab || S.tab;
+    const g = TEINTE[t] || TEINTE.sb;
+    const slug = VIS_CREATION[t];
+    /* Une boisson ou un cocktail inventé prend le visuel générique
+       des créations. Un plat inventé n'a pas d'image : on ne montre
+       pas une photo qui n'est pas la sienne. */
+    return '<div class="ph creation' + (slug && Vis.SET.has(slug) ? ' avecvis' : ' sansvis') + '" style="--g1:' + g[0] + ';--g2:' + g[1] + '">' +
+      (slug && Vis.SET.has(slug) ? Vis.html(slug, { classe: 'crvis' })
+        : '<span class="crico">' + Icon(t === 'ck' ? 'glass' : t === 'mm' ? 'pot' : 'coffee', 30) + '</span>') +
       '<b>' + UI.esc(d.nom) + '</b></div>';
   }
 
@@ -201,7 +205,7 @@
     UI.$('#codexSizes').classList.toggle('hide', S.tab !== 'sb');
     UI.$('#codexAll').classList.toggle('on', S.all);
     UI.$('#codexQ').placeholder =
-      S.tab === 'sb' ? 'Chercher une boisson…' : S.tab === 'ck' ? 'Chercher un cocktail, un alcool…' : 'Chercher une recette…';
+      'Chercher';
 
     if (S.q) {
       const l = searchHits();
@@ -209,11 +213,11 @@
         (l.length ? '<div class="rail" style="margin-top:14px">' + l.map(card).join('') + '</div>'
                   : UI.empty('search', 'Rien trouvé', "Essaie un ingrédient, un nom d'alcool, ou vide la barre.")) +
         '</div>' + boutonCreer();
-      bindCards(app); bindCreer(app); Imagerie.peupler(app, { generer: false }); renderFoot(); return;
+      bindCards(app); bindCreer(app); Imagerie.peupler(app); renderFoot(); return;
     }
 
     if (S.all) {
-      app.innerHTML = allView(); bindCards(app); bindCreer(app); Imagerie.peupler(app, { generer: false });
+      app.innerHTML = allView(); bindCards(app); bindCreer(app); Imagerie.peupler(app);
       app.querySelectorAll('[data-c]').forEach((b) => b.onclick = () => { S.cat[S.tab] = b.dataset.c; render(); });
       renderFoot(); return;
     }
@@ -225,7 +229,7 @@
     }
     app.innerHTML = wizView() + (S.step === 0 ? plusFaits() : '');
     bindCards(app); bindWiz(); bindCreer(app); renderFoot();
-    Imagerie.peupler(app, { generer: false });
+    Imagerie.peupler(app);
   }
 
   /* ============================================================
@@ -333,7 +337,7 @@
     steps.forEach((st, i) => {
       if (i < S.step) {
         const o = st.opts.find((o) => o.v === chosen[i]);
-        crumbs += '<button class="crumb" data-goto="' + i + '">' + UI.esc(st.q.replace(/\s*\?.*/, '')) + ' · <b>' + UI.esc(o ? o.n : 'Peu importé') + '</b></button>';
+        crumbs += '<button class="crumb" data-goto="' + i + '">' + UI.esc(st.q.replace(/\s*\?.*/, '')) + ' · <b>' + UI.esc(o ? o.n : 'Peu importe') + '</b></button>';
       } else if (i === S.step) crumbs += '<span class="crumb step">Étape ' + (i + 1) + '</span>';
       else crumbs += '<span class="crumb ghost">' + (i + 1) + '</span>';
     });
@@ -345,37 +349,31 @@
          autres. Les icones 3D de la maison les remplacent partout ou
          il en existe une ; les choix trop precis (gin, vodka, rhum)
          gardent leur photo, aucune icone ne les couvre. */
-      const ICONE_OPT = {
-        'sb-temp-chaud': 'chaud',   'sb-temp-glace': 'glace',   'sb-temp-mixe': 'mixe',
-        'sb-base-cafe': 'cafe',     'sb-base-the': 'the-matcha', 'sb-base-fruit': 'fruite',
-        'sb-base-lait': 'sans-cafe',
-        'sb-gour-leger': 'leger',   'sb-gour-equilibre': 'equilibre', 'sb-gour-gourmand': 'gourmand',
-        'mm-moment-entree': 'entree', 'mm-moment-plat': 'plat',
-        'mm-moment-dessert': 'dessert', 'mm-moment-apero': 'apero',
-        'mm-serv-chaud': 'chaud',   'mm-serv-froid': 'glace',
-        'ck-humeur-frais': 'glace', 'ck-humeur-corse': 'leger',
-        'ck-humeur-gourmand': 'gourmand', 'ck-humeur-tropical': 'fruite',
-        'ck-humeur-chic': 'equilibre',
-        'ck-bar-oui': 'leger',      'ck-bar-non': 'sans-cafe'
+      const VIS_OPT = {
+        'sb-temp-chaud': 'sb-chaud', 'sb-temp-glace': 'sb-glace', 'sb-temp-mixe': 'sb-mixe',
+        'sb-base-cafe': 'sb-cafe', 'sb-base-lait': 'sb-lait', 'sb-base-the': 'sb-the', 'sb-base-fruit': 'sb-fruit',
+        'sb-gour-leger': 'sb-leger', 'sb-gour-equilibre': 'sb-equilibre', 'sb-gour-gourmand': 'sb-gourmand',
+        'ck-alcool-rhum': 'ck-rhum', 'ck-alcool-whisky': 'ck-whisky', 'ck-alcool-vodka': 'ck-vodka',
+        'ck-alcool-tequila': 'ck-tequila', 'ck-alcool-gin': 'ck-gin',
+        'ck-humeur-frais': 'ck-frais', 'ck-humeur-tropical': 'ck-tropical', 'ck-humeur-corse': 'ck-corse',
+        'ck-humeur-gourmand': 'ck-cremeux', 'ck-humeur-chic': 'ck-chic', 'ck-bar-oui': 'ck-bar-oui',
+        'mm-moment-apero': 'mm-apero', 'mm-moment-entree': 'mm-entree', 'mm-moment-plat': 'mm-plat', 'mm-moment-dessert': 'mm-dessert',
+        'mm-serv-chaud': 'mm-chaud', 'mm-serv-froid': 'mm-froid', 'mm-mode-four': 'mm-four', 'mm-mode-sansfour': 'mm-sansfour'
       };
+      const PEU = { sb: 'peu-importe', ck: 'ck-peu-importe', mm: 'mm-peu-importe' };
       const cards = st.opts.map((o, i) => {
         const col = pal[i % pal.length];
         const n = countFor(S.step, o.v);
-        const slug = (global.Ic && Store.get('icones3dCodex', true)) ? ICONE_OPT[o.img] : null;
-        /* Avec une icone 3D, la carte prend le fond de l'icone et la
-           couleur de la palette ne sert plus qu'aux accents : sans
-           ca, un carre blanc flottait au milieu d'un aplat vert. */
-        return '<button class="opt ' + (slug ? 'opt3d ' : '') + (chosen[S.step] === o.v ? 'sel' : '') +
+        const slug = o.v === null || o.v === 'non' ? PEU[S.tab] : VIS_OPT[o.img];
+        const visuel = slug && Vis.SET.has(slug)
+          ? Vis.html(slug, { classe: 'im' })
+          : '<img class="im photo" src="' + IMG[o.img] + '" alt="">';
+        return '<button class="opt opt3d ' + (chosen[S.step] === o.v ? 'sel' : '') +
           '" data-v="' + UI.attr(o.v === null ? '' : o.v) + '" data-null="' + (o.v === null ? 1 : 0) + '"' +
-          (slug ? ' style="--oa:' + col[1] + '"'
-                : ' style="background:' + col[0] + ';color:' + col[1] + '"') + '>' +
-          (slug ? '' : '<span class="disc" style="background:' + col[1] + '"></span>') +
-          (slug && global.Ic
-            ? '<span class="im ic3d" data-ic="' + slug + '"><img src="' +
-              Ic.url(slug, false) + '" alt="" loading="lazy"></span>'
-            : '<img class="im" src="' + IMG[o.img] + '" alt="">') +
-          '<span class="nm">' + UI.esc(o.n) + '</span><span class="sb">' + UI.esc(o.s) + '</span>' +
-          '<span class="cnt">' + n + ' ' + (n > 1 ? 'recettes' : 'recette') + '</span></button>';
+          ' style="--oa:' + col[1] + ';--ob:' + col[0] + '">' +
+          '<span class="optvis">' + visuel + '</span>' +
+          '<span class="opttx"><span class="nm">' + UI.esc(o.n) + '</span><span class="sb">' + UI.esc(o.s) + '</span>' +
+          '<span class="cnt">' + n + ' ' + (n > 1 ? 'recettes' : 'recette') + '</span></span></button>';
       }).join('');
       return '<div class="wiz"><div class="crumbs">' + crumbs + '</div>' +
         '<div class="wizhead"><div class="num">Étape ' + (S.step + 1) + ' sur ' + steps.length + '</div><h2>' + UI.esc(st.q) + '</h2><p>' + UI.esc(st.sub) + '</p></div>' +
@@ -422,7 +420,10 @@
       };
       tr.addEventListener('scroll', () => { clearTimeout(tr._t); tr._t = setTimeout(mark, 40); }, { passive: true });
       mark();
-      app.querySelectorAll('[data-ar]').forEach((b) => b.onclick = () => tr.scrollBy({ left: +b.dataset.ar * 210, behavior: 'smooth' }));
+      app.querySelectorAll('[data-ar]').forEach((b) => b.onclick = () => {
+        const c = tr.firstElementChild;
+        tr.scrollBy({ left: +b.dataset.ar * ((c ? c.offsetWidth : 260) + 14), behavior: 'smooth' });
+      });
     }
   }
 
@@ -729,7 +730,7 @@
     UI.openSheet(body, {
       onMount: (s) => {
         /* Les vignettes du placard se remplissent en arriere-plan. */
-        Imagerie.peupler(s, { generer: true, max: 6 });
+        Imagerie.peupler(s);
         const b = s.querySelector('[data-addfood]');
         if (b) b.onclick = () => { UI.closeSheet(); Food.quickAdd({ nom: d.nom, kcal: d.kcal || null }); };
         const del = s.querySelector('[data-delcrea]');
@@ -746,12 +747,22 @@
      texte pur se lit mal ; avec les images, on repère d'un coup
      d'œil ce qu'on a déjà dans le placard.
      ============================================================ */
-  function ligneIngredient(nom, quantite, note, pastille) {
+  function ligneIngredient(nom, quantite, note, pastille, sansImage) {
+    /* « Gâteau · Œufs » : on cherche l'image de l'ingrédient, pas
+       celle de la partie de la recette. */
+    const part = String(nom || '').split('·');
+    const coeur = part[part.length - 1].trim();
+    const slug = sansImage ? null : Vis.trouve(coeur, 'ingredient');
+    if (!slug) {
+      return '<div class="carteing texte">' +
+        '<span class="tx"><b>' + UI.esc(nom) + '</b>' + (pastille || '') + '</span>' +
+        '<span class="qt">' + UI.esc(quantite || note || '') + '</span>' +
+      '</div>';
+    }
     return '<div class="carteing">' +
-      '<span class="vis">' + Imagerie.vignette('ingredient', nom, { classe: 'carree' }) +
-        (pastille || '') + '</span>' +
-      '<span class="tx"><b>' + UI.esc(nom) + '</b>' +
-      '<small>' + UI.esc(quantite || note || '') + '</small></span>' +
+      '<span class="vis">' + Vis.html(slug) + (pastille || '') + '</span>' +
+      '<span class="tx"><b>' + UI.esc(part.length > 1 ? coeur : nom) + '</b>' +
+      '<small>' + UI.esc(quantite || note || '') + (part.length > 1 ? ' · ' + UI.esc(part[0].trim().toLowerCase()) : '') + '</small></span>' +
     '</div>';
   }
 
@@ -759,7 +770,7 @@
      avec la photo de l'ingredient dessus. « Vin blanc » sur une
      ligne de texte ne dit rien ; une bouteille de blanc, si.
      Les photos viennent de la photothèque libre, sans clé. */
-  const grilleIngredients = (html) => '<div class="grilleing">' + html + '</div>';
+  const grilleIngredients = (html, texte) => '<div class="grilleing' + (texte ? ' texte' : '') + '">' + html + '</div>';
 
   const mimg = (img, cover) => '<div class="mimg' + (cover ? ' cover' : '') + '"><img class="bg" src="' + img + '" alt=""><img src="' + img + '" alt=""></div>';
   const tagsOf = (d) => '<div class="mtags">' + d.tag.map((t, i) => '<span class="tg ' + (i % 2 ? 'b' : '') + '">' + UI.esc(t) + '</span>').join('') + '</div>';
@@ -782,7 +793,7 @@
       stockLine(d) +
       '<button class="btn soft block" data-addfood>' + Icon('plus', 17) + 'Consigner dans Alimentation</button>' +
       '<div class="blk"><h4>Composition <span class="sz">' + SIZENAME[S.size] + '</span></h4>' +
-      grilleIngredients(d.ing.map((i) => ligneIngredient(i.n, i[S.size], i.note)).join('')) + '</div>' +
+      grilleIngredients(d.ing.map((i) => ligneIngredient(i.n, i[S.size], i.note, '', estCreation(d))).join(''), estCreation(d)) + '</div>' +
       '<div class="blk"><h4>Ordre d\'assemblage</h4><ol class="steps">' + d.steps.map((s) => '<li>' + UI.esc(s) + '</li>').join('') + '</ol></div>' +
       '<div class="machbox"><h4>Sur la Eletta Explore</h4><p>' + UI.esc(d.eletta) + '</p></div>' +
       '<div class="tipbox"><h4>Le détail qui change tout</h4><p>' + UI.esc(d.astuce) + '</p></div></div>';
@@ -800,8 +811,8 @@
       '<div class="blk"><h4>Composition</h4>' +
       grilleIngredients(d.ing.map((i) => {
         const st = (!i.k || i.opt) ? '' : (S.stock.ck.has(i.k) ? '<span class="pill y">OK</span>' : '<span class="pill n">manque</span>');
-        return ligneIngredient(i.n, i.q, i.opt ? 'optionnel' : '', st);
-      }).join('')) + '</div>' +
+        return ligneIngredient(i.n, i.q, i.opt ? 'optionnel' : '', st, estCreation(d));
+      }).join(''), estCreation(d)) + '</div>' +
       '<div class="blk"><h4>Préparation</h4><ol class="steps">' + d.steps.map((s) => '<li>' + UI.esc(s) + '</li>').join('') + '</ol></div>' +
       '<div class="tipbox"><h4>Le détail qui change tout</h4><p>' + UI.esc(d.astuce) + '</p></div></div>';
   }
@@ -817,7 +828,7 @@
       '<div class="num"><b>' + (d.serv === 'chaud' ? 'Chaud' : 'Froid') + '</b><span>service</span></div></div>' +
       stockLine(d) +
       '<div class="blk"><h4>Ingredients</h4>' +
-      grilleIngredients(d.ing.map((i) => ligneIngredient(i.n, i.q)).join('')) + '</div>' +
+      grilleIngredients(d.ing.map((i) => ligneIngredient(i.n, i.q, '', '', estCreation(d))).join(''), estCreation(d)) + '</div>' +
       (d.materiel && d.materiel.length ? '<div class="blk"><h4>Matériel</h4><ul class="mat">' + d.materiel.map((m) => '<li>' + UI.esc(m) + '</li>').join('') + '</ul></div>' : '') +
       '<div class="blk"><h4>Préparation</h4><ol class="steps">' + d.steps.map((s) => '<li>' + UI.esc(s) + '</li>').join('') + '</ol></div>' +
       (d.img2 ? '<div class="blk"><h4>En vrai</h4><img src="' + IMG['mm-' + d.img2] + '" style="border-radius:14px;width:100%"></div>' : '') +
@@ -838,7 +849,9 @@
       fams.map((f) => '<div class="dfam"><h5>' + UI.esc(f) + '</h5>' +
         def.filter((b) => b.fam === f).map((b) => {
           const n = all.filter((d) => (d.sk || []).indexOf(b.k) >= 0).length;
-          return '<div class="dline ' + (S.stock[t].has(b.k) ? 'on' : '') + '" data-b="' + UI.attr(b.k) + '"><div class="dbox">' + Icon('check', 13) + '</div><span>' + UI.esc(b.n) + '</span><i>' + n + '</i></div>';
+          const vis = Vis.trouve(b.k, 'ingredient') || Vis.trouve(b.n, 'ingredient');
+          return '<div class="dline ' + (S.stock[t].has(b.k) ? 'on' : '') + '" data-b="' + UI.attr(b.k) + '"><div class="dbox">' + Icon('check', 13) + '</div>' +
+            (vis ? Vis.html(vis, { classe: 'dvis' }) : '') + '<span>' + UI.esc(b.n) + '</span><i>' + n + '</i></div>';
         }).join('') + '</div>').join('') +
       '<div class="dsec"><h5>Mes données du Codex</h5>' +
       '<p>Stockées sur cet appareil, et sur ton compte si tu es connecté.</p>' +

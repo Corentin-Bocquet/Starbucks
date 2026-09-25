@@ -150,6 +150,7 @@
         }
         if (verrou !== 'x') return;
         e.preventDefault();
+        el.classList.add('glisse');
         const base = el.classList.contains('ouvert') ? -large : 0;
         /* Résistance au-delà des actions : on sent le bout. */
         dx = base + ax;
@@ -162,6 +163,7 @@
         if (!parti) return;
         parti = false;
         dessus.style.transition = '';
+        el.classList.remove('glisse');
         if (verrou !== 'x') return;
         if (dx < -large / 2) ouvrir(el, large); else fermer(el);
       };

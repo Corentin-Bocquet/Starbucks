@@ -272,12 +272,8 @@
             if (ville && isFinite(ville.lat)) { lat = ville.lat; lon = ville.lon; approx = true; }
           }
           if (!isFinite(lat) || !isFinite(lon)) {
-            if (global.Stock) {
-              boite.innerHTML = '<img src="' + UI.attr(Stock.genere('lieu', lieu.nom, { l: 800, h: 500 })) +
-                '" alt="" style="width:100%;height:100%;object-fit:cover">';
-            } else {
-              boite.innerHTML = '<div class="attente">' + Icon('location', 26) + '<span>Adresse non localisée</span></div>';
-            }
+            boite.innerHTML = '<div class="attente">' + (global.Vis ? Vis.html('lieu', { classe: 'attvis' }) : Icon('location', 26)) +
+              '<span>Adresse non localisée</span></div>';
             return;
           }
           if (approx) {

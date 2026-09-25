@@ -46,21 +46,18 @@
         '</div>' +
       '</div>' +
 
-      /* Les familles, en cartes photo plutot qu'en puces grises. */
-      '<div class="section" style="padding-top:0">' +
-        '<div class="carrousel familles">' + SEED.FOOD_CATS.map((c) =>
-          '<button class="cartefamille' + (p.cat === c.id ? ' on' : '') + '" data-cat="' + c.id + '">' +
-            (global.Stock ? Stock.ic(PHOTO_CAT[c.id] || c.nom, { classe: 'fond', type: 'plat' }) : '') +
-            '<span class="voile"></span><span class="tx">' + UI.esc(c.nom) + '</span>' +
-          '</button>').join('') + '</div>' +
+      /* Les familles sont un filtre : des puces, pas des images. */
+      '<div class="section" style="padding-top:4px">' +
+        '<div class="chips">' + SEED.FOOD_CATS.map((c) =>
+          '<button class="chip' + (p.cat === c.id ? ' on' : '') + '" data-cat="' + c.id + '">' + UI.esc(c.nom) + '</button>').join('') + '</div>' +
       '</div>' +
 
       Portes.section('', [
-        { act: 'roue',     nom: 'Tourner',   sub: 'Le hasard choisit',  ph: 'de hasard' },
-        { act: 'ai',       nom: 'Choisis pour moi', sub: 'Selon mes macros', ph: 'recettes' },
-        { act: 'three',    nom: 'Trois idées', sub: 'Puis la roue',     ph: 'trois idees' },
+        { act: 'roue',     nom: 'Tourner',   sub: 'Le hasard choisit',  ph: 'roue' },
+        { act: 'ai',       nom: 'Choisis pour moi', sub: 'Selon mes macros', ph: 'baguette-magique' },
+        { act: 'three',    nom: 'Trois idées', sub: 'Puis la roue',     ph: 'trois-idees' },
         { act: 'add',      nom: 'Ajouter',   sub: 'Un aliment de plus', ph: 'ajouter' },
-        { act: 'share',    nom: 'Listes',    sub: 'Couple, famille',    ph: 'guide' },
+        { act: 'share',    nom: 'Listes',    sub: 'Couple, famille',    ph: 'listes' },
         { act: 'favoris',  nom: p.favOnly ? 'Favoris' : 'Tout',
           sub: p.favOnly ? 'Filtré' : 'Sans filtre', ph: 'favoris' }
       ], { serre: true }) +
@@ -96,11 +93,20 @@
       weight: (f) => weightOf(f),
       cta: 'TOURNER',
       emptyText: 'Aucun aliment avec ces filtres',
-      onResult: (f, box) => { box.innerHTML = card(f); bindCard(box, f); Store.log('aliment', { id: f.id, label: f.nom }); if (global.Game) Game.award('roulette', 5); }
+      onResult: (f, box) => { box.innerHTML = card(f); bindCard(box, f); Photos.hydrate(box); Store.log('aliment', { id: f.id, label: f.nom }); if (global.Game) Game.award('roulette', 5); }
     });
   }
 
   const catIcon = (c) => (SEED.FOOD_CATS.find((x) => x.id === c) || { icon: 'plate' }).icon;
+  const CAT_VIS = { sale: 'sale', sucre: 'sucre-cat', boisson: 'sans-alcool', alcool: 'alcoolise', commander: 'a-commander', all: 'tous' };
+  /* L'image d'un aliment de la liste : la sienne si elle existe,
+     sinon l'image générique des aliments ajoutés à la main. */
+  const visAliment = (f) => (f.photo || f.photoUrl) ? null : (Vis.trouve(f.nom, 'aliment') || 'aliment');
+  function visuel(f, classe) {
+    if (f.photo || f.photoUrl) return '<span class="vis3d photo' + (classe ? ' ' + classe : '') + '">' + Photos.img(f, 'photo') + '</span>';
+    return Vis.html(visAliment(f), { classe: classe });
+  }
+  const catNom = (c) => (SEED.FOOD_CATS.find((x) => x.id === c) || {}).nom || '';
 
   function weightOf(f) {
     let w = 50;
@@ -117,8 +123,9 @@
 
   function card(f) {
     const isFav = Store.isFav('food', f.id);
-    return '<div class="result"><div class="rbody">' +
-      '<div class="rkick">' + UI.esc((SEED.FOOD_CATS.find((c) => c.id === f.cat) || {}).nom || '') + '</div>' +
+    return '<div class="result"><div class="rbody alimres">' +
+      '<span class="alvis">' + visuel(f) + '</span>' +
+      '<div class="rkick">' + UI.esc(catNom(f.cat)) + '</div>' +
       '<h3>' + UI.esc(f.nom) + '</h3>' +
       (f.note ? '<div class="rwhy">' + UI.esc(f.note) + '</div>' : '') +
       '<div class="ract">' +
@@ -217,11 +224,10 @@
       '<div class="mbody" style="padding-top:6px">' +
         '<h2 style="font-size:22px;margin-bottom:4px">Trois idées</h2>' +
         '<p class="secdesc">Choisis, ou laisse la roue trancher.</p>' +
-        '<div class="list">' + picks.map((f, i) =>
-          '<button class="rowitem" data-i="' + i + '"><span class="ic">' + Icon(catIcon(f.cat), 17) + '</span>' +
-          '<span class="tx"><b>' + UI.esc(f.nom) + '</b><small>' +
-          UI.esc((SEED.FOOD_CATS.find((c) => c.id === f.cat) || {}).nom || '') + '</small></span>' +
-          '<span class="rt">' + Icon('next', 15) + '</span></button>').join('') + '</div>' +
+        '<div class="idees">' + picks.map((f, i) =>
+          '<button class="idee" data-i="' + i + '"><span class="idvis">' + visuel(f) + '</span>' +
+          '<span class="idtx"><b>' + UI.esc(f.nom) + '</b><small>' + UI.esc(catNom(f.cat)) + '</small></span>' +
+          '<span class="idgo">' + Icon('next', 16) + '</span></button>').join('') + '</div>' +
         '<button class="btn primary block lg" style="margin-top:14px" data-wheel>' + Icon('dice', 17) + 'Laisser la roue décider</button>' +
       '</div>',
       { onMount: (s) => {
@@ -261,27 +267,42 @@
 
   function manage() {
     const list = Store.all('foods');
-    UI.openSheet('<div class="mbody" style="padding-top:6px">' +
-      '<h2 style="font-size:22px;margin-bottom:12px">Ma liste</h2>' +
-      '<div class="list">' + list.map((f) =>
-        '<div class="rowitem"><span class="ic">' + Icon(catIcon(f.cat), 17) + '</span>' +
-        '<span class="tx"><b>' + UI.esc(f.nom) + '</b><small>' + UI.esc((SEED.FOOD_CATS.find((c) => c.id === f.cat) || {}).nom || '') + '</small></span>' +
-        '<button class="rt" data-rm="' + UI.attr(f.id) + '">' + Icon('trash', 16) + '</button></div>').join('') + '</div></div>', {
-      onMount: (s) => s.querySelectorAll('[data-rm]').forEach((b) => b.onclick = () => {
-        Store.del('foods', b.dataset.rm); b.closest('.rowitem').remove(); render();
-      })
+    UI.openSheet(
+      '<div class="mtete" style="--t1:#8A4B1E;--t2:#C98A4A"><h2>Ma liste</h2><p>' + list.length + ' aliments · touche pour modifier</p></div>' +
+      '<div class="mbody"><div class="list">' + list.map((f) =>
+        '<div class="rowitem aliligne" data-ed="' + UI.attr(f.id) + '">' + visuel(f, 'lic') +
+        '<span class="tx"><b>' + UI.esc(f.nom) + '</b><small>' + UI.esc(catNom(f.cat)) + '</small></span>' +
+        '<button class="rt" data-rm="' + UI.attr(f.id) + '" aria-label="Retirer">' + Icon('trash', 16) + '</button></div>').join('') + '</div>' +
+      '<button class="btn primary block lg" style="margin-top:14px" data-add>' + Icon('plus', 17) + 'Ajouter un aliment</button></div>', {
+      onMount: (s) => {
+        Photos.hydrate(s);
+        s.querySelectorAll('[data-rm]').forEach((b) => b.onclick = (e) => {
+          e.stopPropagation();
+          Store.del('foods', b.dataset.rm); b.closest('.rowitem').remove(); render();
+        });
+        s.querySelectorAll('[data-ed]').forEach((b) => b.onclick = () => addFood(Store.find('foods', b.dataset.ed)));
+        s.querySelector('[data-add]').onclick = () => addFood();
+      }
     });
   }
 
-  async function addFood() {
-    const res = await UI.promptSheet('Nouvel aliment', [
-      { name: 'nom', label: 'Nom' },
-      { name: 'cat', label: 'Catégorie', type: 'select', value: 'sale', options: SEED.FOOD_CATS.filter((c) => c.id !== 'all').map((c) => ({ v: c.id, n: c.nom })) },
-      { name: 'note', label: 'Note (facultatif)', placeholder: 'Chez le traiteur du marche' }
-    ], 'Ajouter');
+  async function addFood(e) {
+    const res = await UI.promptSheet(e ? 'Modifier' : 'Nouvel aliment', [
+      { name: 'nom', label: 'Nom', value: e ? e.nom : '' },
+      { name: 'cat', label: 'Catégorie', type: 'tiles', value: e ? e.cat : 'sale',
+        options: SEED.FOOD_CATS.filter((c) => c.id !== 'all').map((c) => ({ v: c.id, n: c.nom, ph: CAT_VIS[c.id] })) },
+      { name: 'photo', label: 'Photo (facultatif)', type: 'photo', apercu: e && (e.photo || e.photoUrl) ? e : null,
+        hint: 'Sans photo, une image générique s\'affiche.' },
+      { name: 'note', label: 'Note (facultatif)', placeholder: 'Chez le traiteur du marché', value: e ? (e.note || '') : '' }
+    ], { submit: e ? 'Enregistrer' : 'Ajouter', teinte: ['#8A4B1E', '#C98A4A'], photo: 'aliment', pasDeFocus: !!e });
     if (!res || !res.nom) return;
-    Store.add('foods', { nom: res.nom, cat: res.cat, note: res.note, source: 'user' });
-    UI.toast('Ajoute'); render();
+    const data = { nom: res.nom, cat: res.cat || 'sale', note: res.note };
+    if (res.photo && /^data:/.test(res.photo)) {
+      try { const ph = await Photos.save(res.photo, 'illustrations', 900); data.photo = ph.id; data.photoUrl = ph.url || null; } catch (err) {}
+    } else if (res.photo === '__suppr__') { data.photo = null; data.photoUrl = null; }
+    if (e) { Store.put('foods', e.id, data); UI.toast('Modifié'); }
+    else { Store.add('foods', Object.assign(data, { source: 'user' })); UI.toast('Ajouté'); }
+    render();
   }
 
   async function aiPick() {
@@ -300,7 +321,8 @@
         { cache: false, temperature: 0.8 });
       const found = pool().find((f) => f.nom.toLowerCase() === String(res.choix).toLowerCase()) || pool()[0];
       UI.closeSheet();
-      const box = UI.$('#foodRoul').querySelector('[data-result]');
+      const hote = await avecRoue();
+      const box = hote.querySelector('[data-result]');
       box.innerHTML = card(found).replace('</h3>', '</h3><div class="rwhy" style="margin-top:10px"><b>Pourquoi ? </b>' + UI.esc(res.pourquoi) + '</div>');
       bindCard(box, found);
       box.scrollIntoView({ behavior: 'smooth', block: 'center' });

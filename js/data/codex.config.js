@@ -1,7 +1,7 @@
 /* EVER — Configuration du Codex : assistant 3 étapes, palettes, héros. */
 /* Assistant de choix : 3 étapes par onglet, 2 à 6 options par étape.
    La norme des "product finders" du web est 3 à 5 étapes ; on reste à 3 pour ne pas lasser. */
-const ANY = {v:null, n:'Peu importé', s:'Montre-moi tout', img:'ck-bar-non'};
+const ANY = {v:null, n:'Peu importe', s:'Montre-moi tout', img:'ck-bar-non'};
 
 const WIZ = {
  sb:[
@@ -33,7 +33,7 @@ const WIZ = {
    {v:'chic', n:'Chic & festif', s:'Verre à pied, élégant', img:'ck-humeur-chic'}, ANY]},
   {key:'__stock', q:'Avec ce que tu as ?', sub:'Ton bar est modifiable dans les paramètres.', opts:[
    {v:'oui', n:'Mon bar', s:'Faisable ce soir', img:'ck-bar-oui'},
-   {v:'non', n:'Peu importé', s:'Même si j\'achète', img:'ck-bar-non'}]}],
+   {v:'non', n:'Peu importe', s:'Même si j\'achète', img:'ck-bar-non'}]}],
  mm:[
   {key:'moment', q:'C\'est pour quel moment ?', sub:'Le service décide de tout le reste.', opts:[
    {v:'apero', n:'Apéro', s:'À grignoter', img:'mm-moment-apero'},
