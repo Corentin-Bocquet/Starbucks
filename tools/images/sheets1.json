@@ -1,0 +1,2018 @@
+[
+{
+"id": "ing1",
+"style": "photo",
+"items": [
+[
+"ail",
+"a whole garlic bulb with one loose clove"
+],
+[
+"oeufs",
+"three fresh brown eggs"
+],
+[
+"beurre",
+"a block of golden butter on a small piece of parchment"
+],
+[
+"farine",
+"a small heap of white flour"
+],
+[
+"tomates",
+"two ripe red vine tomatoes"
+],
+[
+"oignon",
+"a yellow onion, one whole and one half cut"
+],
+[
+"lait",
+"a glass bottle of fresh milk"
+],
+[
+"fromage",
+"a wedge of Gruyere cheese"
+],
+[
+"sucre",
+"a small white bowl of white sugar"
+]
+]
+},
+{
+"id": "ing2",
+"style": "photo",
+"items": [
+[
+"carottes",
+"three fresh carrots with green tops"
+],
+[
+"champignons",
+"a few white button mushrooms"
+],
+[
+"courgettes",
+"two green courgettes, one sliced"
+],
+[
+"asperges",
+"a small bundle of green asparagus"
+],
+[
+"betteraves",
+"two cooked red beetroots, one halved"
+],
+[
+"pommes-de-terre",
+"small yellow potatoes"
+],
+[
+"salade-verte",
+"a fresh green lettuce head"
+],
+[
+"mais",
+"a small bowl of sweet corn kernels"
+],
+[
+"persil",
+"a bunch of fresh flat parsley"
+]
+]
+},
+{
+"id": "ing3",
+"style": "photo",
+"items": [
+[
+"boeuf",
+"raw beef stew chunks on a small wooden board"
+],
+[
+"poulet",
+"two raw chicken breast fillets"
+],
+[
+"lardons",
+"a small bowl of smoked bacon lardons"
+],
+[
+"jambon",
+"folded slices of cooked ham"
+],
+[
+"roti",
+"a raw roast tied with kitchen twine"
+],
+[
+"thon",
+"an open can of tuna chunks"
+],
+[
+"veau",
+"a raw veal shank cut with marrow bone"
+],
+[
+"riz",
+"a bowl of cooked white rice"
+],
+[
+"creme-fraiche",
+"a small bowl of thick creme fraiche with a spoon"
+]
+]
+},
+{
+"id": "ing4",
+"style": "photo",
+"items": [
+[
+"creme",
+"a small glass jug of liquid cream"
+],
+[
+"mascarpone",
+"a bowl of smooth mascarpone"
+],
+[
+"boudoirs",
+"a few ladyfinger biscuits"
+],
+[
+"speculoos",
+"a small stack of caramelised speculoos biscuits"
+],
+[
+"chocolat-noir",
+"broken pieces of a dark chocolate bar"
+],
+[
+"chocolat-lait",
+"chunks of milk chocolate"
+],
+[
+"cacao",
+"a small heap of cocoa powder"
+],
+[
+"cacahuetes",
+"a small bowl of peanuts"
+],
+[
+"pate-cacahuete",
+"an open glass jar of peanut butter with a spoon"
+]
+]
+},
+{
+"id": "ing5",
+"style": "photo",
+"items": [
+[
+"levure",
+"a small ramekin of baking powder with a measuring spoon"
+],
+[
+"vanille",
+"three dark vanilla pods"
+],
+[
+"cassonade",
+"a small heap of brown cane sugar"
+],
+[
+"noix",
+"ground walnuts in a small bowl with two whole walnuts"
+],
+[
+"chapelure",
+"a small bowl of golden panko breadcrumbs"
+],
+[
+"croutons",
+"a handful of golden croutons"
+],
+[
+"pate-tarte",
+"a rolled sheet of raw pastry dough partly unrolled"
+],
+[
+"wraps",
+"a small stack of flour tortillas"
+],
+[
+"bouillon",
+"three stock cubes, one unwrapped"
+]
+]
+},
+{
+"id": "ing6",
+"style": "photo",
+"items": [
+[
+"huile",
+"a glass cruet of golden olive oil"
+],
+[
+"vinaigre-balsamique",
+"a small glass cruet of dark balsamic vinegar"
+],
+[
+"vinaigre-cidre",
+"a small glass bottle of amber cider vinegar with an apple"
+],
+[
+"sel",
+"a small bowl of coarse sea salt"
+],
+[
+"poivre",
+"black peppercorns with a wooden pepper mill"
+],
+[
+"paprika",
+"a small heap of red paprika powder"
+],
+[
+"chili",
+"red chili powder with two dried red chilies"
+],
+[
+"epices",
+"four small spoons of colourful ground spices"
+],
+[
+"herbes",
+"a small bowl of dried herbs, oregano and sage"
+]
+]
+},
+{
+"id": "ing7",
+"style": "photo",
+"items": [
+[
+"estragon",
+"a sprig of fresh tarragon"
+],
+[
+"basilic",
+"a sprig of fresh basil"
+],
+[
+"bouquet-garni",
+"a bouquet garni tied with string: thyme, bay leaf, parsley"
+],
+[
+"menthe",
+"a sprig of fresh mint"
+],
+[
+"cafe",
+"a white cup of black coffee on a saucer"
+],
+[
+"cafe-soluble",
+"a small bowl of instant coffee granules"
+],
+[
+"eau",
+"a clear glass of still water"
+],
+[
+"biere",
+"a glass of blonde beer with foam"
+],
+[
+"vin-blanc",
+"a stemmed glass of white wine"
+]
+]
+},
+{
+"id": "ing8",
+"style": "photo",
+"items": [
+[
+"vin-rouge",
+"a stemmed glass of red wine"
+],
+[
+"rhum",
+"a bottle of amber rum without label"
+],
+[
+"cognac",
+"a cognac snifter glass with amber cognac"
+],
+[
+"vin-cuit",
+"a small glass of dark fortified Madeira wine"
+],
+[
+"anis",
+"a tall glass of cloudy yellow pastis with a small water carafe"
+],
+[
+"gin",
+"a clear gin bottle without label with juniper berries"
+],
+[
+"vodka",
+"a frosted clear vodka bottle without label"
+],
+[
+"tequila",
+"a tequila bottle without label with a lime wedge and a shot glass"
+],
+[
+"whisky",
+"a crystal tumbler of whisky on the rocks"
+]
+]
+},
+{
+"id": "ing9",
+"style": "photo",
+"items": [
+[
+"bourbon",
+"a tall bottle of amber bourbon without label"
+],
+[
+"rye",
+"a square bottle of rye whiskey without label"
+],
+[
+"rhum-blanc",
+"a clear bottle of white rum without label with sugar cane"
+],
+[
+"rhum-overproof",
+"a dark bottle of strong spiced rum without label"
+],
+[
+"vermouth-rouge",
+"a bottle of red vermouth without label with an orange slice"
+],
+[
+"vermouth-sec",
+"a bottle of pale dry vermouth without label with an olive"
+],
+[
+"campari",
+"a bottle of bright red bitter aperitif without label"
+],
+[
+"angostura",
+"a small bitters bottle with a paper wrap, no text"
+],
+[
+"triple-sec",
+"a bottle of orange liqueur without label with orange peel"
+]
+]
+},
+{
+"id": "ing10",
+"style": "photo",
+"items": [
+[
+"liqueur-cafe",
+"a bottle of dark coffee liqueur without label with coffee beans"
+],
+[
+"liqueur-banane",
+"a bottle of yellow banana liqueur without label with a banana"
+],
+[
+"brandy-mure",
+"a bottle of deep purple blackberry brandy without label with blackberries"
+],
+[
+"chambord",
+"a round dark raspberry liqueur bottle without label with raspberries"
+],
+[
+"sirop-sucre",
+"a clear glass bottle of simple syrup"
+],
+[
+"sirop-canne",
+"a bottle of amber cane syrup with a piece of sugar cane"
+],
+[
+"grenadine",
+"a bottle of red grenadine syrup with a halved pomegranate"
+],
+[
+"sirop-violette",
+"a bottle of violet syrup with violet flowers"
+],
+[
+"creme-coco",
+"a small bowl of coconut cream next to a halved coconut"
+]
+]
+},
+{
+"id": "ing11",
+"style": "photo",
+"items": [
+[
+"citron-vert",
+"two limes, one halved"
+],
+[
+"citron-jaune",
+"two lemons, one halved"
+],
+[
+"jus-orange",
+"a glass of orange juice with half an orange"
+],
+[
+"jus-ananas",
+"a glass of pineapple juice with a pineapple wedge"
+],
+[
+"jus-canneberge",
+"a glass of red cranberry juice with cranberries"
+],
+[
+"jus-pamplemousse",
+"a glass of pink grapefruit juice with half a grapefruit"
+],
+[
+"fruit-passion",
+"two halved passion fruits and a small glass of passion juice"
+],
+[
+"eau-gazeuse",
+"a glass of sparkling water with bubbles and ice"
+],
+[
+"soda-pamplemousse",
+"a glass of pink grapefruit soda with ice and a straw"
+]
+]
+},
+{
+"id": "ing12",
+"style": "photo",
+"items": [
+[
+"espresso",
+"a small espresso cup with crema"
+],
+[
+"blanc-oeuf",
+"an egg white in a small glass bowl with a cracked eggshell"
+],
+[
+"grains-cafe",
+"a heap of roasted coffee beans"
+],
+[
+"cafe-filtre",
+"a glass carafe of filter coffee"
+],
+[
+"lait-vegetal",
+"a glass bottle of oat milk with a few oats"
+],
+[
+"sirop-vanille",
+"a bottle of vanilla syrup with a vanilla pod"
+],
+[
+"caramel",
+"a small pitcher of golden caramel sauce"
+],
+[
+"sauce-chocolat",
+"a small bowl of glossy chocolate sauce"
+],
+[
+"matcha",
+"a bowl of green matcha powder with a bamboo whisk"
+]
+]
+},
+{
+"id": "ing13",
+"style": "photo",
+"items": [
+[
+"chai",
+"a glass of chai concentrate with cinnamon sticks and star anise"
+],
+[
+"the",
+"a cup of tea with a tea bag"
+],
+[
+"fruits",
+"a small bowl of mixed berries"
+],
+[
+"sirop-saison",
+"a bottle of pumpkin spice syrup with a mini pumpkin and cinnamon"
+],
+[
+"blender",
+"a compact kitchen blender"
+],
+[
+"legumes",
+"a small wicker basket of fresh mixed vegetables"
+],
+[
+"viande",
+"raw steaks on a wooden butcher board"
+],
+[
+"alcool",
+"three assorted liquor bottles without labels"
+],
+[
+"poisson",
+"a fresh raw salmon fillet"
+]
+]
+},
+{
+"id": "act1",
+"style": "photo",
+"items": [
+[
+"plage",
+"a rolled striped beach towel with a beach ball and sunglasses on a small mound of sand"
+],
+[
+"dunes",
+"a small mound of golden sand with tufts of dune grass"
+],
+[
+"jeux-plage",
+"a colourful bucket and spade with sand"
+],
+[
+"raquettes-plage",
+"two wooden beach paddles with a small rubber ball"
+],
+[
+"cerf-volant",
+"a colourful diamond kite with a ribbon tail"
+],
+[
+"boomerang",
+"a polished wooden boomerang"
+],
+[
+"coucher-soleil",
+"sunglasses reflecting a vivid orange sunset"
+],
+[
+"pique-nique",
+"a wicker picnic basket with a red gingham cloth"
+],
+[
+"tennis",
+"a tennis racket with a yellow tennis ball"
+]
+]
+},
+{
+"id": "act2",
+"style": "photo",
+"items": [
+[
+"beach-volley",
+"a yellow and blue volleyball on a little sand"
+],
+[
+"velo",
+"a classic city bicycle, side view"
+],
+[
+"rosalie",
+"a four-wheel pedal surrey cart with a striped canopy"
+],
+[
+"char-voile",
+"a small land sailing sand yacht with a colourful sail"
+],
+[
+"equitation",
+"an English leather riding saddle"
+],
+[
+"golf",
+"a golf ball on a tee with a golf club head"
+],
+[
+"randonnee",
+"a pair of brown leather hiking boots"
+],
+[
+"kitesurf",
+"a kitesurf board with a kite control bar"
+],
+[
+"karting",
+"a bright red racing go-kart"
+]
+]
+},
+{
+"id": "act3",
+"style": "photo",
+"items": [
+[
+"mini-golf",
+"a putter with a colourful golf ball and a tiny flag"
+],
+[
+"escape",
+"an antique brass key with an old padlock"
+],
+[
+"bowling",
+"a glossy bowling ball with three white pins"
+],
+[
+"petanque",
+"three steel petanque boules with a small wooden jack"
+],
+[
+"molkky",
+"a set of wooden molkky pins with the throwing stick"
+],
+[
+"glace",
+"a waffle cone with two scoops of ice cream"
+],
+[
+"crepe",
+"a folded French crepe with sugar on a small plate"
+],
+[
+"gaufre",
+"a Belgian waffle dusted with powdered sugar"
+],
+[
+"cafe-lieu",
+"a cappuccino with latte art on a saucer"
+]
+]
+},
+{
+"id": "act4",
+"style": "photo",
+"items": [
+[
+"restaurant",
+"an elegant fine dining plate with a steak and vegetables, fork and knife"
+],
+[
+"brunch",
+"a brunch plate with eggs benedict and avocado toast with a glass of orange juice"
+],
+[
+"apero",
+"an aperitif board with olives, charcuterie and two orange spritz glasses"
+],
+[
+"bar",
+"two cocktail glasses clinking with citrus garnish"
+],
+[
+"galerie",
+"a framed abstract painting on a small wooden easel"
+],
+[
+"musee",
+"a classical white marble bust"
+],
+[
+"exposition",
+"a modern abstract sculpture on a white plinth"
+],
+[
+"visite",
+"a folded paper city map with a brass compass"
+],
+[
+"villa",
+"a miniature model of a half-timbered Anglo-Norman seaside villa"
+]
+]
+},
+{
+"id": "act5",
+"style": "photo",
+"items": [
+[
+"avion",
+"a small red and white propeller airplane"
+],
+[
+"bateau",
+"a small sailing boat with white sails"
+],
+[
+"ski",
+"a pair of alpine skis crossed with ski poles"
+],
+[
+"snowboard",
+"a colourful snowboard standing upright"
+],
+[
+"ski-fond",
+"narrow cross-country skis with cross-country boots"
+],
+[
+"raquettes-neige",
+"a pair of modern snowshoes"
+],
+[
+"luge",
+"a classic wooden sled"
+],
+[
+"patinoire",
+"a pair of white ice skates"
+],
+[
+"spa",
+"stacked smooth spa stones with a rolled white towel and a candle"
+]
+]
+},
+{
+"id": "act6",
+"style": "photo",
+"items": [
+[
+"fondue",
+"a cheese fondue pot with bread on a long fork"
+],
+[
+"apres-ski",
+"a mug of mulled wine with an orange slice next to ski goggles"
+],
+[
+"cinema",
+"a red striped popcorn box with 3D glasses"
+],
+[
+"parapente",
+"a small colourful paraglider wing canopy"
+],
+[
+"vtt",
+"a mountain bike, side view"
+],
+[
+"vtt-descente",
+"a full-face downhill mountain bike helmet"
+],
+[
+"trail",
+"a pair of trail running shoes"
+],
+[
+"via-ferrata",
+"a climbing harness with carabiners and a lanyard"
+],
+[
+"escalade",
+"colourful climbing holds with a chalk bag"
+]
+]
+},
+{
+"id": "act7",
+"style": "photo",
+"items": [
+[
+"luge-rail",
+"a small alpine coaster cart on a short metal rail"
+],
+[
+"rafting",
+"a yellow rafting paddle with a red helmet"
+],
+[
+"canyoning",
+"a canyoning helmet with a coiled rope"
+],
+[
+"marche",
+"a wicker market basket with fresh produce and a baguette"
+],
+[
+"musculation",
+"a pair of hexagonal dumbbells"
+],
+[
+"course",
+"a pair of neon road running shoes"
+],
+[
+"douche-froide",
+"a chrome rain shower head spraying water droplets"
+],
+[
+"pompes",
+"a pair of push-up handles on a small exercise mat"
+],
+[
+"cafe-calme",
+"a ceramic cup of coffee on a saucer with a croissant"
+]
+]
+},
+{
+"id": "act8",
+"style": "photo",
+"items": [
+[
+"marcher",
+"a pair of white sneakers with a few autumn leaves"
+],
+[
+"ranger",
+"a neat stack of folded clothes with a woven storage box"
+],
+[
+"apprendre",
+"a stack of books with a glowing vintage light bulb on top"
+],
+[
+"video",
+"a mirrorless camera with a lens"
+],
+[
+"ecrire",
+"a fountain pen on an open blank notebook"
+],
+[
+"cuisiner",
+"a cast iron pan with fresh ingredients around it"
+],
+[
+"jeu-video",
+"a game controller next to a small hourglass"
+],
+[
+"velo-route",
+"a sleek road racing bicycle, side view"
+],
+[
+"musique",
+"over-ear headphones resting on a vinyl record"
+]
+]
+},
+{
+"id": "act9",
+"style": "photo",
+"items": [
+[
+"lecture",
+"an open book with a ribbon bookmark"
+],
+[
+"tache",
+"a clipboard checklist with green check marks, no text"
+],
+[
+"publier",
+"a folded white paper airplane"
+],
+[
+"mails",
+"a small stack of sealed envelopes"
+],
+[
+"coiffeur",
+"barber scissors, a comb and a straight razor"
+],
+[
+"bien-habille",
+"a navy blazer on a wooden hanger"
+],
+[
+"souvenirs",
+"a small stack of instant photos"
+],
+[
+"aider",
+"an open red toolbox with tools"
+],
+[
+"record",
+"a silver stopwatch"
+]
+]
+},
+{
+"id": "act10",
+"style": "photo",
+"items": [
+[
+"comptes",
+"a ceramic piggy bank with gold coins"
+],
+[
+"message",
+"a smartphone with a green speech bubble floating above it, no text"
+],
+[
+"repas-potes",
+"a large shared platter of roast chicken with sides and several forks"
+],
+[
+"sushis",
+"a wooden sushi boat platter loaded with sushi and sashimi"
+],
+[
+"barbecue",
+"a black kettle barbecue grill with skewers"
+],
+[
+"ufc",
+"a pair of black MMA fingerless gloves"
+],
+[
+"foot",
+"a classic football with a navy and red knitted scarf, no logo"
+],
+[
+"telephone",
+"a retro red rotary telephone"
+],
+[
+"jeux-societe",
+"board game pieces, dice and playing cards"
+]
+]
+},
+{
+"id": "act11",
+"style": "photo",
+"items": [
+[
+"sport-co",
+"a padel racket, a basketball and a football together"
+],
+[
+"cuisiner-ensemble",
+"a big pot of pasta with several wooden spoons"
+],
+[
+"deux-cafes",
+"two coffee cups side by side on saucers"
+],
+[
+"rando-groupe",
+"two hiking backpacks side by side"
+],
+[
+"dormir-amis",
+"a rolled sleeping bag with a pillow"
+],
+[
+"massage",
+"a massage oil bottle with warm basalt stones"
+],
+[
+"sauna",
+"a wooden sauna bucket with a ladle"
+],
+[
+"bain",
+"a miniature clawfoot bathtub with bubbles and a lit candle"
+],
+[
+"parler",
+"two steaming mugs of tea facing each other"
+]
+]
+},
+{
+"id": "act12",
+"style": "photo",
+"items": [
+[
+"etirements",
+"a rolled sage green yoga mat"
+],
+[
+"kine",
+"a foam roller with a massage ball"
+],
+[
+"plat-enfance",
+"a steaming bowl of homemade soup in a vintage ceramic bowl"
+],
+[
+"fauteuil",
+"a comfortable velvet armchair"
+],
+[
+"seance-lourde",
+"a loaded barbell with iron plates"
+],
+[
+"boxe",
+"a pair of red boxing gloves"
+],
+[
+"parfum",
+"a cologne bottle without label next to a comb"
+],
+[
+"demander",
+"a glossy 3D speech bubble with a question mark shape, no letters"
+],
+[
+"dormir",
+"a sleep mask with a pillow and a small alarm clock"
+]
+]
+},
+{
+"id": "act13",
+"style": "photo",
+"items": [
+[
+"bain-glace",
+"a metal bucket full of ice cubes"
+],
+[
+"soiree-deux",
+"two glasses of red wine with a lit candle"
+],
+[
+"calin",
+"a soft plush teddy bear"
+],
+[
+"diner-deux",
+"a candlelit table for two with a single red rose, miniature"
+],
+[
+"parents",
+"a home phone next to a small framed photo, no faces"
+],
+[
+"marcher-deux",
+"two pairs of sneakers side by side"
+],
+[
+"animal",
+"a golden retriever puppy sitting"
+],
+[
+"cuisiner-pour",
+"a homemade lasagna in a ceramic baking dish"
+],
+[
+"film-blotti",
+"a cozy knitted blanket with a bowl of popcorn"
+]
+]
+},
+{
+"id": "food1",
+"style": "photo",
+"items": [
+[
+"sushi",
+"a plate of assorted sushi and maki"
+],
+[
+"terrine",
+"a slice of pork terrine with chives on a small board"
+],
+[
+"rillettes",
+"a small jar of rillettes with toasted bread"
+],
+[
+"porc-caramel",
+"a bowl of caramelised pork with rice"
+],
+[
+"fondue-bourguignonne",
+"a meat fondue pot with raw beef cubes and forks"
+],
+[
+"beef-jerky",
+"strips of beef jerky"
+],
+[
+"sardines",
+"an open tin of premium sardines, no label text"
+],
+[
+"plateau",
+"a charcuterie and cheese board with a glass of red wine"
+],
+[
+"dahl",
+"a bowl of lentil dahl with coriander"
+]
+]
+},
+{
+"id": "food2",
+"style": "photo",
+"items": [
+[
+"pancakes-sales",
+"a stack of savoury pancakes with bacon and melted cheese"
+],
+[
+"tomates-farcies",
+"two stuffed baked tomatoes in a small dish"
+],
+[
+"tomates-sechees",
+"a small jar of sun dried tomatoes in oil"
+],
+[
+"cacahuetes-3d",
+"a bowl of puffy 3D peanut shaped corn snacks"
+],
+[
+"ribs",
+"glazed honey barbecue ribs"
+],
+[
+"t-bone",
+"a grilled T-bone steak"
+],
+[
+"munster",
+"a round Munster cheese with a slice cut out"
+],
+[
+"saucisson",
+"a dry pepper crusted saucisson with slices"
+],
+[
+"fuet",
+"a thin Spanish fuet sausage with slices"
+]
+]
+},
+{
+"id": "food3",
+"style": "photo",
+"items": [
+[
+"kobe",
+"a marbled wagyu beef steak, raw"
+],
+[
+"hot-dog",
+"a hot dog with mustard and ketchup"
+],
+[
+"pizza",
+"a margherita pizza"
+],
+[
+"poke",
+"a colourful poke bowl with salmon and avocado"
+],
+[
+"pate-cookie",
+"a bowl of raw cookie dough with chocolate chips"
+],
+[
+"popcorn",
+"a bowl of butter popcorn"
+],
+[
+"chocolat-suisse",
+"a broken bar of Swiss milk chocolate, no branding"
+],
+[
+"peanut-cups",
+"chocolate peanut butter cups, no branding"
+],
+[
+"truffes-chocolat",
+"red foil wrapped round chocolate truffles, one unwrapped, no branding"
+]
+]
+},
+{
+"id": "food4",
+"style": "photo",
+"items": [
+[
+"chouchous",
+"caramelised peanuts in a paper cone"
+],
+[
+"beignets",
+"chocolate filled doughnuts dusted with sugar"
+],
+[
+"cookies",
+"three chocolate chip cookies"
+],
+[
+"muffins",
+"two chocolate chip muffins"
+],
+[
+"mi-cuit",
+"a molten chocolate lava cake with a runny centre"
+],
+[
+"creme-dessert",
+"a small glass cup of chocolate cream dessert"
+],
+[
+"glace-pot",
+"an ice cream tub with a scoop, no branding"
+],
+[
+"glace-barre",
+"a chocolate coated ice cream bar with peanuts, bitten"
+],
+[
+"pastel-nata",
+"two Portuguese pasteis de nata"
+]
+]
+},
+{
+"id": "food5",
+"style": "photo",
+"items": [
+[
+"bonbons",
+"a colourful heap of assorted gummy candies"
+],
+[
+"barre-chocolat",
+"a chocolate caramel peanut bar cut open"
+],
+[
+"glace-cookie",
+"a cup of vanilla ice cream with cookie dough chunks"
+],
+[
+"mini-chocolats",
+"small individually wrapped milk chocolates, no branding"
+],
+[
+"mochi",
+"three pastel coloured mochi ice creams"
+],
+[
+"soda-orange",
+"a glass bottle of blood orange soda, no label"
+],
+[
+"limonade",
+"a glass of lemonade with lemon slices and ice"
+],
+[
+"citronnade",
+"a glass pitcher of homemade citronnade with lemons and mint"
+],
+[
+"jus-rouge",
+"a glass of ruby red breakfast juice with berries"
+]
+]
+},
+{
+"id": "food6",
+"style": "photo",
+"items": [
+[
+"biere-aromatisee",
+"a bottle of flavoured beer with a lime, no label"
+],
+[
+"cocktails",
+"three colourful cocktails"
+],
+[
+"sex-on-the-beach",
+"a sex on the beach cocktail with an orange slice"
+],
+[
+"caipirinha",
+"a caipirinha with crushed ice and lime"
+],
+[
+"mojito",
+"a mojito with mint and lime"
+],
+[
+"cocktail-exotique",
+"an exotic tiki cocktail in a coconut"
+],
+[
+"biere-abbaye",
+"a goblet of amber abbey beer with foam"
+],
+[
+"biere-tequila",
+"a bottle of tequila flavoured beer with a lime, no label"
+],
+[
+"biere-blonde",
+"a pint of craft blonde beer"
+]
+]
+},
+{
+"id": "food7",
+"style": "photo",
+"items": [
+[
+"gin-japonais",
+"an elegant hexagonal gin bottle, no label, with yuzu"
+],
+[
+"mastiha",
+"a bottle of clear mastiha liqueur, no label"
+],
+[
+"rhum-arrange",
+"a bottle of spiced rum with vanilla, no label"
+],
+[
+"liqueur-creme",
+"a glass of creamy chocolate liqueur over ice"
+],
+[
+"whisky-miel",
+"a bottle of honey whiskey with a honey dipper, no label"
+],
+[
+"vodka-framboise",
+"a bottle of raspberry vodka with raspberries, no label"
+],
+[
+"vodka-peche",
+"a bottle of peach vodka with a peach, no label"
+],
+[
+"vodka-noire",
+"a black vodka bottle, no label"
+],
+[
+"vodka-rose",
+"a pink vodka bottle, no label"
+]
+]
+},
+{
+"id": "food8",
+"style": "photo",
+"items": [
+[
+"aliment",
+"a generic appetizing plate of home cooked food"
+],
+[
+"boisson-inventee",
+"a signature iced coffee drink with cream swirl in a clear cup with a green straw"
+],
+[
+"cocktail-invente",
+"an elegant signature cocktail in a coupe glass with a garnish"
+],
+[
+"vodka-rouge",
+"a red vodka bottle, no label"
+],
+[
+"brunch-plat",
+"a brunch table spread seen from above"
+],
+[
+"asperges-vertes",
+"green asparagus spears tied"
+],
+[
+"barbecue-plat",
+"a platter of grilled meats and sausages"
+],
+[
+"gaufre-food",
+"a crispy waffle with chocolate"
+],
+[
+"tiramisu",
+"a slice of tiramisu"
+]
+]
+},
+{
+"id": "ic1",
+"style": "icon",
+"items": [
+[
+"roue",
+"a glossy casino roulette wheel with coral, teal and gold segments"
+],
+[
+"trois-idees",
+"three glowing light bulbs of different warm colours standing in a row"
+],
+[
+"surprise",
+"an open gift box bursting with golden sparkles and confetti"
+],
+[
+"ajouter",
+"a glossy coral round button with a raised plus sign"
+],
+[
+"historique",
+"a glossy clock with a circular arrow around it"
+],
+[
+"favoris",
+"a glossy golden star"
+],
+[
+"listes",
+"a glossy clipboard with checked boxes"
+],
+[
+"chercher",
+"a glossy magnifying glass"
+],
+[
+"actualiser",
+"two glossy circular arrows forming a loop"
+]
+]
+},
+{
+"id": "ic2",
+"style": "icon",
+"items": [
+[
+"histoire",
+"an old rolled parchment scroll with a quill"
+],
+[
+"culture",
+"a pair of theatre masks"
+],
+[
+"connue",
+"a golden trophy with a star"
+],
+[
+"a-voir",
+"a pair of binoculars"
+],
+[
+"a-faire",
+"two admission ticket stubs"
+],
+[
+"bons-plans",
+"a price tag with a sparkle and a coin"
+],
+[
+"coins-discrets",
+"an ornate key next to a small secret door"
+],
+[
+"pratique",
+"a red Swiss army multi tool"
+],
+[
+"boussole",
+"a brass compass rose"
+]
+]
+},
+{
+"id": "ic3",
+"style": "icon",
+"items": [
+[
+"calories",
+"a glossy orange flame"
+],
+[
+"proteines",
+"a glossy roasted chicken drumstick"
+],
+[
+"pas",
+"a glossy sneaker with motion lines"
+],
+[
+"sommeil",
+"a glossy crescent moon with two small stars"
+],
+[
+"hydratation",
+"a glossy water droplet"
+],
+[
+"poids",
+"a glossy bathroom scale"
+],
+[
+"cardio",
+"a glossy red heart with a pulse line"
+],
+[
+"muscle",
+"a glossy dumbbell"
+],
+[
+"glucides",
+"a glossy slice of bread"
+]
+]
+},
+{
+"id": "ic4",
+"style": "icon",
+"items": [
+[
+"elan",
+"a glossy rocket taking off"
+],
+[
+"fierte",
+"a glossy gold medal with a ribbon"
+],
+[
+"rire",
+"a glossy party popper with confetti"
+],
+[
+"reconfort",
+"a glossy warm mug with a heart shaped steam"
+],
+[
+"cran",
+"a glossy lightning bolt"
+],
+[
+"tendresse",
+"two glossy hearts overlapping"
+],
+[
+"noter",
+"a glossy notebook with a pencil"
+],
+[
+"marche-defi",
+"glossy footprints in a row"
+],
+[
+"defi",
+"a glossy target with an arrow in the bullseye"
+]
+]
+},
+{
+"id": "ic5",
+"style": "icon",
+"items": [
+[
+"couple",
+"two interlocked glossy gold rings with a small heart"
+],
+[
+"famille",
+"a glossy little house with a heart window"
+],
+[
+"ami",
+"two glossy friendship bracelets intertwined"
+],
+[
+"collegue",
+"a glossy leather briefcase"
+],
+[
+"enfant",
+"a glossy wooden rocking horse toy"
+],
+[
+"fratrie",
+"two glossy matching mugs side by side"
+],
+[
+"grands-parents",
+"a glossy wooden rocking chair with a knitted blanket"
+],
+[
+"parent",
+"a glossy teapot with two cups"
+],
+[
+"cadeau",
+"a glossy wrapped gift box with a ribbon"
+]
+]
+},
+{
+"id": "ic6",
+"style": "icon",
+"items": [
+[
+"sale",
+"a glossy pretzel"
+],
+[
+"sucre-cat",
+"a glossy pink glazed doughnut with sprinkles"
+],
+[
+"sans-alcool",
+"a glossy soda glass with a straw and bubbles"
+],
+[
+"alcoolise",
+"a glossy wine glass with red wine"
+],
+[
+"a-commander",
+"a glossy delivery paper bag with a steam swirl"
+],
+[
+"tous",
+"a glossy plate with fork and knife"
+],
+[
+"baguette-magique",
+"a glossy magic wand with sparkles"
+],
+[
+"lieu",
+"a glossy coral map pin"
+],
+[
+"activite",
+"a glossy compass with a small flag"
+]
+]
+},
+{
+"id": "ic7",
+"style": "icon",
+"items": [
+[
+"cat-plage",
+"a glossy beach umbrella over a small sand patch"
+],
+[
+"cat-sport",
+"a glossy sports trophy with a ball"
+],
+[
+"cat-fun",
+"a glossy game controller"
+],
+[
+"cat-food",
+"a glossy burger"
+],
+[
+"cat-culture",
+"a glossy classical column"
+],
+[
+"cat-insolite",
+"a glossy hot air balloon"
+],
+[
+"cat-hiver",
+"a glossy snowflake"
+],
+[
+"cat-ete",
+"a glossy smiling sun"
+],
+[
+"cat-autre",
+"a glossy sparkle star"
+]
+]
+},
+{
+"id": "ic8",
+"style": "icon",
+"items": [
+[
+"apple-sante",
+"a glossy white rounded square with a red heart"
+],
+[
+"effacer",
+"a glossy trash bin"
+],
+[
+"exporter",
+"a glossy box with an arrow going out"
+],
+[
+"scanner",
+"a glossy camera viewfinder frame"
+],
+[
+"codebarre",
+"a glossy barcode label, no numbers"
+],
+[
+"objectifs",
+"a glossy target"
+],
+[
+"guide",
+"a glossy folded map with a pin"
+],
+[
+"mood",
+"a glossy smiling sun with a cloud"
+],
+[
+"sport",
+"a glossy running shoe"
+]
+]
+},
+{
+"id": "wiz1",
+"style": "photo",
+"items": [
+[
+"sb-chaud",
+"a steaming latte in a white ceramic cup with a heart latte art"
+],
+[
+"sb-glace",
+"an iced latte in a clear plastic cup with a green straw and ice cubes"
+],
+[
+"sb-mixe",
+"a blended frappuccino with whipped cream and caramel drizzle in a clear cup with a green straw"
+],
+[
+"sb-cafe",
+"a heap of coffee beans with a shot of espresso"
+],
+[
+"sb-lait",
+"a mug of hot chocolate with steamed milk foam"
+],
+[
+"sb-the",
+"an iced matcha latte and a chai latte side by side"
+],
+[
+"sb-fruit",
+"a pink strawberry refresher with fruit slices and ice in a clear cup with a green straw"
+],
+[
+"sb-leger",
+"a small cup of black americano"
+],
+[
+"sb-gourmand",
+"a caramel whipped cream mocha in a clear cup with a green straw"
+]
+]
+},
+{
+"id": "wiz2",
+"style": "photo",
+"items": [
+[
+"sb-equilibre",
+"a cappuccino in a clear glass mug with foam"
+],
+[
+"peu-importe",
+"an assortment of three different coffee drinks together"
+],
+[
+"ck-rhum",
+"a bottle of amber rum without label with a lime and mint"
+],
+[
+"ck-whisky",
+"a whisky bottle without label next to a crystal tumbler"
+],
+[
+"ck-vodka",
+"a frosted vodka bottle without label with a martini glass"
+],
+[
+"ck-tequila",
+"a tequila bottle without label with salt and lime"
+],
+[
+"ck-gin",
+"a gin bottle without label with a gin tonic glass and cucumber"
+],
+[
+"ck-frais",
+"a sparkling citrus cocktail with mint and lemon slices"
+],
+[
+"ck-tropical",
+"a tropical cocktail with pineapple and passion fruit"
+]
+]
+},
+{
+"id": "wiz3",
+"style": "photo",
+"items": [
+[
+"ck-corse",
+"a negroni in a tumbler with an orange peel"
+],
+[
+"ck-cremeux",
+"a creamy pina colada with a coconut"
+],
+[
+"ck-chic",
+"a champagne coupe cocktail with a twist"
+],
+[
+"ck-bar-oui",
+"a home bar tray with a shaker, jigger and a few bottles without labels"
+],
+[
+"ck-peu-importe",
+"an assortment of three different cocktails together"
+],
+[
+"mm-apero",
+"an aperitif spread of small bites and olives"
+],
+[
+"mm-entree",
+"a fresh starter salad in a bowl"
+],
+[
+"mm-plat",
+"a cast iron casserole of beef stew"
+],
+[
+"mm-dessert",
+"a slice of chocolate cake with berries"
+]
+]
+},
+{
+"id": "wiz4",
+"style": "photo",
+"items": [
+[
+"mm-chaud",
+"a steaming hot gratin dish just out of the oven"
+],
+[
+"mm-froid",
+"a chilled tomato salad in a glass bowl"
+],
+[
+"mm-four",
+"a baking dish inside a small oven window, miniature oven"
+],
+[
+"mm-sansfour",
+"a frying pan on a small gas burner"
+],
+[
+"mm-peu-importe",
+"an assortment of three home cooked dishes together"
+],
+[
+"mm-express",
+"a quick plate with an egg timer"
+],
+[
+"mm-mijote",
+"a slow cooking pot with a wooden spoon"
+],
+[
+"recette-inventee",
+"an elegant plated home cooked dish"
+],
+[
+"penderie",
+"a wooden clothes rail with a few folded garments"
+]
+]
+},
+{
+"id": "tenue1",
+"style": "photo",
+"items": [
+[
+"haut",
+"a neatly folded white t-shirt with a blue oxford shirt"
+],
+[
+"bas",
+"neatly folded dark blue jeans"
+],
+[
+"chaussures",
+"a pair of white leather sneakers"
+],
+[
+"veste",
+"a navy bomber jacket on a hanger"
+],
+[
+"accessoires",
+"a leather watch, sunglasses and a belt"
+],
+[
+"sous-vetement",
+"neatly folded boxer briefs"
+],
+[
+"chaussettes",
+"a pair of rolled socks"
+],
+[
+"chill",
+"a cozy grey hoodie folded with joggers"
+],
+[
+"soiree",
+"a black shirt with a black leather jacket"
+]
+]
+},
+{
+"id": "tenue2",
+"style": "photo",
+"items": [
+[
+"classe",
+"a charcoal blazer, white shirt and a silk tie"
+],
+[
+"oldmoney",
+"a cream cable knit sweater with brown suede loafers"
+],
+[
+"sport-tenue",
+"a technical running t-shirt with shorts and trainers"
+],
+[
+"tenue",
+"a complete folded outfit flat lay, shirt, chinos and loafers"
+],
+[
+"photo-tenue",
+"a vintage instant camera"
+],
+[
+"meteo-soleil",
+"a glossy 3D sun"
+],
+[
+"meteo-pluie",
+"a glossy 3D cloud with raindrops"
+],
+[
+"meteo-froid",
+"a knitted beanie and scarf"
+],
+[
+"meteo-chaud",
+"a straw hat with sunglasses"
+]
+]
+}
+]
