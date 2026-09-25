@@ -41,7 +41,7 @@ def grille_visible(im):
 
 
 # Planches où Gemini a sauté une case : position réelle de chaque objet.
-CASES = {'G18': [0, 1, 2, 3, 4, 5, 7]}
+CASES = {'G18': [0, 1, 2, 3, 4, 5, 7], 'G26': [0, 1, 2, 3, 4, 5, 7]}
 
 
 def decoupe(lid, chemin):
