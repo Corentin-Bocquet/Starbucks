@@ -38,6 +38,10 @@ def grille_visible(im):
     return col.min() < 245 or a[5:40, 5:40].mean() < 250
 
 
+# Planches où Gemini a sauté une case : position réelle de chaque objet.
+CASES = {'G18': [0, 1, 2, 3, 4, 5, 7]}
+
+
 def decoupe(lid, chemin):
     im = Image.open(chemin).convert('RGB')
     a = np.asarray(im).astype(int)
@@ -51,14 +55,15 @@ def decoupe(lid, chemin):
         xs, ys = couloirs(pasblanc, 3), couloirs(pasblanc.T, 3)
     m = int(min(im.size) * 0.012)
     faits = []
-    for r in range(3):
-        for c in range(3):
-            if r * 3 + c >= len(items):
-                continue
-            slug = items[r * 3 + c][0]
-            case = im.crop((xs[c] + m, ys[r] + m, xs[c + 1] - m, ys[r + 1] - m))
-            trim(cutout(case), pad=0.06, size=512).save(os.path.join(DEST, slug + '.webp'), 'WEBP', quality=86, method=6)
-            faits.append(slug)
+    places = CASES.get(lid, list(range(len(items))))
+    for k, pos in enumerate(places):
+        if k >= len(items):
+            continue
+        r, c = divmod(pos, 3)
+        slug = items[k][0]
+        case = im.crop((xs[c] + m, ys[r] + m, xs[c + 1] - m, ys[r + 1] - m))
+        trim(cutout(case), pad=0.06, size=512).save(os.path.join(DEST, slug + '.webp'), 'WEBP', quality=86, method=6)
+        faits.append(slug)
     return faits
 
 
