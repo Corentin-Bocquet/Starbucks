@@ -726,3 +726,10 @@ html:not([data-theme="dark"]) .lecpoint { background: #fff; box-shadow: 0 1px 0 
 @media (prefers-reduced-motion: reduce) { .battement, .entree .section { animation: none !important; } }
 .porte:has(.vis3d) { padding-left: 12px; padding-right: 10px; }
 .porte:has(.vis3d) .tx b { font-size: 15.5px; letter-spacing: -.025em; }
+
+/* Valeur absente : un trait long et centré. */
+.tiret { display: block; width: 34px; height: 3px; border-radius: 3px; margin: 12px auto; background: currentColor; opacity: .45; }
+.mesure .mtx { align-items: stretch; }
+.mesure .mtx b.vide { display: flex; justify-content: center; }
+.stat .v .tiret { margin: 11px 0; }
+.frc .tiret { margin: 8px auto 6px; width: 30px; }

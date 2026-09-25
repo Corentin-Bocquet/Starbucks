@@ -30,19 +30,33 @@ def couloirs(masque, n):
     return coupes
 
 
+def grille_visible(im):
+    """Vrai si la planche a des traits ou des fonds de case (pas un blanc uni)."""
+    a = np.asarray(im.convert('L')).astype(int)
+    W = a.shape[1]
+    col = a[:, W // 3 - 3:W // 3 + 4].mean(axis=0)
+    return col.min() < 245 or a[5:40, 5:40].mean() < 250
+
+
 def decoupe(lid, chemin):
     im = Image.open(chemin).convert('RGB')
     a = np.asarray(im).astype(int)
     pasblanc = a.min(axis=2) < 238
     items = LOTS[lid]['items']
-    xs, ys = couloirs(pasblanc, 3), couloirs(pasblanc.T, 3)
+    if grille_visible(im):
+        # Traits de grille ou fonds de case : tiers exacts, marge intérieure.
+        W, H = im.size
+        xs, ys = [0, W // 3, 2 * W // 3, W], [0, H // 3, 2 * H // 3, H]
+    else:
+        xs, ys = couloirs(pasblanc, 3), couloirs(pasblanc.T, 3)
+    m = int(min(im.size) * 0.012)
     faits = []
     for r in range(3):
         for c in range(3):
             if r * 3 + c >= len(items):
                 continue
             slug = items[r * 3 + c][0]
-            case = im.crop((xs[c], ys[r], xs[c + 1], ys[r + 1]))
+            case = im.crop((xs[c] + m, ys[r] + m, xs[c + 1] - m, ys[r + 1] - m))
             trim(cutout(case), pad=0.06, size=512).save(os.path.join(DEST, slug + '.webp'), 'WEBP', quality=86, method=6)
             faits.append(slug)
     return faits
