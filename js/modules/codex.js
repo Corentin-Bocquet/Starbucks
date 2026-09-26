@@ -73,14 +73,31 @@
       '<b>' + UI.esc(d.nom) + '</b></div>';
   }
 
+  /* Les cocktails ajoutés n'ont pas de photo : un objet 3D sur
+     l'aplat du Bar, le plus proche de la recette. */
+  const visCK = (d) => (d.vis && Vis.SET.has(d.vis)) ? d.vis : 'cocktail-invente';
+  const vignetteCK = (d) => '<div class="ph creation avecvis" style="--g1:' + TEINTE.ck[0] + ';--g2:' + TEINTE.ck[1] + '">' +
+    Vis.html(visCK(d), { classe: 'crvis' }) + '</div>';
+  const bandeauCK = (d) => '<div class="mimg creation cksans" style="--g1:' + TEINTE.ck[0] + ';--g2:' + TEINTE.ck[1] + '">' +
+    Vis.html(visCK(d), { classe: 'ckvis' }) + '</div>';
+
   /* ---------- Stock ---------- */
-  const missing = (d, t) => (d.sk || []).filter((k) => !S.stock[t].has(k));
+  /* Ce qu'il faut vraiment : la liste de stock quand la fiche en a
+     une, sinon les ingrédients non optionnels de la recette. Sans ça,
+     un cocktail sans liste passait pour « réalisable » avec un bar vide. */
+  const besoins = (d) => (d.sk && d.sk.length ? d.sk
+    : (d.ing || []).filter((i) => i.k && !i.opt).map((i) => i.k));
+  const missing = (d, t) => Array.from(new Set(besoins(d))).filter((k) => !S.stock[t].has(k));
   const doable = (d, t) => missing(d, t).length === 0;
 
   /* ---------- Filtrage ---------- */
+  /* « Avec ce que j'ai » : un interrupteur, actif par défaut, qui ne
+     garde que les cocktails faisables avec le bar coché. */
+  const monBar = () => S.tab === 'ck' && Store.get('ck.monBar', true) !== false;
   function passes(d, depth) {
     const steps = WIZ[S.tab];
-    for (let i = 0; i < depth; i++) {
+    if (monBar() && !doable(d, 'ck')) return false;
+    for (let i = 0; i < Math.min(depth, steps.length); i++) {
       const st = steps[i], v = S.wiz[S.tab][i];
       if (v === null || v === undefined) continue;
       if (st.key === '__stock') { if (v === 'oui' && !doable(d, S.tab)) return false; }
@@ -90,7 +107,7 @@
   }
   function results() {
     const all = ALL(S.tab);
-    for (let depth = 3; depth >= 1; depth--) {
+    for (let depth = WIZ[S.tab].length; depth >= 1; depth--) {
       const r = all.filter((d) => passes(d, depth));
       if (r.length >= 3 || depth === 1) return { list: r, depth: depth };
     }
@@ -123,7 +140,7 @@
 
     if (S.tab === 'ck') return '<div class="card" data-id="' + UI.attr(d.id) + '">' +
       (ms.length ? stockBadge : '<span class="badge ok">Réalisable</span>') + favBtn(k) +
-      (estCreation(d) ? vignetteCreation(d, 'ck') : '<div class="ph"><img loading="lazy" src="' + IMG['ck-' + d.id] + '" alt=""></div>') +
+      (estCreation(d) ? vignetteCreation(d, 'ck') : IMG['ck-' + d.id] ? '<div class="ph"><img loading="lazy" src="' + IMG['ck-' + d.id] + '" alt=""></div>' : vignetteCK(d)) +
       '<div class="bd"><h3>' + d.ico + ' ' + UI.esc(d.nom) + '</h3>' +
       '<div class="tags">' + d.tag.slice(0, 2).map((t, i) => '<span class="tg ' + (i ? 'b' : '') + '">' + UI.esc(t) + '</span>').join('') + '</div>' +
       '<div class="meta"><span><b>' + UI.esc(d.abv) + '</b> d\'alcool</span><span><b>' + UI.esc(d.temps) + '</b></span></div></div></div>';
@@ -331,6 +348,14 @@
     return n;
   }
 
+  function interMonBar() {
+    if (S.tab !== 'ck') return '';
+    const on = monBar(), n = ALL('ck').filter((d) => doable(d, 'ck')).length;
+    return '<button class="monbar' + (on ? ' on' : '') + '" data-monbar role="switch" aria-checked="' + on + '">' +
+      '<span class="mbtx"><b>Avec ce que j\'ai</b><small>' + (on ? n + ' cocktail' + (n > 1 ? 's' : '') + ' faisable' + (n > 1 ? 's' : '') + ' avec ton bar' : 'Tous les cocktails, même s\'il faut acheter') + '</small></span>' +
+      '<span class="bascule"><i></i></span></button>';
+  }
+
   function wizView() {
     const steps = WIZ[S.tab], chosen = S.wiz[S.tab];
     let crumbs = '';
@@ -354,7 +379,7 @@
         'sb-base-cafe': 'sb-cafe', 'sb-base-lait': 'sb-lait', 'sb-base-the': 'sb-the', 'sb-base-fruit': 'sb-fruit',
         'sb-gour-leger': 'sb-leger', 'sb-gour-equilibre': 'sb-equilibre', 'sb-gour-gourmand': 'sb-gourmand',
         'ck-alcool-rhum': 'ck-rhum', 'ck-alcool-whisky': 'ck-whisky', 'ck-alcool-vodka': 'ck-vodka',
-        'ck-alcool-tequila': 'ck-tequila', 'ck-alcool-gin': 'ck-gin',
+        'ck-alcool-tequila': 'ck-tequila', 'ck-alcool-gin': 'ck-gin', 'ck-alcool-autre': 'cocktails',
         'ck-humeur-frais': 'ck-frais', 'ck-humeur-tropical': 'ck-tropical', 'ck-humeur-corse': 'ck-corse',
         'ck-humeur-gourmand': 'ck-cremeux', 'ck-humeur-chic': 'ck-chic', 'ck-bar-oui': 'ck-bar-oui',
         'mm-moment-apero': 'mm-apero', 'mm-moment-entree': 'mm-entree', 'mm-moment-plat': 'mm-plat', 'mm-moment-dessert': 'mm-dessert',
@@ -377,6 +402,7 @@
       }).join('');
       return '<div class="wiz"><div class="crumbs">' + crumbs + '</div>' +
         '<div class="wizhead"><div class="num">Étape ' + (S.step + 1) + ' sur ' + steps.length + '</div><h2>' + UI.esc(st.q) + '</h2><p>' + UI.esc(st.sub) + '</p></div>' +
+        interMonBar() +
         '<div class="trackwrap"><div class="track" id="codexTrack">' + cards + '</div>' +
         '<div class="arrows"><button data-ar="-1">' + Icon('back', 17) + '</button><button data-ar="1">' + Icon('next', 17) + '</button></div></div>' +
         '<div class="wizact">' + (S.step > 0 ? '<button class="btn sm" data-back="1">' + Icon('back', 15) + 'Revenir</button>' : '') +
@@ -385,11 +411,14 @@
 
     const r = results();
     const shown = r.list.slice(0, 8);
-    const relax = r.depth < 3 ? '<div class="note">Aucune combinaison exacte avec les trois criteres. On a relache ' + (3 - r.depth === 1 ? 'le dernier critere' : 'les deux derniers criteres') + ' pour te proposer quand même quelque chose.</div>' : '';
+    const nEt = WIZ[S.tab].length;
+    const relax = !r.list.length && monBar()
+      ? '<div class="note">Rien de faisable avec ton bar pour ces choix. Coupe « Avec ce que j\'ai » pour tout voir, ou complète ton bar.</div>'
+      : r.depth < nEt ? '<div class="note">Aucune combinaison exacte avec tous tes critères. On a relâché ' + (nEt - r.depth === 1 ? 'le dernier' : 'les derniers') + ' pour te proposer quand même quelque chose.</div>' : '';
     const more = r.list.length > 8 ? '<p class="secdesc">' + (r.list.length - 8) + ' autre' + (r.list.length - 8 > 1 ? 's' : '') + ' correspondent aussi, affine ou ouvre la liste complète.</p>' : '';
     return '<div class="wiz"><div class="crumbs">' + crumbs + '<button class="crumb ghost" data-reset="1">recommencer</button></div>' +
       '<div class="wizhead"><div class="num">Résultat</div><h2>' + shown.length + ' propositions pour toi</h2>' +
-      '<p>' + (S.tab === 'ck' ? 'Le badge indique si ton bar suffit.' : 'Classees par pertinence.') + '</p></div>' +
+      '<p>' + (S.tab === 'ck' ? (monBar() ? 'Seulement ce que tu peux faire avec ton bar.' : 'Le badge indique si ton bar suffit.') : 'Classées par pertinence.') + '</p></div>' + interMonBar() +
       relax + more + '<div class="rail">' + shown.map(card).join('') + '</div>' +
       '<div class="wizact" style="margin-top:18px"><button class="btn sm" data-back="1">' + Icon('back', 15) + 'Changer le dernier choix</button>' +
       '<button class="btn sm primary" data-reset="1">Recommencer</button></div>' +
@@ -409,6 +438,9 @@
     app.querySelectorAll('[data-skip]').forEach((b) => b.onclick = () => { S.wiz[S.tab][S.step] = null; S.step++; render(); });
     app.querySelectorAll('[data-goto]').forEach((b) => b.onclick = () => { S.step = +b.dataset.goto; render(); });
     app.querySelectorAll('[data-reset]').forEach((b) => b.onclick = () => { S.wiz[S.tab] = [null, null, null]; S.step = 0; render(); });
+    app.querySelectorAll('[data-monbar]').forEach((b) => b.onclick = () => {
+      Store.set('ck.monBar', !monBar()); UI.haptic('select'); render();
+    });
 
     const tr = UI.$('#codexTrack');
     if (tr) {
@@ -800,7 +832,7 @@
   }
 
   function sheetCK(d) {
-    return (estCreation(d) ? bandeauCreation(d, 'ck') : mimg(IMG['ck-' + d.id])) + '<div class="mbody">' +
+    return (estCreation(d) ? bandeauCreation(d, 'ck') : IMG['ck-' + d.id] ? mimg(IMG['ck-' + d.id]) : bandeauCK(d)) + '<div class="mbody">' +
       '<div class="mcat">' + CATOBJ[d.cat].ico + ' ' + UI.esc(CATNAME[d.cat]) + '</div><h2>' + d.ico + ' ' + UI.esc(d.nom) + '</h2>' + tagsOf(d) +
       '<p class="mdesc">' + UI.esc(d.desc) + '</p>' +
       '<div class="nums"><div class="num"><b>' + UI.esc(d.verre) + '</b><span>à servir dans' + UI.hint(VERRES, 'Les verres') + '</span></div>' +

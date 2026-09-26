@@ -11,7 +11,7 @@
    Les appels aux API (Gemini, Supabase, météo, Open Food Facts)
    ne sont jamais mis en cache.
    ============================================================ */
-const VERSION = 'ever-v11.3.0';
+const VERSION = 'ever-v11.4.0';
 const SHELL = VERSION + '-shell';
 const MEDIA = VERSION + '-media';
 
@@ -21,7 +21,7 @@ const CORE = [
   './js/config.js',
   './js/core/icons.js', './js/core/visuels.js', './js/core/art.js', './js/core/gestes.js', './js/core/molette.js', './js/core/banques.js', './js/core/ic.js', './js/core/stock.js', './js/core/portes.js', './js/core/cartes.js', './js/core/graph.js', './js/core/anim.js', './js/core/anime.js', './js/core/imagerie.js', './js/core/feedback.js', './js/core/ui.js', './js/core/store.js', './js/core/photos.js',
   './js/core/ai.js', './js/core/cloud.js', './js/core/calendar.js', './js/core/map.js',
-  './js/data/codex.data.js', './js/data/codex.config.js', './js/data/seed.js', './js/data/moods.js', './js/data/aliments.js', './js/data/sport.js',
+  './js/data/codex.data.js', './js/data/cocktails.plus.js', './js/data/codex.config.js', './js/data/seed.js', './js/data/moods.js', './js/data/aliments.js', './js/data/sport.js',
   './js/engines/context.js', './js/engines/reco.js', './js/engines/roulette.js', './js/engines/events.js', './js/engines/mood.js', './js/engines/rang.js',
   './js/app.js',
   './js/modules/game.js', './js/modules/codex.js', './js/modules/food.js', './js/modules/health.js', './js/modules/sport.js',
