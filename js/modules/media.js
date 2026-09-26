@@ -264,8 +264,8 @@
           (m.duree ? '<span>' + UI.esc(m.duree) + '</span>' : '') +
           (prog ? '<span>' + prog.vues + ' / ' + prog.total + ' saisons</span>' : '') +
         '</div>' +
-        (prog ? blocSaisons(m) : '') +
-        (plats.length ? blocPlateformes(m, plats) : '') +
+        (m.type === 'serie' ? blocSaisons(m) : '') +
+        blocPlateformes(m, plats) +
         '<div class="ract">' +
           '<button class="btn primary grow lg" data-seen>' + Icon(vu ? 'refresh' : 'check', 17) +
             (vu ? 'Pas encore vu' : 'Marquer vu') + '</button>' +
@@ -315,21 +315,32 @@
   function blocSaisons(m) {
     const vues = new Set(m.saisonsVues || []);
     let cases = '';
-    for (let i = 1; i <= m.saisons; i++) {
+    for (let i = 1; i <= (m.saisons || 0); i++) {
       cases += '<button class="saison' + (vues.has(i) ? ' on' : '') + '" data-saison="' + i + '">' +
         (vues.has(i) ? Icon('check', 13) : '') + 'S' + i + '</button>';
     }
     return '<div class="blocsaisons">' +
       '<div class="row-between" style="margin-bottom:8px">' +
         '<b style="font-size:13px">Où j\'en suis</b>' +
-        '<button class="lien" data-majsaisons>' + Icon('refresh', 13) + 'Vérifier</button>' +
+        '<span class="row" style="gap:6px">' +
+          '<button class="lien" data-nbsaisons="-1" aria-label="Une saison de moins">−</button>' +
+          '<button class="lien" data-nbsaisons="1" aria-label="Une saison de plus">+</button>' +
+          '<button class="lien" data-majsaisons>' + Icon('refresh', 13) + 'Vérifier</button>' +
+        '</span>' +
       '</div>' +
-      '<div class="saisons">' + cases + '</div></div>';
+      (cases ? '<div class="saisons">' + cases + '</div>'
+        : '<p class="muted" style="font-size:12.5px">Nombre de saisons pas encore connu. Touche « Vérifier », ou ajoute-les avec « + ».</p>') +
+    '</div>';
   }
 
+  /* Sans information de disponibilité, on propose quand même les
+     grandes plateformes : un appui lance la recherche du titre. */
+  const PAR_DEFAUT = ['netflix', 'prime', 'canal', 'appletv', 'disney'];
   function blocPlateformes(m, plats) {
+    const connues = plats.length > 0;
+    if (!connues) plats = PAR_DEFAUT.map((id) => PLATEFORMES[id]);
     return '<div class="blocplats">' +
-      '<b style="font-size:13px;display:block;margin-bottom:8px">Où le voir</b>' +
+      '<b style="font-size:13px;display:block;margin-bottom:8px">' + (connues ? 'Où le voir' : 'Chercher sur') + '</b>' +
       '<div class="plats">' + plats.map((p) =>
         '<a class="plat" href="' + UI.attr(p.url(m.titre)) + '" target="_blank" rel="noopener"' +
           ' style="--g1:' + p.c1 + ';--g2:' + p.c2 + '">' +
@@ -338,8 +349,9 @@
     '</div>';
   }
 
-  function brancherCarte(box, m) {
+  function brancherCarte(box, m, rafraichir) {
     const q = (s) => box.querySelector(s);
+    const maj = () => { render(); if (rafraichir) rafraichir(); };
 
     if (q('[data-seen]')) q('[data-seen]').onclick = async () => {
       if (m.status === 'vu') {
@@ -364,7 +376,7 @@
       const on = Store.toggleFav('media', m.id);
       UI.haptic('toggle');
       UI.toast(on ? 'Ajouté aux favoris' : 'Retiré des favoris');
-      render();
+      maj();
     };
 
     if (q('[data-cal]')) q('[data-cal]').onclick = () => Cal.add({
@@ -382,10 +394,18 @@
       UI.haptic('select');
       /* Toutes les saisons cochées valent « vu ». */
       if (liste.length === m.saisons && m.status !== 'vu') Store.put('media', m.id, { status: 'vu', seenAt: Date.now() });
-      render();
+      maj();
     });
 
-    if (q('[data-majsaisons]')) q('[data-majsaisons]').onclick = () => majSaisons(m.id);
+    box.querySelectorAll('[data-nbsaisons]').forEach((b) => b.onclick = () => {
+      const n = Math.max(0, (m.saisons || 0) + Number(b.dataset.nbsaisons));
+      const vues = (m.saisonsVues || []).filter((x) => x <= n);
+      Store.put('media', m.id, { saisons: n, saisonsVues: vues });
+      UI.haptic('select');
+      maj();
+    });
+
+    if (q('[data-majsaisons]')) q('[data-majsaisons]').onclick = async () => { await majSaisons(m.id); maj(); };
   }
 
   /* ============================================================
@@ -766,20 +786,35 @@
   }
 
   function ouvrir(id) {
-    const m = Store.find('media', id);
-    if (!m) return;
-    UI.openSheet(
-      grandeCarte(m).replace('<div class="result">', '<div class="result plein">') +
+    const m0 = Store.find('media', id);
+    if (!m0) return;
+    const fiche = (m) => '<div class="fichemedia">' +
+      grandeCarte(m).replace('<div class="result">', '<div class="result plein">') + '</div>' +
       '<div class="mbody retirerzone">' +
         '<button class="btn ghost block danger-txt" data-del>' + Icon('trash', 16) + 'Retirer de mes listes</button>' +
-      '</div>',
-      { onMount: (sh) => {
-          brancherCarte(sh, m);
-          sh.querySelector('[data-del]').onclick = () => {
-            Store.del('media', id); UI.closeSheet(); UI.haptic('warning'); render();
-          };
-        } }
-    );
+      '</div>';
+    UI.openSheet(fiche(m0), { onMount: (sh) => {
+      /* La fiche se redessine sur place : cocher une saison, ajouter
+         un favori ou recevoir les plateformes se voit tout de suite. */
+      const rafraichir = () => {
+        const m = Store.find('media', id), zone = sh.querySelector('.fichemedia');
+        if (!m || !zone || !zone.isConnected) return;
+        zone.innerHTML = grandeCarte(m).replace('<div class="result">', '<div class="result plein">');
+        brancherCarte(zone, m, rafraichir);
+      };
+      brancherCarte(sh.querySelector('.fichemedia'), m0, rafraichir);
+      sh.querySelector('[data-del]').onclick = () => {
+        Store.del('media', id); UI.closeSheet(); UI.haptic('warning'); render();
+      };
+      /* Un titre ajouté sans saisons ni plateformes (réseau coupé,
+         pas d'IA à ce moment-là) est complété à l'ouverture, au plus
+         une fois par jour. */
+      const manque = !(m0.plateformes || []).length || (m0.type === 'serie' && !m0.saisons);
+      if (manque && Date.now() - (m0.essaiComplet || 0) > 86400e3) {
+        Store.put('media', id, { essaiComplet: Date.now() });
+        completer(id).then(rafraichir);
+      }
+    } });
   }
 
   App.register('media', { mount: mount });
