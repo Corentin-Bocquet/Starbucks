@@ -760,3 +760,6 @@ html:not([data-theme="dark"]) .lecpoint { background: #fff; box-shadow: 0 1px 0 
 .mimg.cksans { display: grid; place-items: center; min-height: 220px;
   background: radial-gradient(120% 90% at 30% 0%, color-mix(in srgb, var(--g2) 80%, white 10%), var(--g1) 85%); }
 .mimg.cksans .ckvis { width: 180px; height: 180px; }
+
+/* Films : boutons − et + du nombre de saisons, assez grands pour le pouce */
+.blocsaisons [data-nbsaisons]{display:inline-flex;align-items:center;justify-content:center;min-width:30px;height:28px;padding:0;border-radius:9px;background:rgba(255,255,255,.08);font-size:16px;font-weight:700}

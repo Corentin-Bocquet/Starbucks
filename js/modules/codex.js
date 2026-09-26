@@ -301,7 +301,9 @@
   /* Café et bar : sous le premier choix, les boissons qu'on refait
      le plus, en carrousel. Tes favoris d'abord, puis les best-sellers. */
   function plusFaits() {
-    const all = ALL(S.tab);
+    /* Même règle que l'assistant : interrupteur actif, seulement ce
+       que le bar permet de faire. */
+    const all = ALL(S.tab).filter((d) => !monBar() || doable(d, 'ck'));
     const favs = all.filter((d) => S.fav.has(KEY(d)));
     const best = all.filter((d) => !S.fav.has(KEY(d)) && (d.tag || []).some((t) => /best|classique|incontournable|iconique/i.test(t)));
     const l = favs.concat(best).concat(all.filter((d) => favs.indexOf(d) < 0 && best.indexOf(d) < 0)).slice(0, 10);
@@ -389,6 +391,9 @@
       const cards = st.opts.map((o, i) => {
         const col = pal[i % pal.length];
         const n = countFor(S.step, o.v);
+        /* Interrupteur « Avec ce que j'ai » : un choix qui ne mène à
+           aucun cocktail faisable n'a rien à faire dans le carrousel. */
+        if (monBar() && !n) return '';
         const slug = o.v === null || o.v === 'non' ? PEU[S.tab] : VIS_OPT[o.img];
         const visuel = slug && Vis.SET.has(slug)
           ? Vis.html(slug, { classe: 'im' })
@@ -403,6 +408,7 @@
       return '<div class="wiz"><div class="crumbs">' + crumbs + '</div>' +
         '<div class="wizhead"><div class="num">Étape ' + (S.step + 1) + ' sur ' + steps.length + '</div><h2>' + UI.esc(st.q) + '</h2><p>' + UI.esc(st.sub) + '</p></div>' +
         interMonBar() +
+        (cards ? '' : '<div class="note">Rien de faisable avec ton bar pour l\'instant. Coupe l\'interrupteur pour voir tous les cocktails, ou complète ton stock.</div>') +
         '<div class="trackwrap"><div class="track" id="codexTrack">' + cards + '</div>' +
         '<div class="arrows"><button data-ar="-1">' + Icon('back', 17) + '</button><button data-ar="1">' + Icon('next', 17) + '</button></div></div>' +
         '<div class="wizact">' + (S.step > 0 ? '<button class="btn sm" data-back="1">' + Icon('back', 15) + 'Revenir</button>' : '') +
