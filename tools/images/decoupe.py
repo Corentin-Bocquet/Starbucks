@@ -5,7 +5,7 @@ Chaque planche 3 x 3 donne neuf fichiers img/v/<slug>.webp (512 px,
 fond transparent), puis la liste DISPO de js/core/visuels.js est
 régénérée. Demande rembg (pip install rembg onnxruntime).
 """
-import glob, json, os, re, sys
+import glob, json, os, re, shutil, sys, tempfile
 import numpy as np
 from PIL import Image
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -15,6 +15,8 @@ ICI = os.path.dirname(os.path.abspath(__file__))
 RACINE = os.path.dirname(os.path.dirname(ICI))
 LOTS = {l['id']: l for l in json.load(open(os.path.join(ICI, 'lots.json')))}
 DEST = os.path.join(RACINE, 'img', 'v')
+# On découpe à côté, puis on publie d'un coup : le dépôt ne change qu'à la fin.
+TMP = tempfile.mkdtemp(prefix='decoupe-')
 
 
 def couloirs(masque, n):
@@ -38,6 +40,10 @@ def grille_visible(im):
     return col.min() < 245 or a[5:40, 5:40].mean() < 250
 
 
+# Planches où Gemini a sauté une case : position réelle de chaque objet.
+CASES = {'G18': [0, 1, 2, 3, 4, 5, 7], 'G26': [0, 1, 2, 3, 4, 5, 7]}
+
+
 def decoupe(lid, chemin):
     im = Image.open(chemin).convert('RGB')
     a = np.asarray(im).astype(int)
@@ -51,18 +57,21 @@ def decoupe(lid, chemin):
         xs, ys = couloirs(pasblanc, 3), couloirs(pasblanc.T, 3)
     m = int(min(im.size) * 0.012)
     faits = []
-    for r in range(3):
-        for c in range(3):
-            if r * 3 + c >= len(items):
-                continue
-            slug = items[r * 3 + c][0]
-            case = im.crop((xs[c] + m, ys[r] + m, xs[c + 1] - m, ys[r + 1] - m))
-            trim(cutout(case), pad=0.06, size=512).save(os.path.join(DEST, slug + '.webp'), 'WEBP', quality=86, method=6)
-            faits.append(slug)
+    places = CASES.get(lid, list(range(len(items))))
+    for k, pos in enumerate(places):
+        if k >= len(items):
+            continue
+        r, c = divmod(pos, 3)
+        slug = items[k][0]
+        case = im.crop((xs[c] + m, ys[r] + m, xs[c + 1] - m, ys[r + 1] - m))
+        trim(cutout(case), pad=0.06, size=512).save(os.path.join(TMP, slug + '.webp'), 'WEBP', quality=86, method=6)
+        faits.append(slug)
     return faits
 
 
 def publier():
+    for f in glob.glob(TMP + '/*.webp'):
+        shutil.move(f, os.path.join(DEST, os.path.basename(f)))
     slugs = sorted(os.path.basename(f)[:-5] for f in glob.glob(DEST + '/*.webp'))
     p = os.path.join(RACINE, 'js', 'core', 'visuels.js')
     s = open(p).read()
