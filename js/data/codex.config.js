@@ -24,16 +24,14 @@ const WIZ = {
    {v:'whisky', n:'Whisky', s:'Bourbon, rye, blend', img:'ck-alcool-whisky'},
    {v:'vodka', n:'Vodka', s:'Neutre et polyvalente', img:'ck-alcool-vodka'},
    {v:'tequila', n:'Tequila', s:'Agave et agrumes', img:'ck-alcool-tequila'},
-   {v:'gin', n:'Gin', s:'Genièvre et botaniques', img:'ck-alcool-gin'}, ANY]},
+   {v:'gin', n:'Gin', s:'Genièvre et botaniques', img:'ck-alcool-gin'},
+   {v:'autre', n:'Autres', s:'Cognac, cachaça, bulles', img:'ck-alcool-autre'}, ANY]},
   {key:'humeur', q:'Envie de quoi, là ?', sub:'Le profil de goût, pas la recette.', opts:[
    {v:'frais', n:'Frais & acidulé', s:'Citron, menthe, bulles', img:'ck-humeur-frais'},
    {v:'tropical', n:'Tropical', s:'Ananas, passion, mangue', img:'ck-humeur-tropical'},
    {v:'corse', n:'Corsé & amer', s:'Court, alcool en avant', img:'ck-humeur-corse'},
    {v:'gourmand', n:'Crémeux', s:'Coco, crème, dessert', img:'ck-humeur-gourmand'},
-   {v:'chic', n:'Chic & festif', s:'Verre à pied, élégant', img:'ck-humeur-chic'}, ANY]},
-  {key:'__stock', q:'Avec ce que tu as ?', sub:'Ton bar est modifiable dans les paramètres.', opts:[
-   {v:'oui', n:'Mon bar', s:'Faisable ce soir', img:'ck-bar-oui'},
-   {v:'non', n:'Peu importe', s:'Même si j\'achète', img:'ck-bar-non'}]}],
+   {v:'chic', n:'Chic & festif', s:'Verre à pied, élégant', img:'ck-humeur-chic'}, ANY]}],
  mm:[
   {key:'moment', q:'C\'est pour quel moment ?', sub:'Le service décide de tout le reste.', opts:[
    {v:'apero', n:'Apéro', s:'À grignoter', img:'mm-moment-apero'},
@@ -72,9 +70,9 @@ const HERO={
  sb:{img:IMG.hero, kicker:'Café', eye:"103 boissons à refaire chez toi", t:'Café', em:'',
      p:"Toute la carte, en millilitres, avec l'ordre à suivre et les réglages de la machine.",
      stats:[[DRINKS.length,'recettes'],[CATS.length,'catégories'],[3,'tailles']]},
- ck:{img:IMG['hero-ck'], kicker:'Bar', eye:'21 cocktails, du classique au maison', t:'Bar', em:'',
-     p:"Vingt grands classiques et une création maison. Coche ce que tu as, l'app te dit ce que tu peux faire ce soir.",
-     stats:[[COCKTAILS.length,'cocktails'],[BAR.length,'ingrédients'],[3,'familles']]},
+ ck:{img:IMG['hero-ck'], kicker:'Bar', eye:COCKTAILS.length+' cocktails, du classique au maison', t:'Bar', em:'',
+     p:"Les grands classiques, les pétillants et les digestifs. Coche ce que tu as, l'app te dit ce que tu peux faire ce soir.",
+     stats:[[COCKTAILS.length,'cocktails'],[BAR.length,'ingrédients'],[CKCATS.length,'familles']]},
  mm:{img:IMG['hero-mm'], kicker:'Recettes', eye:'22 recettes de famille', t:'Recettes', em:'',
      p:"Celles qu'on se raconte et qu'on finit par oublier. Les quantités exactes et les photos d'origine.",
      stats:[[MAMIE.length,'recettes'],[MAMIE.filter(r=>r.cat==='mamie-sucre').length,'sucrées'],[MAMIE.filter(r=>r.cat==='mamie-sale').length,'salées']]}
