@@ -16,7 +16,7 @@ const WIZ = {
    {v:'fruit', n:'Fruité', s:'Refreshers', img:'sb-base-fruit'}, ANY]},
   {key:'gour', q:'Léger ou gourmand ?', sub:'Compté sur une taille Grande.', opts:[
    {v:'leger', n:'Léger', s:'Moins de 150 kcal', img:'sb-gour-leger'},
-   {v:'équilibré', n:'Équilibré', s:'150 à 300 kcal', img:'sb-gour-equilibre'},
+   {v:'equilibre', n:'Équilibré', s:'150 à 300 kcal', img:'sb-gour-equilibre'},
    {v:'gourmand', n:'Gourmand', s:'Plus de 300 kcal', img:'sb-gour-gourmand'}, ANY]}],
  ck:[
   {key:'alcool', q:'Tu pars sur quel alcool ?', sub:'Un seul choix, on affine juste après.', opts:[
