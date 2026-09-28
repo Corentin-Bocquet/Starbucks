@@ -596,4 +596,51 @@
     steps: ['Tequila et liqueur de café sur glace.', 'Faire flotter la crème par-dessus, remuer au moment de boire.'],
     astuce: 'Crème à peine fouettée : elle flotte au lieu de couler.',
     alcool: 'tequila', humeur: ['gourmand'] });
+
+  /* Photos de la deuxième vague (planches Gemini CK6 à CK13). Un
+     cocktail absent de la liste garde son visuel 3D en attendant. */
+  const FOTOS = [
+    'suffering-bastard',
+    'army-navy',
+    'pink-lady',
+    'oaxaca-old-fashioned',
+    'white-bull',
+    'stinger',
+    'grasshopper',
+    'aperol-sour',
+    'caipirinha-fraise',
+    'kentucky-buck',
+    'ward-eight',
+    'bourbon-flip',
+    'margarita-mangue',
+    'tequila-negroni',
+    'vesper',
+    'champagne-cocktail',
+    'rossini',
+    'brandy-alexander',
+    'batida-coco',
+    'batida-maracuja',
+    'pisco-punch',
+    'chilcano',
+    'campari-soda',
+    'singapore-sling',
+    'saturn',
+    'bees-knees',
+    'gin-basil-smash',
+    'southside',
+    'corpse-reviver',
+    'ramos-gin-fizz',
+    'alexander',
+    'martinez',
+    'rosita',
+    'brave-bull',
+    'mexican-coffee',
+    'batanga',
+    'cantarito',
+    'matador',
+    'siesta',
+    'picante',
+    'tequila-old-fashioned'
+  ];
+  COCKTAILS.forEach((c) => { if (!IMG['ck-' + c.id] && FOTOS.indexOf(c.id) >= 0) IMG['ck-' + c.id] = 'assets/ck-' + c.id + '.webp'; });
 })();
