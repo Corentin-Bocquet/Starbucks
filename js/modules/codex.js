@@ -101,17 +101,33 @@
       const st = steps[i], v = S.wiz[S.tab][i];
       if (v === null || v === undefined) continue;
       if (st.key === '__stock') { if (v === 'oui' && !doable(d, S.tab)) return false; }
-      else if (d[st.key] !== v) return false;
+      else if ([].concat(d[st.key]).indexOf(v) < 0) return false;
     }
     return true;
   }
+  /* Au bout de l'assistant, jamais moins de cinq propositions : les
+     recettes exactes d'abord, puis les plus proches (celles qui
+     respectent le plus de choix), en relâchant le dernier critère. */
+  const MINI = 5;
   function results() {
-    const all = ALL(S.tab);
-    for (let depth = WIZ[S.tab].length; depth >= 1; depth--) {
-      const r = all.filter((d) => passes(d, depth));
-      if (r.length >= 3 || depth === 1) return { list: r, depth: depth };
+    const all = ALL(S.tab), n = WIZ[S.tab].length;
+    const exact = all.filter((d) => passes(d, n));
+    if (exact.length >= MINI) return { list: exact, exact: exact.length, depth: n };
+    const choix = S.wiz[S.tab];
+    const score = (d) => WIZ[S.tab].reduce((acc, st, i) => {
+      const v = choix[i];
+      return acc + (v !== null && v !== undefined && st.key !== '__stock' && [].concat(d[st.key]).indexOf(v) >= 0 ? 1 : 0);
+    }, 0);
+    /* À égalité, la famille la plus parlante pour l'envie choisie. */
+    const FAM = { tropical: 'fruite', frais: 'fruite', gourmand: 'digestif', chic: 'petillant', corse: 'classique' };
+    const indice = (d) => choix.some((v) => v && FAM[v] === d.cat) ? 0.5 : 0;
+    const pris = new Set(exact), proches = [];
+    for (let depth = n - 1; depth >= 0 && exact.length + proches.length < MINI; depth--) {
+      all.filter((d) => !pris.has(d) && passes(d, depth))
+        .sort((a, b) => (score(b) + indice(b)) - (score(a) + indice(a)))
+        .forEach((d) => { if (exact.length + proches.length < MINI) { pris.add(d); proches.push(d); } });
     }
-    return { list: all, depth: 0 };
+    return { list: exact.concat(proches), exact: exact.length, depth: n };
   }
   function searchable(d) {
     const base = d.nom + ' ' + d.desc + ' ' + (d.tag || []).join(' ') + ' ' + d.ing.map((i) => i.n).join(' ');
@@ -393,6 +409,9 @@
         const n = countFor(S.step, o.v);
         /* Interrupteur « Avec ce que j'ai » : un choix qui ne mène à
            aucun cocktail faisable n'a rien à faire dans le carrousel. */
+        /* Un choix qui ne mène à rien (un café chaud aux fruits, un
+           cocktail infaisable avec l'interrupteur) n'est pas proposé. */
+        if (!n && o.v !== null) return '';
         if (monBar() && !n) return '';
         const slug = o.v === null || o.v === 'non' ? PEU[S.tab] : VIS_OPT[o.img];
         const visuel = slug && Vis.SET.has(slug)
@@ -416,16 +435,20 @@
     }
 
     const r = results();
-    const shown = r.list.slice(0, 8);
-    const nEt = WIZ[S.tab].length;
+    const pile = r.list.slice(0, Math.min(r.exact, 8)), proches = r.list.slice(r.exact);
+    const shown = pile.concat(proches);
     const relax = !r.list.length && monBar()
       ? '<div class="note">Rien de faisable avec ton bar pour ces choix. Coupe « Avec ce que j\'ai » pour tout voir, ou complète ton bar.</div>'
-      : r.depth < nEt ? '<div class="note">Aucune combinaison exacte avec tous tes critères. On a relâché ' + (nEt - r.depth === 1 ? 'le dernier' : 'les derniers') + ' pour te proposer quand même quelque chose.</div>' : '';
-    const more = r.list.length > 8 ? '<p class="secdesc">' + (r.list.length - 8) + ' autre' + (r.list.length - 8 > 1 ? 's' : '') + ' correspondent aussi, affine ou ouvre la liste complète.</p>' : '';
+      : r.list.length < MINI && monBar()
+        ? '<div class="note">Ton bar ne permet que ' + r.list.length + ' recette' + (r.list.length > 1 ? 's' : '') + ' ici. Coupe « Avec ce que j\'ai » pour en voir plus.</div>' : '';
+    const more = r.exact > 8 ? '<p class="secdesc">' + (r.exact - 8) + ' autre' + (r.exact - 8 > 1 ? 's' : '') + ' correspondent aussi, affine ou ouvre la liste complète.</p>' : '';
+    const railProches = proches.length
+      ? '<div class="sechead" style="margin-top:14px"><h2 style="font-size:16px">' + (pile.length ? 'Proches de ton choix' : 'Rien de pile, mais très proche') + '</h2></div>' +
+        '<div class="rail">' + proches.map(card).join('') + '</div>' : '';
     return '<div class="wiz"><div class="crumbs">' + crumbs + '<button class="crumb ghost" data-reset="1">recommencer</button></div>' +
       '<div class="wizhead"><div class="num">Résultat</div><h2>' + shown.length + ' propositions pour toi</h2>' +
       '<p>' + (S.tab === 'ck' ? (monBar() ? 'Seulement ce que tu peux faire avec ton bar.' : 'Le badge indique si ton bar suffit.') : 'Classées par pertinence.') + '</p></div>' + interMonBar() +
-      relax + more + '<div class="rail">' + shown.map(card).join('') + '</div>' +
+      relax + more + (pile.length ? '<div class="rail">' + pile.map(card).join('') + '</div>' : '') + railProches +
       '<div class="wizact" style="margin-top:18px"><button class="btn sm" data-back="1">' + Icon('back', 15) + 'Changer le dernier choix</button>' +
       '<button class="btn sm primary" data-reset="1">Recommencer</button></div>' +
       boutonCreer() + '</div>';

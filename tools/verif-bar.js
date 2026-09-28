@@ -3,7 +3,7 @@
    - chaque ingrédient d'une recette existe dans le bar ;
    - chaque recette a un alcool et une humeur connus de l'assistant. */
 const fs = require('fs');
-const src = ['codex.data.js', 'cocktails.plus.js', 'codex.config.js']
+const src = ['codex.data.js', 'cocktails.plus.js', 'cocktails.plus2.js', 'codex.config.js']
   .map((f) => fs.readFileSync(__dirname + '/../js/data/' + f, 'utf8')).join('\n').replace(/^const /gm, 'var ');
 const D = new Function(src + '\nreturn {BAR, COCKTAILS, WIZ};')();
 const bar = new Set(D.BAR.map((b) => b.k));
@@ -13,7 +13,7 @@ const alc = new Set(D.WIZ.ck[0].opts.map((o) => o.v)), hum = new Set(D.WIZ.ck[1]
 D.COCKTAILS.forEach((c) => {
   c.ing.forEach((i) => { if (!i.k) return; used.add(i.k); if (!bar.has(i.k)) { erreurs++; console.log('inconnu dans le bar :', c.id, i.k); } });
   if (!alc.has(c.alcool)) { erreurs++; console.log('alcool inconnu :', c.id, c.alcool); }
-  if (!hum.has(c.humeur)) { erreurs++; console.log('humeur inconnue :', c.id, c.humeur); }
+  [].concat(c.humeur).forEach((h) => { if (!hum.has(h)) { erreurs++; console.log('humeur inconnue :', c.id, h); } });
 });
 D.BAR.forEach((b) => { if (!used.has(b.k)) { erreurs++; console.log('sans recette :', b.k); } });
 const ids = D.COCKTAILS.map((c) => c.id);
