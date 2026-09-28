@@ -597,9 +597,35 @@
     astuce: 'Crème à peine fouettée : elle flotte au lieu de couler.',
     alcool: 'tequila', humeur: ['gourmand'] });
 
-  /* Photos de la deuxième vague (planches Gemini CK6 à CK13). Un
-     cocktail absent de la liste garde son visuel 3D en attendant. */
+  /* Photos de la deuxième vague (planches Gemini CK6 à CK13). */
   const FOTOS = [
+    'jungle-bird',
+    'el-presidente',
+    'mary-pickford',
+    'hemingway-daiquiri',
+    'rum-old-fashioned',
+    'bushwacker',
+    'strawberry-daiquiri',
+    'coquito',
+    'rob-roy',
+    'vodka-martini',
+    'sea-breeze',
+    'bay-breeze',
+    'screwdriver',
+    'kamikaze',
+    'caipiroska',
+    'woo-woo',
+    'chocolate-martini',
+    'godmother',
+    'sazerac',
+    'paper-plane',
+    'gold-rush',
+    'brown-derby',
+    'port-light',
+    'blood-and-sand',
+    'bourbon-milk-punch',
+    'eggnog',
+    'whisky-highball',
     'suffering-bastard',
     'army-navy',
     'pink-lady',
