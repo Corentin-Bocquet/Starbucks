@@ -418,4 +418,10 @@
     steps: ['Verser le Campari sur glace.', "Mixer ou secouer le jus d'orange pour le rendre mousseux.", 'Le verser par-dessus.'],
     astuce: "Le secret, c'est le jus fouetté : il devient aérien et adoucit l'amertume.",
     alcool: 'autre', humeur: 'frais' });
+
+  const FOTOS = [
+    'aperol-spritz', 'hugo', 'kir-royal', 'mimosa', 'french-75', 'bellini', 'negroni-sbagliato', 'gin-tonic', 'tom-collins', 'gimlet', 'bramble', 'last-word', 'aviation', 'white-lady', 'clover-club', 'moscow-mule', 'bloody-mary', 'black-russian', 'white-russian', 'sex-on-the-beach', 'blue-lagoon', 'lemon-drop', 'porn-star-martini', 'mudslide', 'long-island', 'caipirinha', 'mai-tai', 'dark-n-stormy', 'cuba-libre', 'planters-punch', 'ti-punch', 'blue-hawaiian', 'tommys-margarita', 'el-diablo', 'boulevardier', 'mint-julep', 'irish-coffee', 'godfather', 'penicillin', 'sidecar', 'pisco-sour', 'amaretto-sour', 'b52', 'americano', 'garibaldi'];
+  /* Photos des cocktails ajoutés (planches Gemini CK1 à CK5, même
+     studio vert menthe que les photos d'origine). */
+  COCKTAILS.forEach((c) => { if (!IMG['ck-' + c.id] && FOTOS.indexOf(c.id) >= 0) IMG['ck-' + c.id] = 'assets/ck-' + c.id + '.webp'; });
 })();
