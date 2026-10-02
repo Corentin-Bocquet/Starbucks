@@ -52,7 +52,7 @@
   function mount(el, rest) {
     root = el;
     const slug = rest && rest[0];
-    city = slug ? unslug(slug) : (Ctx.place().name || 'Le Touquet');
+    city = slug ? unslug(slug) : (Ctx.place().name || 'Amiens');
     load();
   }
   const unslug = (s) => ({ 'le-touquet': 'Le Touquet', 'meribel': 'Méribel' })[s] || s.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
@@ -71,8 +71,8 @@
         '<div class="section"><div class="panel" style="text-align:center;padding:30px 18px">' +
         UI.thinking('Écriture du guide ' + prep(city, 'de') + '…') +
         '<p class="muted" style="font-size:12.5px;margin-top:8px">Une dizaine de secondes, une seule fois par saison.</p>' +
-        '</div></div></div>';
-      bindHeader();
+        '</div></div>' + ZONE + '</div>';
+      bindHeader(); monterBonsPlans();
       return;
     }
 
@@ -95,6 +95,7 @@
       (at ? '<div class="section" style="padding-bottom:0"><div class="banner" style="padding:9px 12px;font-size:12px">' +
         Icon('clock', 16) + '<span>Guide écrit le ' + UI.esc(UI.fmt.date(at)) + ' pour la saison en cours. ' +
         'Vérifie les horaires avant de te déplacer.</span></div></div>' : '') +
+      ZONE +
       fiveThings() +
       mustSee() +
       '<div class="section">' +
@@ -112,13 +113,25 @@
       'Guide écrit par IA. Les horaires et les établissements changent.</p></div>' +
       '</div>';
 
-    bindHeader(); bindBody();
+    bindHeader(); bindBody(); monterBonsPlans();
     if (global.Stock) Stock.peupler(root);
 
     root.querySelectorAll('[data-kart]').forEach((b) => b.onclick = () => {
       const sec = SECTIONS.find((x) => x.k === b.dataset.kart);
       if (sec) ouvrirSection(sec);
     });
+  }
+
+  /* Les bons plans et sorties de la semaine, propres au profil.
+     Ils vivent dans leur propre module et se chargent en parallele
+     du guide : on n'attend pas l'un pour voir l'autre. La zone est
+     remontee a chaque rendu, le module garde son cache du jour. */
+  const ZONE = '<div data-bonsplans></div>';
+  function monterBonsPlans() {
+    const z = root.querySelector('[data-bonsplans]');
+    if (!z || !global.BonsPlans) return;
+    const p = Ctx.place();
+    BonsPlans.monter(z, city, p && p.name === city ? p : null, (c) => { city = c.name; load(); });
   }
 
   /* Une section du guide, dans sa pop-up. Les lieux y sont des

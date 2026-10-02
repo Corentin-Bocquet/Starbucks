@@ -14,7 +14,7 @@
 
   /* ---------- Lieu ---------- */
   function place() {
-    return Store.get('place', { name: 'Le Touquet', lat: 50.5236, lon: 1.5866, country: 'France', admin: 'Hauts-de-France' });
+    return Store.get('place', { name: 'Amiens', lat: 49.8941, lon: 2.2958, country: 'France', admin: 'Hauts-de-France' });
   }
   function setPlace(p) { Store.set('place', p); Store.emit('place', p); return p; }
 

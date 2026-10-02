@@ -48,7 +48,7 @@ côté serveur et l'app n'appelle plus Google directement.
 | Aliments | Qu'est-ce qu'on mange ? |
 | Cadeaux | Qu'est-ce que je lui offre ? |
 | Cinéma & séries | Qu'est-ce qu'on regarde ? |
-| Guide de ville | Que faut-il savoir et découvrir ici ? |
+| Guide de ville | Que faut-il savoir et découvrir ici ? Et, en tête : **les bons plans et sorties de la semaine qui te concernent** (profil, recherche web, 👍/👎 mémorisés pour affiner les suivantes) |
 | Tenues | Comment je m'habille aujourd'hui ? |
 | Profils | Avec qui je partage quoi ? |
 | Progression | Où j'en suis ? |

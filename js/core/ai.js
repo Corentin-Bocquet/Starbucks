@@ -336,7 +336,12 @@
     const parts = (cand.content && cand.content.parts) || [];
     const text = parts.map((p) => p.text || '').join('').trim();
     const inline = parts.filter((p) => p.inlineData).map((p) => 'data:' + p.inlineData.mimeType + ';base64,' + p.inlineData.data);
-    return { text: text, images: inline, truncated: cand.finishReason === 'MAX_TOKENS', model: model };
+    /* Avec la recherche Google, le modele cite ses pages : on les
+       garde, c'est ce qui permet de dire d'ou vient un bon plan. */
+    const gm = cand.groundingMetadata || {};
+    const sources = (gm.groundingChunks || []).map((c) => c.web).filter((w) => w && w.uri)
+      .map((w) => ({ titre: w.title || '', url: w.uri }));
+    return { text: text, images: inline, truncated: cand.finishReason === 'MAX_TOKENS', model: model, sources: sources };
   }
 
   /* Ce qui justifie d'essayer le modèle suivant plutôt que d'échouer.
@@ -491,6 +496,55 @@
     return parsed;
   }
 
+  /* ============================================================
+     JSON avec recherche Google
+
+     Pour tout ce qui doit coller a la realite de la semaine (un
+     concert jeudi, une reduction etudiante), un modele qui repond
+     de memoire invente ou date. On lui donne donc la recherche
+     Google. Tous les modeles n'acceptent pas la recherche ET un
+     schema impose : le schema passe alors dans la consigne, et la
+     reponse est lue a la main. Si la recherche est refusee, on
+     retombe sur un appel classique plutot que d'echouer.
+     ============================================================ */
+  async function jsonCherche(prompt, schema, opts) {
+    opts = opts || {};
+    const ck = hash('JS|' + prompt + '|' + JSON.stringify(schema || {}));
+    if (opts.cache !== false) {
+      const hit = cacheGet(ck, opts.ttl || 6 * 3600e3);
+      if (hit != null) return hit;
+    }
+    const body = {
+      contents: [{ role: 'user', parts: [{ text: prompt +
+        '\n\nRéponds UNIQUEMENT par un objet JSON valide, sans texte autour, conforme a ce schéma :\n' +
+        JSON.stringify(schema) }] }],
+      tools: [{ google_search: {} }],
+      generationConfig: {
+        temperature: opts.temperature == null ? 0.6 : opts.temperature,
+        maxOutputTokens: opts.maxTokens || 8192
+      }
+    };
+    if (opts.system) body.systemInstruction = { parts: [{ text: opts.system }] };
+    let parsed;
+    try {
+      const out = await call('text', body, opts);
+      parsed = parseJson(out.text);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        parsed._sources = out.sources || [];
+        parsed._cherche = true;
+      }
+      noter({ ev: 'recherche', ok: true, sources: (out.sources || []).length });
+    } catch (e) {
+      const code = String(e && e.message || e);
+      if (code === 'NO_KEY' || code === 'NETWORK' || code === 'ABORT') throw e;
+      noter({ ev: 'recherche', ok: false, code: code, detail: e && e.detail });
+      parsed = await json(prompt, schema, Object.assign({}, opts, { cache: false }));
+      if (parsed && typeof parsed === 'object') parsed._cherche = false;
+    }
+    if (opts.cache !== false && parsed) cacheSet(ck, parsed);
+    return parsed;
+  }
+
   function parseJson(text) {
     if (!text) throw new Error('EMPTY');
     let t = text.trim().replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
@@ -630,7 +684,7 @@
   }
 
   global.AI = {
-    ask, json, vision, image, shrink, fileToDataUrl,
+    ask, json, jsonCherche, vision, image, shrink, fileToDataUrl,
     available, humanError, clearCache, parseJson,
     discover, modelFor, candidates, forget, selfTest,
     journal, viderJournal, noter,
