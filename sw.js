@@ -11,13 +11,13 @@
    Les appels aux API (Gemini, Supabase, météo, Open Food Facts)
    ne sont jamais mis en cache.
    ============================================================ */
-const VERSION = 'ever-v11.5.2';
+const VERSION = 'ever-v11.6.0';
 const SHELL = VERSION + '-shell';
 const MEDIA = VERSION + '-media';
 
 const CORE = [
   './', './index.html', './manifest.webmanifest',
-  './css/tokens.css', './css/base.css', './css/components.css', './css/aurora.css', './css/finition.css',
+  './css/tokens.css', './css/base.css', './css/components.css', './css/aurora.css', './css/finition.css', './css/bonsplans.css',
   './js/config.js',
   './js/core/icons.js', './js/core/visuels.js', './js/core/art.js', './js/core/gestes.js', './js/core/molette.js', './js/core/banques.js', './js/core/ic.js', './js/core/stock.js', './js/core/portes.js', './js/core/cartes.js', './js/core/graph.js', './js/core/anim.js', './js/core/anime.js', './js/core/imagerie.js', './js/core/feedback.js', './js/core/ui.js', './js/core/store.js', './js/core/photos.js',
   './js/core/ai.js', './js/core/cloud.js', './js/core/calendar.js', './js/core/map.js',
@@ -26,7 +26,7 @@ const CORE = [
   './js/app.js',
   './js/modules/game.js', './js/modules/codex.js', './js/modules/food.js', './js/modules/health.js', './js/modules/sport.js',
   './js/modules/lists.js', './js/modules/activities.js', './js/modules/foodroulette.js',
-  './js/modules/gifts.js', './js/modules/media.js', './js/modules/city.js',
+  './js/modules/gifts.js', './js/modules/media.js', './js/modules/bonsplans.js', './js/modules/city.js',
   './js/modules/outfits.js', './js/modules/profiles.js', './js/modules/stats.js', './js/modules/settings.js',
   './icons/icon-180.png', './icons/icon-192.png', './icons/icon-512.png'
 ];
