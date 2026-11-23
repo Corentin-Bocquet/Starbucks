@@ -40,11 +40,15 @@
   let viewDay = UI.day.today();
   let root = null;
   let detacheGeste = null;
+  let detacheLignes = null;
+  let actif = false;
 
   function retirerRepas(id) {
     const m = Store.find('meals', id);
     if (!m) return;
     Store.del('meals', id);
+    /* Le repas retiré faisait partie de l'analyse : elle est fausse. */
+    Store.set('analysis.' + m.day, null);
     UI.haptic('warning');
     render();
     UI.toast(m.nom + ' retiré');
@@ -57,6 +61,7 @@
     delete copie.id; delete copie._up;
     copie.day = viewDay;
     Store.add('meals', copie);
+    Store.set('analysis.' + viewDay, null);
     UI.haptic('success');
     render();
     UI.toast(m.nom + ' ajouté une deuxième fois');
@@ -80,10 +85,23 @@
      ============================================================ */
   function mount(el) {
     root = el;
+    actif = true;
     render();
   }
 
+  /* Appelé par le routeur quand on quitte la page : les flèches du
+     clavier et le balayage restaient branchés et changeaient le
+     jour du journal depuis une autre page. */
+  function unmount() {
+    actif = false;
+    if (detacheGeste) { detacheGeste(); detacheGeste = null; }
+    if (detacheLignes) { detacheLignes(); detacheLignes = null; }
+  }
+
   function render() {
+    /* Un ajout lancé depuis une autre page (Aujourd'hui, Santé) ne
+       redessine pas une vue cachée et ne rebranche pas les gestes. */
+    if (!root || !actif) return;
     const g = goals(), list = entries(), t = totals(list);
     const isToday = viewDay === UI.day.today();
 
@@ -396,11 +414,11 @@
         onPrecedent: () => allerJour(-1),
         onSuivant: () => allerJour(1)
       });
-      Gestes.activer(root, (action) => {
+      detacheLignes = Gestes.activer(root, (action) => {
         const [quoi, id] = action.split(':');
         if (quoi === 'del') retirerRepas(id);
         if (quoi === 'dup') dupliquerRepas(id);
-      });
+      }) || null;
     }
     root.querySelectorAll('[data-water]').forEach((b) => b.onclick = () => {
       const ajout = +b.dataset.water;
@@ -452,7 +470,7 @@
     if (global.Game) Game.award('repas', 10);
     Store.set('analysis.' + viewDay, null);
     render();
-    UI.toast(item.nom + ' ajoute');
+    UI.toast(item.nom + ' ajouté');
     return m;
   }
   const r1 = (v) => v == null ? 0 : Math.round(Number(v) * 10) / 10;
@@ -651,7 +669,7 @@
           SLOTS.map((s) => '<option value="' + s.id + '"' + (s.id === guessSlot() ? ' selected' : '') + '>' + s.nom + '</option>').join('') +
         '</select></label>' +
         '<div class="list">' + (list || '<div class="rowitem"><span class="tx"><b>Rien d\'identifiable</b></span></div>') + '</div>' +
-        '<button class="btn primary block lg" style="margin-top:16px" data-confirm>Ajouter àu journal</button>' +
+        '<button class="btn primary block lg" style="margin-top:16px" data-confirm>Ajouter au journal</button>' +
         '<p class="muted" style="font-size:11px;margin-top:10px;text-align:center">Estimations IA. Corrige une ligne en la rouvrant après ajout.</p>' +
       '</div>',
       { onMount: (s) => {
@@ -771,7 +789,7 @@
         vignette(r) +
         '<span class="tx"><b>' + UI.esc(r.nom) + '</b><small>' +
           (r.brand ? UI.esc(r.brand) + ' · ' : (r.catNom ? UI.esc(r.catNom) + ' · ' : '')) +
-          UI.fmt.n(r.kcal100) + ' kcal / 100 ' + r.base + '</small></span>' +
+          UI.fmt.n(r.kcal100) + (r.parUnite ? ' kcal / ' + UI.esc(r.base) : ' kcal / 100 ' + r.base) + '</small></span>' +
         '<span class="rt">' + Icon('next', 15) + '</span></button>').join('') + '</div>';
   }
 
@@ -783,9 +801,10 @@
     const recents = Array.from(seen.values()).slice(0, 6).map(mealToPick);
 
     const courants = global.ALIMENTS
-      ? ['Kebab', 'Pizza margherita', 'Pates cuites', 'Riz blanc cuit', 'Escalope de poulet', 'Salade composee',
-         'Oeuf', 'Yaourt nature', 'Banane', 'Pomme', 'Baguette', 'Frites']
-          .map((n) => ALIMENTS.TABLE.find((a) => a.nom === n)).filter(Boolean)
+      ? ['Kebab', 'Pizza margherita', 'Pâtes cuites', 'Riz blanc cuit', 'Escalope de poulet', 'Salade composée',
+         'Œuf', 'Yaourt nature', 'Banane', 'Pomme', 'Baguette', 'Frites']
+          /* Comparaison sans accents ni ligatures : « Oeuf » trouve « Œuf ». */
+          .map((n) => ALIMENTS.TABLE.find((a) => ALIMENTS.norm(a.nom) === ALIMENTS.norm(n))).filter(Boolean)
       : [];
 
     const titre = (t) => '<h4 style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:14px 0 8px">' + t + '</h4>';
@@ -793,7 +812,23 @@
            (courants.length ? titre('Les plus courants') + resultList(courants) : '');
   }
 
+  /* Un repas noté en portions (ou pièces, tasses...) ne se ramène
+     pas à 100 g : 250 kcal pour 1 portion devenaient 25 000 kcal
+     pour 100 g, puis « 1 g » une fois rajouté. On garde alors son
+     unité, et les valeurs sont données pour une unité. */
   function mealToPick(m) {
+    const u = String(m.unit || '').trim();
+    if (!/^(g|ml)$/i.test(u)) {
+      const q = Number(m.qty) > 0 ? Number(m.qty) : 1;
+      const parU = (v) => (Number(v) || 0) / q;
+      return {
+        nom: m.nom, brand: m.brand || '', base: u || 'portion', parUnite: true,
+        kcal100: Math.round(parU(m.kcal)),
+        per100: { prot: parU(m.prot), carb: parU(m.carb), fat: parU(m.fat),
+                  fiber: parU(m.fiber), sugar: parU(m.sugar), sodium: parU(m.sodium) },
+        defaultQty: Number(m.qty) > 0 ? Number(m.qty) : 1, src: m.src, cat: 'plat'
+      };
+    }
     return {
       nom: m.nom, brand: m.brand || '', base: m.unit === 'ml' ? 'ml' : 'g',
       kcal100: Math.round(m.qty ? (m.kcal / m.qty) * 100 : m.kcal),
@@ -817,12 +852,7 @@
     if (!rows.length) return '<p class="muted" style="font-size:13px">Tape au moins deux lettres. La base Open Food Facts couvre les produits emballes et les codes-barres.</p>';
     return '<h4 style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Recemment</h4>' +
       '<div class="list">' + rows.map((m) =>
-        '<button class="rowitem" data-pick=\'' + UI.attr(JSON.stringify({
-          nom: m.nom, brand: m.brand, base: m.unit === 'ml' ? 'ml' : 'g',
-          kcal100: m.qty ? (m.kcal / m.qty) * 100 : m.kcal,
-          per100: { prot: safe100(m.prot, m.qty), carb: safe100(m.carb, m.qty), fat: safe100(m.fat, m.qty), fiber: safe100(m.fiber, m.qty), sugar: safe100(m.sugar, m.qty), sodium: safe100(m.sodium, m.qty) },
-          defaultQty: m.qty || 100, src: m.src
-        })) + '\'>' +
+        '<button class="rowitem" data-pick=\'' + UI.attr(JSON.stringify(mealToPick(m))) + '\'>' +
           '<span class="ic">' + Icon('clock', 17) + '</span>' +
           '<span class="tx"><b>' + UI.esc(m.nom) + '</b><small>' + UI.fmt.n(m.qty) + ' ' + UI.esc(m.unit) + ' · ' + UI.fmt.n(m.kcal) + ' kcal</small></span>' +
           '<span class="rt">' + Icon('next', 15) + '</span></button>').join('') + '</div>';
@@ -865,11 +895,12 @@
 
   async function askQuantity(r, slot) {
     const res = await UI.promptSheet(r.nom, [
-      { name: 'qty', label: 'Quantité', type: 'number', inputmode: 'decimal', value: r.defaultQty || 100, hint: r.base === 'ml' ? 'en millilitres' : 'en grammes' },
+      { name: 'qty', label: 'Quantité', type: 'number', inputmode: 'decimal', value: r.defaultQty || (r.parUnite ? 1 : 100),
+        hint: r.parUnite ? 'en ' + (r.base === 'portion' ? 'portions' : r.base) : (r.base === 'ml' ? 'en millilitres' : 'en grammes') },
       { name: 'slot', label: 'Moment', type: 'select', value: slot, options: SLOTS.map((s) => ({ v: s.id, n: s.nom })) }
     ], 'Ajouter');
     if (!res) return;
-    const q = Number(res.qty) || 100, f = q / 100;
+    const q = Number(res.qty) || (r.parUnite ? 1 : 100), f = r.parUnite ? q : q / 100;
     addEntry({
       nom: r.nom, brand: r.brand, qty: q, unit: r.base,
       kcal: r.kcal100 * f,
@@ -1315,11 +1346,19 @@
       if (iName < 0 || iKcal < 0) throw new Error('Colonnes Food et Calories introuvables');
 
       const slotMap = { breakfast: 'matin', lunch: 'midi', dinner: 'soir', snacks: 'collation', snack: 'collation' };
-      let n = 0;
+      /* Réimporter le même fichier doublait chaque journée : une
+         ligne déjà présente (même jour, moment, nom, calories) est
+         ignorée. */
+      const signe = (day, slot, nom, kcal) => day + '|' + slot + '|' + String(nom || '').trim().toLowerCase() + '|' + Math.round(Number(kcal) || 0);
+      const deja = new Set(Store.all('meals').map((m) => signe(m.day, m.slot, m.nom, m.kcal)));
+      let n = 0, doublons = 0;
       rows.slice(1).forEach((r) => {
         if (!r[iName]) return;
         const d = iDate >= 0 ? normDate(r[iDate]) : UI.day.today();
         const slot = iMeal >= 0 ? (slotMap[(r[iMeal] || '').toLowerCase().trim()] || 'collation') : 'collation';
+        const sig = signe(d, slot, r[iName], num(r[iKcal]));
+        if (deja.has(sig)) { doublons++; return; }
+        deja.add(sig);
         Store.add('meals', {
           day: d, slot: slot, nom: r[iName], qty: null, unit: 'portion',
           kcal: num(r[iKcal]), prot: num(r[iProt]), carb: num(r[iCarb]), fat: num(r[iFat]),
@@ -1328,6 +1367,8 @@
         });
         n++;
       });
+      /* Le nombre de lignes ignorées, pour qui veut l'afficher. */
+      Bridge.dernierImport = { ajoutes: n, doublons: doublons };
       return n;
     },
     exportCsv(fromDay, toDay) {
@@ -1381,5 +1422,5 @@
   }
 
   global.Food = { mount, quickAdd, totals, entries, goals, summary, Bridge, SLOTS, addEntry, analyse };
-  App.register('food', { mount: mount });
+  App.register('food', { mount: mount, unmount: unmount });
 })(window);

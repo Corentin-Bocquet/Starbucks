@@ -1,7 +1,7 @@
 {
   "name": "EVER",
   "short_name": "EVER",
-  "description": "Cafe, bar, recettes, alimentation, sante, activites, cadeaux, cinema, guide de ville et tenues. Une seule app pour decider.",
+  "description": "Café, bar, recettes, alimentation, santé, activités, cadeaux, cinéma, guide de ville et tenues. Une seule app pour décider.",
   "id": "/ever/",
   "start_url": "./",
   "scope": "./",
@@ -23,8 +23,8 @@
     { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ],
   "shortcuts": [
-    { "name": "Qu'est-ce qu'on mange ?", "url": "./#/hub/foods", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
-    { "name": "Qu'est-ce qu'on fait ?", "url": "./#/hub/activities", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Qu'est-ce qu'on mange ?", "url": "./#/m/foods", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Qu'est-ce qu'on fait ?", "url": "./#/activities", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
     { "name": "Scanner un repas", "url": "./#/food/scan", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] }
   ]
 }

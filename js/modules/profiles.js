@@ -32,16 +32,16 @@
             '</div>'
           : '<div class="panel" style="text-align:center;padding:22px 18px">' +
             '<b style="display:block;margin-bottom:6px">Aucun compte</b>' +
-            '<p class="muted" style="font-size:13px;margin-bottom:14px">Tout fonctionne en local. Le compte sert à retrouver ses données sur un autre appareil et a partager des listes.</p>' +
+            '<p class="muted" style="font-size:13px;margin-bottom:14px">Tout fonctionne en local. Le compte sert à retrouver ses données sur un autre appareil et à partager des listes.</p>' +
             '<button class="btn primary" data-act="account">Créer ou se connecter</button></div>') +
       '</div>' +
 
       '<div class="section"><div class="sechead"><h2 style="font-size:16px">Listes partagées</h2>' +
         '<button data-act="lists">Gérer</button></div>' +
         (lists && lists.length ? '<div class="list">' + lists.map((l) =>
-          '<div class="rowitem"><span class="ic">' + Icon('users', 17) + '</span>' +
+          '<button class="rowitem" data-list="' + UI.attr(l.id) + '"><span class="ic">' + Icon('users', 17) + '</span>' +
           '<span class="tx"><b>' + UI.esc(l.name) + '</b><small>Code ' + UI.esc(l.share_code) + '</small></span>' +
-          '<span class="rt">' + Icon('next', 15) + '</span></div>').join('') + '</div>'
+          '<span class="rt">' + Icon('next', 15) + '</span></button>').join('') + '</div>'
           : '<p class="muted" style="font-size:13px">Aucune liste partagée pour le moment.</p>') +
       '</div>' +
 
@@ -56,7 +56,7 @@
       '</div>' +
 
       '<div class="section"><div class="banner">' + Icon('lock', 18) +
-      '<span>Les indices privés des fiches cadeaux ne sont jamais partages, même quand la liste correspondante l\'est.</span></div></div>' +
+      '<span>Les indices privés des fiches cadeaux ne sont jamais partagés, même quand la liste correspondante l\'est.</span></div></div>' +
       '</div>';
 
     Photos.hydrate(root);
@@ -66,6 +66,12 @@
       lists: () => Lists.open(),
       gifts: () => App.go('#/m/gifts')
     })[b.dataset.act]());
+    /* Toucher une liste l'ouvre directement : avant, la flèche
+       était dessinée mais la ligne ne réagissait pas. */
+    root.querySelectorAll('[data-list]').forEach((b) => b.onclick = () => {
+      const l = (lists || []).find((x) => x.id === b.dataset.list);
+      if (l && Lists.openList) Lists.openList(l); else Lists.open();
+    });
     root.querySelectorAll('[data-kart]').forEach((b) => b.onclick = () => App.go('#/m/gifts/' + b.dataset.kart));
   }
 
@@ -75,9 +81,10 @@
      photo depuis sa fiche. */
   function cartePersonne(p) {
     const aPhoto = p.photo || p.photoUrl;
-    const visuel = aPhoto
-      ? Photos.img(p, 'photo', 'width:100%;height:100%;object-fit:cover')
-      : (global.Stock ? Stock.ic(p.relation || p.nom, { classe: 'fond', type: 'icone' }) : '');
+    /* Le repli reste dessous : une photo absente de cet appareil
+       se cache et laisse voir l'image de la relation. */
+    const visuel = (global.Stock ? Stock.ic(p.relation || p.nom, { classe: 'fond', type: 'icone' }) : '') +
+      (aPhoto ? Photos.img(p, 'photo', 'position:absolute;inset:0;width:100%;height:100%;object-fit:cover') : '');
     return '<button class="kart" data-kart="' + UI.attr(p.id) + '">' +
       '<span class="vis">' + visuel + '</span>' +
       '<span class="voile"></span>' +

@@ -21,7 +21,18 @@
   'use strict';
 
   let root = null;
+  let actif = false;      /* vrai tant que la page Sport est affichée */
+  let detacheLignes = null;
   let brouillon = null;   /* séance en cours de saisie */
+  /* Appelé après un enregistrement lancé depuis une autre page
+     (Santé), pour qu'elle se redessine. */
+  let apresEnregistrement = null;
+  function rafraichir() {
+    if (actif && root) render();
+    const f = apresEnregistrement;
+    apresEnregistrement = null;
+    if (f) { try { f(); } catch (e) { console.error(e); } }
+  }
 
   const seances = () => Store.all('seances');
   const poids = () => {
@@ -301,11 +312,16 @@
   const MUSCLES_BRAS = {
     avant: [
       ['delt-a', tranche(AXE_BRAS, 0, 0.22, 0.98)],
+      /* Le faisceau latéral, posé au sommet de l'épaule. Il ne se
+         peint que s'il a travaillé (troisième valeur), sinon il
+         masquerait la couleur du deltoïde avant. */
+      ['delt-m', tranche(AXE_BRAS, 0, 0.16, 0.55), true],
       ['bi',     tranche(AXE_BRAS, 0.20, 0.46, 0.80)],
       ['avb',    tranche(AXE_BRAS, 0.52, 0.80, 0.84)]
     ],
     arriere: [
       ['delt-p', tranche(AXE_BRAS, 0, 0.22, 0.98)],
+      ['delt-m', tranche(AXE_BRAS, 0, 0.16, 0.55), true],
       ['tri',    tranche(AXE_BRAS, 0.20, 0.46, 0.80)],
       ['avb',    tranche(AXE_BRAS, 0.52, 0.80, 0.84)]
     ]
@@ -369,9 +385,10 @@
     const u = 'c' + (++nCorps);
     const trait = ' stroke="var(--trait-corps)" stroke-width=".8" stroke-linejoin="round"';
 
-    const peindre = (paires) => paires.map(([m, d]) => {
+    const peindre = (paires) => paires.map(([m, d, surcouche]) => {
       const v = (scores[m] || 0) / (max || 1);
       const actif = v > 0.02;
+      if (surcouche && !actif) return '';
       return '<path d="' + d + '" fill="' + teinte(v) + '"' + trait +
         (actif ? ' filter="url(#' + u + 'r)"' : '') + '/>';
     }).join('');
@@ -529,7 +546,16 @@
      ============================================================ */
   function mount(el) {
     root = el;
+    actif = true;
     render();
+  }
+
+  /* Le routeur appelle unmount en quittant la page : on retire le
+     geste de balayage des lignes (écouteur posé sur document) et
+     on n'écrit plus dans une vue qui n'est plus la nôtre. */
+  function unmount() {
+    actif = false;
+    if (detacheLignes) { detacheLignes(); detacheLignes = null; }
   }
 
   /* Le jour affiche. Sans lui, une seance oubliee hier soir etait
@@ -674,17 +700,23 @@
       if (e.target.closest('[data-glisse]')) return;
       voirSeance(b.dataset.seance);
     });
-    if (global.Gestes) Gestes.activer(root, (action) => {
+    if (global.Gestes) detacheLignes = Gestes.activer(root, (action) => {
       const [quoi, id] = action.split(':');
       if (quoi === 'del') { Store.del('seances', id); UI.haptic('warning'); render(); }
-    });
+    }) || null;
   }
 
   /* ============================================================
      Saisie d'une séance de musculation
      ============================================================ */
-  function nouvelleSeance() {
-    brouillon = { type: 'muscu', nom: 'Musculation', day: leJour, minutes: 60, series: [] };
+  /* `day` : le jour affiché par la page qui appelle (Santé a sa
+     propre barre de jour). Sans lui, la séance partait sur le jour
+     de la page Sport, souvent aujourd'hui. `apres` : de quoi
+     redessiner cette page une fois la séance enregistrée. */
+  function nouvelleSeance(day, apres) {
+    apresEnregistrement = typeof apres === 'function' ? apres : null;
+    const j = (typeof day === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(day)) ? day : leJour;
+    brouillon = { type: 'muscu', nom: 'Musculation', day: j, minutes: 60, series: [] };
     ecranSeance();
   }
 
@@ -932,7 +964,7 @@
     brouillon = null;
     UI.closeSheet(); UI.haptic('success');
     UI.toast('Séance enregistrée · ' + calc.kcal + ' kcal');
-    render();
+    rafraichir();
   }
 
   /* ============================================================
@@ -951,7 +983,9 @@
     ph: sp.nom, type: 'sport'
   });
 
-  function choisirSport() {
+  function choisirSport(day, apres) {
+    apresEnregistrement = typeof apres === 'function' ? apres : null;
+    const jourChoisi = (typeof day === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(day)) ? day : leJour;
     const fams = SPORT.familles();
 
     const parFamille = () => fams.map((f) => {
@@ -967,12 +1001,12 @@
         '<label class="search" style="box-shadow:var(--sh-inset);margin-bottom:6px">' + Icon('search', 17) +
           '<input type="search" data-q placeholder="Volley, natation, boxe…" autocomplete="off"></label>' +
         '<div data-res>' + parFamille() + '</div>',
-      onCarte: (id) => { UI.closeSheet(); saisirSport(id); },
+      onCarte: (id) => { UI.closeSheet(); saisirSport(id, jourChoisi); },
       onMount: (sh) => {
         const q = sh.querySelector('[data-q]'), out = sh.querySelector('[data-res]');
         const rebrancher = () => {
           out.querySelectorAll('[data-kart]').forEach((b) => b.onclick = () => {
-            UI.closeSheet(); saisirSport(b.dataset.kart);
+            UI.closeSheet(); saisirSport(b.dataset.kart, jourChoisi);
           });
           if (global.Stock) Stock.peupler(out);
         };
@@ -991,19 +1025,20 @@
   }
 
 
-  async function saisirSport(id) {
+  async function saisirSport(id, day) {
     const s = SPORT.sport(id);
     if (!s) return;
     const p = poids();
+    const jourDefaut = day || leJour;
+    const choixJours = [0, 1, 2, 3, 4, 5, 6].map((n) => UI.day.add(UI.day.today(), -n));
+    /* Un jour plus ancien que la semaine reste proposé. */
+    if (choixJours.indexOf(jourDefaut) < 0) choixJours.push(jourDefaut);
     const r = await UI.promptSheet(s.nom, [
       { name: 'minutes', label: 'Durée (minutes)', type: 'number', inputmode: 'numeric', value: 45 },
       { name: 'intensite', label: 'Intensité', type: 'select', value: 'normale',
         options: SPORT.INTENSITES.map((i) => ({ v: i.id, n: i.nom })) },
-      { name: 'jour', label: 'Quand', type: 'select', value: leJour,
-        options: [0, 1, 2, 3, 4, 5, 6].map((n) => {
-          const d = UI.day.add(UI.day.today(), -n);
-          return { v: d, n: UI.day.label(d) };
-        }) }
+      { name: 'jour', label: 'Quand', type: 'select', value: jourDefaut,
+        options: choixJours.map((d) => ({ v: d, n: UI.day.label(d) })) }
     ], 'Enregistrer');
     if (!r) return;
 
@@ -1020,7 +1055,7 @@
     if (global.Game) Game.award('seance', 15);
     UI.haptic('success');
     UI.toast(s.nom + ' · ' + kcal + ' kcal');
-    render();
+    rafraichir();
   }
 
   /* ============================================================
@@ -1045,7 +1080,7 @@
       '</div>',
       { onMount: (sh) => {
           sh.querySelector('[data-del]').onclick = () => {
-            Store.del('seances', id); UI.closeSheet(); UI.haptic('warning'); render();
+            Store.del('seances', id); UI.closeSheet(); UI.haptic('warning'); if (actif && root) render();
           };
         } }
     );
@@ -1074,5 +1109,5 @@
   }
 
   global.Sport = { mount, duJour, semaine, carteDuCorps, seances, nouvelleSeance, choisirSport, _silhouette: silhouette };
-  App.register('sport', { mount: mount });
+  App.register('sport', { mount: mount, unmount: unmount });
 })(window);

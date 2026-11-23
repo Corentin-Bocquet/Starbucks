@@ -37,6 +37,12 @@
     /* Le clavier fait le même travail sur ordinateur. */
     const clavier = (e) => {
       if (e.target && /input|textarea|select/i.test(e.target.tagName || '')) return;
+      /* Seulement quand la page est à l'écran : sinon les flèches
+         changeaient le jour du journal depuis Réglages ou Santé.
+         Et jamais sous une pop-up ouverte. */
+      if (!el.isConnected || !el.getClientRects().length) return;
+      const ov = document.getElementById('ov');
+      if (ov && ov.classList.contains('on')) return;
       if (e.key === 'ArrowLeft' && opts.onPrecedent) { opts.onPrecedent(); }
       if (e.key === 'ArrowRight' && opts.onSuivant) { opts.onSuivant(); }
     };
@@ -74,13 +80,15 @@
     el.addEventListener('touchstart', debut, { passive: true });
     el.addEventListener('touchmove', bouge, { passive: false });
     el.addEventListener('touchend', fin, { passive: true });
-    el.addEventListener('touchcancel', () => { actif = false; }, { passive: true });
+    const annule = () => { actif = false; };
+    el.addEventListener('touchcancel', annule, { passive: true });
 
     return () => {
       removeEventListener('keydown', clavier);
       el.removeEventListener('touchstart', debut);
       el.removeEventListener('touchmove', bouge);
       el.removeEventListener('touchend', fin);
+      el.removeEventListener('touchcancel', annule);
     };
   }
 
@@ -109,8 +117,16 @@
     '</div>';
   }
 
-  /* Active le geste sur toutes les lignes glissables d'un bloc. */
+  /* Active le geste sur toutes les lignes glissables d'un bloc.
+
+     Rappelé à chaque rendu (un verre d'eau, un changement de jour),
+     il ajoutait à chaque fois un écouteur sur document, jamais
+     retiré. On retient donc le nettoyage par bloc et on l'applique
+     avant de réactiver. */
+  const nettoyages = new WeakMap();
   function activer(racine, surAction) {
+    const ancien = nettoyages.get(racine);
+    if (ancien) ancien();
     let ouverte = null;
 
     const fermer = (el) => {
@@ -180,9 +196,18 @@
     });
 
     /* Un appui ailleurs referme la ligne ouverte. */
-    const dehors = (e) => { if (ouverte && !ouverte.contains(e.target)) fermer(ouverte); };
+    const nettoyer = () => {
+      document.removeEventListener('click', dehors, true);
+      if (nettoyages.get(racine) === nettoyer) nettoyages.delete(racine);
+    };
+    const dehors = (e) => {
+      /* Bloc retiré de la page : l'écouteur se retire tout seul. */
+      if (!racine.isConnected) { nettoyer(); return; }
+      if (ouverte && !ouverte.contains(e.target)) fermer(ouverte);
+    };
     document.addEventListener('click', dehors, true);
-    return () => document.removeEventListener('click', dehors, true);
+    nettoyages.set(racine, nettoyer);
+    return nettoyer;
   }
 
   global.Gestes = { page, ligne, activer, tactile, OUVERTURE };

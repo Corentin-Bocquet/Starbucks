@@ -13,8 +13,13 @@
   const C = () => global.EVER_CONFIG || {};
 
   /* ---------- Lieu ---------- */
+  /* Par defaut, Le Touquet partout : c'est aussi la ville des
+     activites de depart. Activites, Guide et Bons plans derivent
+     tous leur ville de ce lieu unique. */
+  const DEFAUT = { name: 'Le Touquet', lat: 50.5167, lon: 1.5833, country: 'France', admin: 'Hauts-de-France' };
   function place() {
-    return Store.get('place', { name: 'Amiens', lat: 49.8941, lon: 2.2958, country: 'France', admin: 'Hauts-de-France' });
+    const p = Store.get('place', null);
+    return (p && p.name && p.lat != null && p.lon != null) ? p : Object.assign({}, DEFAUT);
   }
   function setPlace(p) { Store.set('place', p); Store.emit('place', p); return p; }
 
@@ -114,17 +119,17 @@
 
   /* ---------- Météo ---------- */
   const WMO = {
-    0: ['Ciel degage', 'sun', 'clair'], 1: ['Plutôt degage', 'sun', 'clair'],
+    0: ['Ciel dégagé', 'sun', 'clair'], 1: ['Plutôt dégagé', 'sun', 'clair'],
     2: ['Partiellement nuageux', 'cloud', 'nuageux'], 3: ['Couvert', 'cloud', 'nuageux'],
     45: ['Brouillard', 'cloud', 'nuageux'], 48: ['Brouillard givrant', 'cloud', 'nuageux'],
     51: ['Bruine légère', 'rain', 'pluie'], 53: ['Bruine', 'rain', 'pluie'], 55: ['Bruine forte', 'rain', 'pluie'],
     61: ['Pluie faible', 'rain', 'pluie'], 63: ['Pluie', 'rain', 'pluie'], 65: ['Forte pluie', 'rain', 'pluie'],
-    66: ['Pluie verglacante', 'rain', 'pluie'], 67: ['Pluie verglacante', 'rain', 'pluie'],
+    66: ['Pluie verglaçante', 'rain', 'pluie'], 67: ['Pluie verglaçante', 'rain', 'pluie'],
     71: ['Neige faible', 'cloud', 'neige'], 73: ['Neige', 'cloud', 'neige'], 75: ['Forte neige', 'cloud', 'neige'],
     77: ['Grains de neige', 'cloud', 'neige'],
     80: ['Averses', 'rain', 'pluie'], 81: ['Averses', 'rain', 'pluie'], 82: ['Fortes averses', 'rain', 'pluie'],
     85: ['Averses de neige', 'cloud', 'neige'], 86: ['Averses de neige', 'cloud', 'neige'],
-    95: ['Orage', 'rain', 'orage'], 96: ['Orage et grele', 'rain', 'orage'], 99: ['Orage et grele', 'rain', 'orage']
+    95: ['Orage', 'rain', 'orage'], 96: ['Orage et grêle', 'rain', 'orage'], 99: ['Orage et grêle', 'rain', 'orage']
   };
 
   async function weather(p) {
@@ -188,7 +193,7 @@
     bits.push('Date : ' + new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }));
     bits.push('Moment : ' + ctx.slot + (ctx.weekend ? ', week-end' : ', semaine'));
     bits.push('Saison : ' + ctx.season);
-    if (ctx.weather) bits.push('Météo : ' + ctx.weather.text + ', ' + ctx.weather.temp + ' degres, vent ' + ctx.weather.wind + ' km/h');
+    if (ctx.weather) bits.push('Météo : ' + ctx.weather.text + ', ' + ctx.weather.temp + ' degrés, vent ' + ctx.weather.wind + ' km/h');
     bits.push('Budget : ' + '€'.repeat(Math.max(1, ctx.budget)));
     return bits.join('\n');
   }

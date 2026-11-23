@@ -220,14 +220,16 @@ drop policy if exists ever_lists_delete on ever.shared_lists;
 create policy ever_lists_delete on ever.shared_lists
   for delete using (owner_id = auth.uid());
 
--- Adhésions : on rejoint pour soi, on part quand on veut
+-- Adhésions : on rejoint pour soi, on part quand on veut.
+-- Il n'y a PAS d'insert direct : un membre pouvait sinon quitter la
+-- liste puis se réinscrire lui-même avec permission = 'edit'. On
+-- rejoint uniquement par la fonction ever.join_list(code), qui
+-- impose la permission par défaut choisie par le propriétaire.
 drop policy if exists ever_members_read on ever.list_members;
 create policy ever_members_read on ever.list_members
   for select using (user_id = auth.uid()
     or exists (select 1 from ever.shared_lists s where s.id = list_id and s.owner_id = auth.uid()));
 drop policy if exists ever_members_join on ever.list_members;
-create policy ever_members_join on ever.list_members
-  for insert with check (user_id = auth.uid());
 drop policy if exists ever_members_leave on ever.list_members;
 create policy ever_members_leave on ever.list_members
   for delete using (user_id = auth.uid()
@@ -247,12 +249,44 @@ drop policy if exists ever_items_delete on ever.list_items;
 create policy ever_items_delete on ever.list_items
   for delete using (ever.list_permission(list_id) = 'edit' or author_id = auth.uid());
 
+-- Rejoindre une liste par son code.
+-- La policy de lecture ne montre une liste qu'à son propriétaire et à
+-- ses membres : avant d'être membre, un « select ... where share_code »
+-- ne renvoie donc rien. Cette fonction, en security definer, cherche
+-- la liste par code et inscrit l'appelant avec la permission par
+-- défaut (jamais celle qu'il demanderait). Appel côté client :
+--   client.rpc('join_list', { code: 'ABC123' })
+create or replace function ever.join_list(code text)
+returns setof ever.shared_lists
+language plpgsql security definer set search_path = ever, public as $$
+declare
+  l ever.shared_lists;
+begin
+  if auth.uid() is null then
+    raise exception 'Connexion requise' using errcode = '28000';
+  end if;
+  select * into l from ever.shared_lists s where s.share_code = upper(trim(code)) limit 1;
+  if not found then
+    return;
+  end if;
+  if l.owner_id <> auth.uid() then
+    insert into ever.list_members (list_id, user_id, permission)
+    values (l.id, auth.uid(), l.default_permission)
+    on conflict (list_id, user_id) do nothing;
+  end if;
+  return next l;
+end; $$;
+revoke all on function ever.join_list(text) from public, anon;
+grant execute on function ever.join_list(text) to authenticated;
+
 -- ------------------------------------------------------------
 -- 7. Droits
 -- ------------------------------------------------------------
 grant usage on schema ever to anon, authenticated, service_role;
 grant all on all tables    in schema ever to anon, authenticated, service_role;
 grant all on all functions in schema ever to anon, authenticated, service_role;
+-- Le « grant all » ci-dessus rouvre join_list à anon : on referme.
+revoke execute on function ever.join_list(text) from anon;
 grant all on all sequences in schema ever to anon, authenticated, service_role;
 alter default privileges in schema ever grant all on tables    to anon, authenticated, service_role;
 alter default privileges in schema ever grant all on functions to anon, authenticated, service_role;
@@ -261,6 +295,9 @@ alter default privileges in schema ever grant all on sequences to anon, authenti
 -- ------------------------------------------------------------
 -- 8. Stockage : photos de vêtements et de repas
 --    Les compartiments sont globaux au projet, donc préfixés.
+--    'ever-people' (photos des proches, Cadeaux) et
+--    'ever-illustrations' (images d'activités et de plats) sont
+--    utilisés par l'app via Photos.save(..., 'people' | 'illustrations').
 -- ------------------------------------------------------------
 insert into storage.buckets (id, name, public) values ('ever-garments', 'ever-garments', true)
   on conflict (id) do nothing;
@@ -268,28 +305,32 @@ insert into storage.buckets (id, name, public) values ('ever-meals', 'ever-meals
   on conflict (id) do nothing;
 insert into storage.buckets (id, name, public) values ('ever-avatars', 'ever-avatars', true)
   on conflict (id) do nothing;
+insert into storage.buckets (id, name, public) values ('ever-people', 'ever-people', true)
+  on conflict (id) do nothing;
+insert into storage.buckets (id, name, public) values ('ever-illustrations', 'ever-illustrations', true)
+  on conflict (id) do nothing;
 
 -- Chacun n'écrit que dans son propre dossier <uid>/…, et la lecture
 -- est publique : c'est ce qui permet à un autre appareil d'afficher
 -- la photo à partir de sa seule URL.
 drop policy if exists ever_storage_insert on storage.objects;
 create policy ever_storage_insert on storage.objects for insert to authenticated
-  with check (bucket_id in ('ever-garments', 'ever-meals', 'ever-avatars')
+  with check (bucket_id in ('ever-garments', 'ever-meals', 'ever-avatars', 'ever-people', 'ever-illustrations')
     and (storage.foldername(name))[1] = auth.uid()::text);
 
 drop policy if exists ever_storage_update on storage.objects;
 create policy ever_storage_update on storage.objects for update to authenticated
-  using (bucket_id in ('ever-garments', 'ever-meals', 'ever-avatars')
+  using (bucket_id in ('ever-garments', 'ever-meals', 'ever-avatars', 'ever-people', 'ever-illustrations')
     and (storage.foldername(name))[1] = auth.uid()::text);
 
 drop policy if exists ever_storage_delete on storage.objects;
 create policy ever_storage_delete on storage.objects for delete to authenticated
-  using (bucket_id in ('ever-garments', 'ever-meals', 'ever-avatars')
+  using (bucket_id in ('ever-garments', 'ever-meals', 'ever-avatars', 'ever-people', 'ever-illustrations')
     and (storage.foldername(name))[1] = auth.uid()::text);
 
 drop policy if exists ever_storage_read on storage.objects;
 create policy ever_storage_read on storage.objects for select
-  using (bucket_id in ('ever-garments', 'ever-meals', 'ever-avatars'));
+  using (bucket_id in ('ever-garments', 'ever-meals', 'ever-avatars', 'ever-people', 'ever-illustrations'));
 
 -- ------------------------------------------------------------
 -- 9. Vues de lecture
@@ -362,7 +403,31 @@ create table if not exists ever.ligue_scores (
 
 alter table ever.ligue_scores enable row level security;
 
+drop policy if exists ligue_lire   on ever.ligue_scores;
+drop policy if exists ligue_ecrire on ever.ligue_scores;
+drop policy if exists ligue_maj    on ever.ligue_scores;
+drop policy if exists ligue_suppr  on ever.ligue_scores;
 create policy ligue_lire   on ever.ligue_scores for select using (ever.is_list_member(list_id));
 create policy ligue_ecrire on ever.ligue_scores for insert with check (user_id = auth.uid() and ever.is_list_member(list_id));
 create policy ligue_maj    on ever.ligue_scores for update using (user_id = auth.uid()) with check (user_id = auth.uid());
 create policy ligue_suppr  on ever.ligue_scores for delete using (user_id = auth.uid());
+
+-- ============================================================
+-- BOÎTE DE RÉCEPTION SANTÉ (sql/edge/ever-sante.ts)
+--
+-- Un Raccourci iPhone ou Health Auto Export poste les chiffres du
+-- jour à la fonction ever-sante, avec un jeton secret par appareil.
+-- La table est fermée à tout le monde : RLS activée et AUCUNE
+-- policy. Seule la fonction edge, en service role, la lit et
+-- l'écrit.
+-- ============================================================
+create table if not exists ever.health_inbox (
+  token       text not null,
+  day         date not null,
+  data        jsonb not null default '{}'::jsonb,
+  src         text not null default 'raccourci',
+  updated_at  timestamptz not null default now(),
+  primary key (token, day)
+);
+alter table ever.health_inbox enable row level security;
+revoke all on ever.health_inbox from anon, authenticated;

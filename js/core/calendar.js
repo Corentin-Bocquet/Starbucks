@@ -52,7 +52,7 @@
     const now = new Date();
     const defDate = ev.date || UI.day.today();
     const defTime = ev.time || (now.getHours() < 18 ? '19:00' : '12:00');
-    const res = await UI.promptSheet('Ajouter àu calendrier', [
+    const res = await UI.promptSheet('Ajouter au calendrier', [
       { name: 'title', label: 'Titre', value: ev.title || '' },
       { name: 'date', label: 'Date', type: 'date', value: defDate },
       { name: 'time', label: 'Heure', type: 'time', value: defTime },
@@ -86,7 +86,7 @@
     Store.log('calendrier', { title: payload.title, at: start.getTime() });
 
     if (googleReady()) {
-      try { await googleInsert(payload); UI.toast('Ajouter à Google Agenda'); return payload; }
+      try { await googleInsert(payload); UI.toast('Ajouté à Google Agenda'); return payload; }
       catch (e) { console.warn(e); }
     }
     UI.download(slug(payload.title) + '.ics', icsFor(payload), 'text/calendar');

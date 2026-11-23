@@ -62,7 +62,59 @@ const BADGE={permanent:'',saison:'Saisonnier',archive:'Archive',secret:'Secret',
 const BCLS={saison:'sai',archive:'arc',secret:'sec',base:'bas',rare:'arc'};
 const SIZENAME={t:'Tall · 355 ml',g:'Grande · 473 ml',v:'Venti · 591 ml'};
 const STOCKDEF={sb:PLACARD,ck:BAR,mm:GARDE};
-const STOCKNAME={};[...PLACARD,...BAR,...GARDE].forEach(b=>STOCKNAME[b.k]=b.n);
+/* Noms du stock par onglet : une même clé (lait, sucre, espresso,
+   chocolat, epices) n'a pas le même sens au Café, au Bar et en
+   cuisine. On lit donc toujours STOCKNAME[onglet][clé]. */
+const STOCKNAME={sb:{},ck:{},mm:{}};Object.keys(STOCKDEF).forEach(t=>STOCKDEF[t].forEach(b=>STOCKNAME[t][b.k]=b.n));
+
+/* Ce qu'une recette demande au placard ou au garde-manger, déduit
+   de ses ingrédients. Sert aux créations de l'IA (leurs ingrédients
+   n'ont pas de clé) et au contrôle tools/verif-bar.js, qui compare
+   ces règles aux listes sk saisies à la main.
+   Le sel, l'eau et l'huile ne comptent pas : tout le monde en a.
+   Un ingrédient facultatif ou optionnel ne compte pas non plus. */
+const SKREGLES={
+ sb:[
+  ['espresso',/espresso|ristretto/],
+  ['filtre',/cafe filtre|cold brew|cafe moulu/],
+  ['lait',/(^| )lait( |$)(?!(de coco|d amande|d avoine))|^mousse|^base creme/],
+  ['vegetal',/lait (de coco|d amande|d avoine)/],
+  ['creme',/creme (liquide|fouettee)|sweet cream|cold foam/],
+  ['matcha',/matcha/],
+  ['chai',/chai/],
+  ['the',/(^| )the( |$)|earl grey|english breakfast|infusion|tango tea/],
+  ['caramel',/caramel/],
+  ['chocolat',/mocha|chocolat/],
+  ['vanille',/sirop de vanille|vanilla/],
+  ['fruits',/^base (?!creme|sucree)|jus de|puree|lyophilis|fruit du dragon|kiwi|limonade/]],
+ mm:[
+  ['oeufs',/(^| )oeufs?( |$)/],
+  ['beurre',/beurre|margarine/],
+  ['farine',/farine/],
+  ['lait',/(^| )lait( |$)|creme (fraiche|liquide|entiere)/,/chocolat|coco/],
+  ['fromage',/fromage|gruyere|emmental|mascarpone|parmesan|comte|mozzarella|cheddar|chevre|feta|ricotta/],
+  ['chocolat',/chocolat|cacao|nesquik/],
+  ['sucre',/sucre|cassonade|(^| )miel( |$)/,/non sucre|sans sucre/],
+  ['viande',/viande|boeuf|veau|porc|dinde|poulet|jambon|lardon|couenne|saucisse|agneau|canard/,/bouillon|fond de/],
+  ['legumes',/legume|courgette|carotte|oignon|tomate|salade|betterave|asperge|champignon|pommes? de terre|poireau|(^| )mais( |$)|(^| )ail( |$)|echalote|poivron|aubergine|epinard|haricot|petits pois|(^| )chou/,/moulu|poudre|deshydrate|seche/],
+  ['alcool',/(^| )vin( |$)|rhum|cognac|marsala|madere|biere|pastis|(^| )anis|ouzo|raki|whisky|calvados|kirsch|liqueur|porto|armagnac|cidre/,/vinaigre/],
+  ['cafe',/cafe|expresso|espresso/,/c a cafe|cuillere/],
+  ['epices',/poivre|persil|estragon|origan|chili|sauge|basilic|marjolaine|paprika|vanille|bouquet garni|epice|cannelle|muscade|thym|laurier|herbes|curry|cumin|gingembre/,/sucre/]]
+};
+function skDepuis(tab, ing){
+  const R=SKREGLES[tab]; if(!R) return [];
+  const nrm=(s)=>String(s||'').toLowerCase().replace(/œ/g,'oe').replace(/æ/g,'ae')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
+  const out=new Set();
+  (ing||[]).forEach((i)=>{
+    if(!i||i.opt||/facultatif|optionnel/i.test(i.n||'')) return;
+    /* « Gâteau · Œufs » : seule la partie après le point compte. */
+    const parts=String(i.n||'').split('·');
+    const n=nrm(parts[parts.length-1].replace(/\(.*?\)/g,''));
+    R.forEach(([k,oui,non])=>{ if(oui.test(n)&&!(non&&non.test(n))) out.add(k); });
+  });
+  return Array.from(out).sort();
+}
 const STOCKTITLE={sb:'Mon placard',ck:'Mon bar',mm:'Mon garde-manger'};
 const DATA={sb:()=>DRINKS,ck:()=>COCKTAILS,mm:()=>MAMIE};
 const CATLIST={sb:()=>CATS,ck:()=>CKCATS,mm:()=>MMCATS};
@@ -73,7 +125,7 @@ const HERO={
  ck:{img:IMG['hero-ck'], kicker:'Bar', eye:COCKTAILS.length+' cocktails, du classique au maison', t:'Bar', em:'',
      p:"Les grands classiques, les pétillants et les digestifs. Coche ce que tu as, l'app te dit ce que tu peux faire ce soir.",
      stats:[[COCKTAILS.length,'cocktails'],[BAR.length,'ingrédients'],[CKCATS.length,'familles']]},
- mm:{img:IMG['hero-mm'], kicker:'Recettes', eye:'22 recettes de famille', t:'Recettes', em:'',
+ mm:{img:IMG['hero-mm'], kicker:'Recettes', eye:MAMIE.length+' recettes de famille', t:'Recettes', em:'',
      p:"Celles qu'on se raconte et qu'on finit par oublier. Les quantités exactes et les photos d'origine.",
      stats:[[MAMIE.length,'recettes'],[MAMIE.filter(r=>r.cat==='mamie-sucre').length,'sucrées'],[MAMIE.filter(r=>r.cat==='mamie-sale').length,'salées']]}
 };

@@ -88,7 +88,7 @@
     { cle: 'steps',    nom: 'Pas',            groupe: 'Activité', art: 'pas',      teinte: '#3FAE79', unite: '',     fmt: (v) => UI.fmt.n(v) },
     { cle: 'exercise', nom: 'Exercice',       groupe: 'Activité', art: 'eclair',   teinte: '#D98324', unite: 'min',  fmt: (v) => Math.round(v) },
     { cle: 'active',   nom: 'Énergie active', groupe: 'Activité', art: 'flamme',   teinte: '#E0653C', unite: 'kcal', fmt: (v) => UI.fmt.n(v) },
-    { cle: 'standing', nom: 'Heures debout',  groupe: 'Activité', art: 'personne', teinte: '#4F9D8C', unite: 'h',    fmt: (v) => Math.round(v) },
+    { cle: 'standing', nom: 'Heures debout',  groupe: 'Activité', art: 'personne', teinte: '#4F9D8C', unite: 'h',    fmt: (v) => v < 10 ? v.toFixed(1).replace('.', ',') : Math.round(v), pas: '0.5' },
     { cle: 'distance', nom: 'Distance',       groupe: 'Activité', art: 'lieu',     teinte: '#3D95D8', unite: 'km',   fmt: (v) => v.toFixed(1).replace('.', ','), pas: '0.1' },
 
     { cle: 'sleep',    nom: 'Sommeil',        groupe: 'Récupération', art: 'lune', teinte: '#8F76D0', unite: 'h',    fmt: (v) => (v / 60).toFixed(1).replace('.', ','), stockeEnMinutes: true },
@@ -98,6 +98,14 @@
     { cle: 'energie',  nom: 'Énergie ressentie', groupe: 'Récupération', art: 'etoile', teinte: '#C8A22C', unite: 'sur 10', fmt: (v) => Math.round(v), max: 10 },
     { cle: 'humeur',   nom: 'Moral',          groupe: 'Récupération', art: 'coeur',   teinte: '#B0264F', unite: 'sur 10', fmt: (v) => Math.round(v), max: 10 },
     { cle: 'stress',   nom: 'Stress',         groupe: 'Récupération', art: 'flamme',  teinte: '#8A5A2B', unite: 'sur 10', fmt: (v) => Math.round(v), max: 10, bas: true },
+
+    /* Le cœur et le souffle : importés d'Apple Santé (tensiomètre,
+       montre) mais jamais montrés avant. Une mesure sans tuile est
+       une mesure perdue, surtout la tension. */
+    { cle: 'bpSys',    nom: 'Tension (haute)', groupe: 'Cœur', art: 'coeur', teinte: '#C6402F', unite: 'mmHg', fmt: (v) => Math.round(v), bas: true },
+    { cle: 'bpDia',    nom: 'Tension (basse)', groupe: 'Cœur', art: 'coeur', teinte: '#9E3326', unite: 'mmHg', fmt: (v) => Math.round(v), bas: true },
+    { cle: 'resp',     nom: 'Respiration',     groupe: 'Cœur', art: 'goutte', teinte: '#4A9BE0', unite: '/min', fmt: (v) => Math.round(v) },
+    { cle: 'vo2',      nom: 'VO2 max',         groupe: 'Cœur', art: 'eclair', teinte: '#3FAE79', unite: 'ml/kg/min', fmt: (v) => v.toFixed(1).replace('.', ','), pas: '0.1' },
 
     { cle: 'weight',   nom: 'Poids',          groupe: 'Corps', art: 'balance',  teinte: '#43A86B', unite: 'kg', fmt: (v) => v.toFixed(1).replace('.', ','), pas: '0.1', bas: true },
     { cle: 'bodyFat',  nom: 'Masse grasse',   groupe: 'Corps', art: 'balance',  teinte: '#B37814', unite: '%',  fmt: (v) => v.toFixed(1).replace('.', ','), pas: '0.1', bas: true },
@@ -113,7 +121,35 @@
   ];
 
   const metrique = (k) => METRIQUES.find((m) => m.cle === k) || null;
-  const GROUPES = ['Activité', 'Récupération', 'Corps', 'Autres'];
+  const GROUPES = ['Activité', 'Récupération', 'Cœur', 'Corps', 'Autres'];
+
+  /* ============================================================
+     Les alias de clés
+
+     L'import Apple Santé et la synchro écrivent les noms de
+     HealthKit (`fat`, `lean`, `stand`, `hkWater`), la saisie et
+     l'affichage utilisent les noms de l'appli (`bodyFat`, `muscle`,
+     `standing`, `eau`). Sans pont, la masse grasse de la balance
+     connectée restait invisible. On traduit à la lecture, sans
+     toucher aux données stockées : la saisie à la main garde la
+     priorité quand les deux existent.
+     ============================================================ */
+  const ALIAS = [
+    { cle: 'bodyFat',  src: 'fat',     conv: (v) => v <= 1 ? v * 100 : v },   /* HealthKit donne parfois 0,22 pour 22 % */
+    { cle: 'muscle',   src: 'lean',    conv: (v) => v },
+    { cle: 'standing', src: 'stand',   conv: (v) => Math.round(v / 6) / 10 }, /* minutes vers heures */
+    { cle: 'eau',      src: 'hkWater', conv: (v) => Math.round(v / 100) / 10 } /* millilitres vers litres */
+  ];
+  function avecAlias(d) {
+    let out = d;
+    ALIAS.forEach((a) => {
+      if ((d[a.cle] == null || d[a.cle] === '') && d[a.src] != null && d[a.src] !== '' && isFinite(Number(d[a.src]))) {
+        if (out === d) out = Object.assign({}, d);
+        out[a.cle] = a.conv(Number(d[a.src]));
+      }
+    });
+    return out;
+  }
 
   /* La liste des mesures qui ont au moins une valeur enregistree.
      C'est elle qui decide de ce que la page affiche. */
@@ -121,7 +157,7 @@
     return METRIQUES.filter((m) => jours.some((d) => d[m.cle] != null && d[m.cle] !== ''));
   }
 
-  const daily = () => Store.all('healthDays');
+  const daily = () => Store.all('healthDays').map(avecAlias);
   const dayOf = (k) => daily().find((d) => d.day === k) || null;
   const goals = () => Object.assign({ steps: 10000, exercise: 30, active: 500, sleep: 450 }, Store.get('healthGoals', {}));
 
@@ -368,7 +404,7 @@
   function formeBlock(d) {
     const f = forme(d);
     const R = 49, C = 2 * Math.PI * R, p = f == null ? 0 : f / 100;
-    const seul = global.Mood ? Mood.joursSansLien() : null;
+    const seul = joursSansLienFiable();
     const titre = f == null ? 'Pas encore de mesure'
       : f >= 80 ? 'Belle forme' : f >= 60 ? 'Bonne forme' : f >= 40 ? 'Journée moyenne' : 'À recharger';
     const bits = [];
@@ -393,16 +429,29 @@
 
   function tuilesMesures(d) {
     const val = (k) => d[k] != null ? d[k] : null;
-    const poids = val('weight') != null ? d.weight.toFixed(1).replace('.', ',') + ' kg' : lastKnown('weight');
+    /* Un poids ancien reste utile, mais il doit dire son âge :
+       80 kg pesés il y a deux mois ne sont pas le poids du jour. */
+    let poids = '–', agePoids = '';
+    if (val('weight') != null) poids = Number(d.weight).toFixed(1).replace('.', ',') + ' kg';
+    else {
+      const dp = dernierJour('weight', jour);
+      if (dp) {
+        poids = Number(dp.weight).toFixed(1).replace('.', ',') + ' kg';
+        const ecart = Math.round((new Date(jour + 'T12:00:00') - new Date(dp.day + 'T12:00:00')) / 86400e3);
+        agePoids = ecart === 1 ? 'la veille' : 'il y a ' + ecart + ' j';
+      }
+    }
     const T = [
       ['Sommeil', val('sleep') != null ? UI.fmt.dur(d.sleep) : '–', 'sommeil', 'sleep'],
       ['Pas', val('steps') != null ? UI.fmt.n(d.steps) : '–', 'pas', 'steps'],
       ['Cœur au repos', val('hrRest') != null ? Math.round(d.hrRest) + ' bpm' : '–', 'cardio', 'hrRest'],
-      ['Poids', poids, 'poids', 'weight']
+      ['Poids', poids, 'poids', 'weight', agePoids]
     ];
     return '<div class="section" style="padding-top:10px"><div class="mesures">' + T.map((t) =>
       '<button class="mesure avecvis" data-detail="' + t[3] + '">' + Vis.html(t[2], { classe: 'mvis3d' }) +
-      '<span class="mtx"><small>' + t[0] + '</small>' + valeur(t[1]) + '</span></button>').join('') + '</div></div>';
+      '<span class="mtx"><small>' + t[0] + '</small>' + valeur(t[1]) +
+        (t[4] ? '<small class="muted" style="font-size:11px">' + UI.esc(t[4]) + '</small>' : '') +
+      '</span></button>').join('') + '</div></div>';
   }
 
   function tassesBlock() {
@@ -456,8 +505,9 @@
      ============================================================ */
   function blocSport() {
     if (!global.Sport) return '';
-    const j = Sport.duJour();
+    const j = Sport.duJour(jour);
     const s7 = Sport.semaine(7);
+    const quand = jour === UI.day.today() ? "aujourd'hui" : (jour === UI.day.add(UI.day.today(), -1) ? 'hier' : 'ce jour-là');
 
     return '<div class="section" style="padding-top:14px">' +
       '<div class="panel bloc-sport">' +
@@ -467,7 +517,7 @@
             '<b style="font-size:16px;display:block">Mon sport</b>' +
             '<small class="muted" style="font-size:12.5px">' +
               (j.seances
-                ? j.seances + ' séance' + (j.seances > 1 ? 's' : '') + " aujourd'hui · " + UI.fmt.n(j.kcal) + ' kcal'
+                ? j.seances + ' séance' + (j.seances > 1 ? 's' : '') + ' ' + quand + ' · ' + UI.fmt.n(j.kcal) + ' kcal'
                 : (s7.seances ? s7.seances + ' séance' + (s7.seances > 1 ? 's' : '') + ' cette semaine' : 'Rien de consigné cette semaine')) +
             '</small>' +
           '</div>' +
@@ -533,6 +583,11 @@
       '</div></div>';
   }
   const stat = (k, v, ic) => '<div class="stat"><div class="k">' + Icon(ic, 13) + UI.esc(k) + '</div><div class="v" style="font-size:19px">' + (v === '–' ? TIRET : UI.esc(v)) + '</div></div>';
+  /* La dernière journée, au plus tard `avant`, qui porte la mesure. */
+  function dernierJour(key, avant) {
+    return daily().filter((d) => d[key] != null && d[key] !== '' && (!avant || d.day <= avant))
+      .sort((a, b) => a.day < b.day ? 1 : -1)[0] || null;
+  }
   function lastKnown(key) {
     const rows = daily().filter((d) => d[key] != null).sort((a, b) => a.day < b.day ? 1 : -1);
     if (!rows.length) return '–';
@@ -648,6 +703,18 @@
        - le lien : plusieurs jours sans voir personne pèse autant
          qu'une mauvaise nuit.
      ============================================================ */
+  /* « N jours sans voir personne » ne repose que sur ce qui est
+     noté dans l'appli. Si rien n'a été noté depuis une semaine, le
+     compteur grimpe tout seul alors qu'on a peut-être vu du monde
+     tous les jours : dans ce cas on se tait plutôt que d'accuser. */
+  function joursSansLienFiable() {
+    if (!global.Mood || !Mood.joursSansLien) return null;
+    const cut = Date.now() - 7 * 86400e3;
+    const recent = (k) => Store.history(k, 400).some((h) => (h.at || 0) >= cut);
+    if (!recent('humeur') && !recent('activite')) return null;
+    return Mood.joursSansLien();
+  }
+
   const moy = (l) => l.length ? l.reduce((a, b) => a + b, 0) / l.length : null;
   const vals = (jours, k) => jours.map((d) => d[k]).filter((v) => v != null && v !== '' && !isNaN(v)).map(Number);
   function pente(points) {
@@ -704,7 +771,26 @@
 
     /* Activité */
     const st = vals(j7, 'steps');
-    const ex = vals(j7, 'exercise').reduce((a, b) => a + b, 0) + (global.Sport ? Sport.semaine(7).minutes || 0 : 0);
+    /* L'effort, jour par jour. Une course enregistrée par la montre
+       ET saisie dans l'appli comptait deux fois : on garde, pour
+       chaque jour, le plus grand des deux côtés (montre ou appli),
+       pas leur somme. */
+    const woParJour = {};
+    Store.all('workouts').forEach((w) => {
+      if (!w.start) return;
+      const k = UI.day.key(w.start);
+      woParJour[k] = (woParJour[k] || 0) + (Number(w.minutes) || 0);
+    });
+    let ex = 0, joursSport = 0;
+    j7.forEach((d) => {
+      const montre = Math.max(Number(d.exercise) || 0, woParJour[d.day] || 0);
+      const appli = global.Sport ? (Sport.duJour(d.day).minutes || 0) : 0;
+      if (woParJour[d.day] || appli) joursSport++;
+      ex += Math.max(montre, appli);
+    });
+    /* Sans minutes d'exercice mesurées ni séance notée, on ne sait
+       rien de l'effort : pas de fausse alerte « 0 minute ». */
+    const effortConnu = vals(j7, 'exercise').length >= 3 || joursSport > 0;
     if (st.length >= 3) {
       const m = moy(st);
       const etat = m >= g.steps * 0.9 ? 'ok' : m >= g.steps * 0.6 ? 'moyen' : 'mauvais';
@@ -713,12 +799,33 @@
         etat === 'ok' ? 'Tu bouges assez au quotidien.' : 'Il t\'en manque environ ' + UI.fmt.n(Math.round(g.steps - m)) + ' par jour.',
         etat === 'ok' ? 'Continue comme ça.' : 'Une marche de ' + Math.max(10, Math.round((g.steps - m) / 100)) + ' minutes après le repas suffit.');
     }
-    if (ex > 0 || st.length >= 3) {
+    if (effortConnu) {
       const etat = ex >= 150 ? 'ok' : ex >= 75 ? 'moyen' : 'mauvais';
       ajoute('effort', 'Effort de la semaine', etat,
         Math.round(ex) + ' minutes d\'effort sur 7 jours.',
         etat === 'ok' ? 'Tu dépasses les 150 minutes conseillées.' : 'Le repère santé, c\'est 150 minutes par semaine : il en manque ' + Math.max(0, Math.round(150 - ex)) + '.',
         etat === 'ok' ? 'Garde ce rythme.' : 'Ajoute ' + Math.max(1, Math.ceil((150 - ex) / 30)) + ' séance(s) de 30 minutes cette semaine.');
+    }
+
+    /* Tension artérielle : moyenne des mesures des 14 derniers
+       jours (on ne la prend pas tous les jours). Repères grand
+       public : 140/90 et plus, à montrer à un médecin ; 130/85 et
+       plus, à surveiller. Jamais un diagnostic. */
+    const j14 = j28.slice(-14);
+    const sys = vals(j14, 'bpSys'), dia = vals(j14, 'bpDia');
+    if (sys.length >= 2 || dia.length >= 2) {
+      const ms = sys.length ? Math.round(moy(sys)) : null, md = dia.length ? Math.round(moy(dia)) : null;
+      const haute = (ms != null && ms >= 140) || (md != null && md >= 90);
+      const limite = (ms != null && ms >= 130) || (md != null && md >= 85);
+      const etat = haute ? 'mauvais' : limite ? 'moyen' : 'ok';
+      ajoute('tension', 'Tension artérielle', etat,
+        'Ta tension moyenne : ' + (ms != null ? ms : '?') + '/' + (md != null ? md : '?') + ' mmHg sur ' + Math.max(sys.length, dia.length) + ' mesures.',
+        etat === 'ok' ? 'Elle est dans les repères habituels.'
+          : haute ? 'Elle dépasse le repère de 140/90 : c\'est à surveiller de près.'
+          : 'Elle approche le repère de 140/90 : à surveiller.',
+        etat === 'ok' ? 'Rien à changer.'
+          : haute ? 'Montre ces chiffres à un médecin, et mesure-la au calme, assis, matin et soir quelques jours.'
+          : 'Moins de sel, moins d\'alcool, et une nouvelle mesure au calme dans quelques jours.');
     }
 
     /* Charge d'entraînement : aigu (7 j) sur chronique (28 j) */
@@ -769,7 +876,7 @@
     }
 
     /* Le lien */
-    const seul = global.Mood ? Mood.joursSansLien() : null;
+    const seul = joursSansLienFiable();
     if (seul != null) {
       const etat = seul <= 2 ? 'ok' : seul <= 4 ? 'moyen' : 'mauvais';
       ajoute('lien', 'Voir du monde', etat,
@@ -911,11 +1018,22 @@
   function detailMetrique(cle) {
     const m = metrique(cle);
     if (!m) return;
-    const serie = lastDays(range)
+    const lire = (n) => lastDays(n)
       .map((d) => ({ jour: d.day, v: d[cle] }))
       .filter((x) => x.v != null && x.v !== '' && isFinite(Number(x.v)))
       .map((x) => ({ jour: x.jour, v: Number(x.v) }));
-    if (!serie.length) return;
+    /* Rien sur la période choisie : on élargit jusqu'à la dernière
+       mesure connue plutôt que de ne rien ouvrir du tout. */
+    let portee = range;
+    let serie = lire(portee);
+    if (!serie.length) {
+      const der = dernierJour(cle);
+      if (!der) { UI.toast('Aucune mesure de ' + m.nom.toLowerCase() + ' pour l\'instant'); return; }
+      portee = Math.round((new Date(UI.day.today() + 'T12:00:00') - new Date(der.day + 'T12:00:00')) / 86400e3) + 1;
+      portee = Math.max(range, Math.min(3650, portee + 30));
+      serie = lire(portee);
+      if (!serie.length) return;
+    }
 
     const vals = serie.map((x) => x.v);
     const dernier = vals[vals.length - 1];
@@ -948,7 +1066,7 @@
       '<div class="mbody" style="padding-top:6px">' +
         '<h2 style="font-size:22px">' + UI.esc(m.nom) + '</h2>' +
         '<p class="mdesc">' + serie.length + (serie.length > 1 ? ' journées renseignées' : ' journée renseignée') +
-          ' sur les ' + range + ' derniers jours · ' + sens +
+          ' sur les ' + portee + ' derniers jours · ' + sens +
           (mieux === null ? '' : (mieux ? ' (dans le bon sens)' : ' (dans le mauvais sens)')) + '</p>' +
         '<div class="gtuile pleine" style="--t:' + UI.attr(m.teinte) + ';margin-top:14px">' +
           '<div class="bas">' + grand + '</div>' +
@@ -965,9 +1083,13 @@
       '</div>');
   }
 
+  function rafraichirSiVisible() { if (root && root.isConnected) render(); }
+
   const acts = {
-    muscu: () => { if (global.Sport) Sport.nouvelleSeance(); },
-    sportauto: () => { if (global.Sport) Sport.choisirSport(); },
+    /* La séance part sur le jour affiché ici, pas sur celui de la
+       page Sport, et Santé se redessine une fois enregistrée. */
+    muscu: () => { if (global.Sport) Sport.nouvelleSeance(jour, rafraichirSiVisible); },
+    sportauto: () => { if (global.Sport) Sport.choisirSport(jour, rafraichirSiVisible); },
     import: () => importFlow(),
     connecter: () => connecter(),
     tirer: () => tirer(false),
@@ -976,7 +1098,7 @@
     insight: () => insight(),
     fermerBilan: () => { const c = Store.get('healthInsight', null); if (c) Store.set('healthInsight', Object.assign(c, { ferme: true })); UI.haptic('light'); render(); },
     clear: async () => {
-      if (!await UI.confirmSheet('Effacer les données santé', 'Les journées importées et les entrainements seront supprimes de cet appareil.', true)) return;
+      if (!await UI.confirmSheet('Effacer les données santé', 'Les journées importées et les entraînements seront supprimés de cet appareil.', true)) return;
       Store.all('healthDays').forEach((d) => Store.del('healthDays', d.id));
       Store.all('workouts').forEach((d) => Store.del('workouts', d.id));
       Store.set('healthImport', null);
@@ -1021,7 +1143,7 @@
         UI.openSheet('<div class="mbody"><h2 style="font-size:20px">Import impossible</h2>' +
           '<p class="mdesc">' + UI.esc(String(e.message || e)) + '</p>' +
           '<div class="banner warn" style="margin-top:14px">' + Icon('info', 18) +
-          '<span>Si le fichier dépassé quelques centaines de mega-octets, dezippe-le sur ton téléphone et choisis directement <b>export.xml</b> : la lecture se fait alors par morceaux et ne sature plus la memoire.</span></div></div>');
+          '<span>Si le fichier dépasse quelques centaines de mégaoctets, dézippe-le sur ton téléphone et choisis directement <b>export.xml</b> : la lecture se fait alors par morceaux et ne sature plus la mémoire.</span></div></div>');
       }
     };
     input.click();
@@ -1087,9 +1209,19 @@
     return finish(acc);
   }
 
-  function newAcc() { return { days: {}, workouts: [], records: 0, seen: new Set() }; }
+  function newAcc() { return { days: {}, sleep: {}, workouts: [], records: 0, seen: new Set() }; }
 
-  const RE_RECORD = /<Record\s+type="([^"]+)"[^>]*?(?:unit="([^"]*)"\s*)?startDate="([^"]+)"[^>]*?endDate="([^"]+)"[^>]*?value="([^"]*)"/g;
+  /* Une balise Record entière, puis chaque attribut lu à part.
+     L'ancienne expression exigeait `unit` juste avant `startDate`,
+     alors qu'Apple place `creationDate` entre les deux : l'unité
+     n'était jamais lue, et les miles jamais convertis. */
+  const RE_RECORD = /<Record\s[^>]*>/g;
+  const RE_A_TYPE = /\stype="([^"]+)"/;
+  const RE_A_UNIT = /\sunit="([^"]*)"/;
+  const RE_A_START = /\sstartDate="([^"]+)"/;
+  const RE_A_END = /\sendDate="([^"]+)"/;
+  const RE_A_VALUE = /\svalue="([^"]*)"/;
+  const attr = (re, tag) => { const x = re.exec(tag); return x ? x[1] : null; };
   const RE_WORKOUT = /<Workout\s+workoutActivityType="([^"]+)"[^>]*?duration="([^"]*)"[^>]*?(?:duration[Uu]nit="([^"]*)")?[^>]*?startDate="([^"]+)"/g;
   const RE_WO_DIST = /totalDistance="([\d.]+)"/;
   const RE_WO_KCAL = /totalEnergyBurned="([\d.]+)"/;
@@ -1098,9 +1230,13 @@
     let m;
     RE_RECORD.lastIndex = 0;
     while ((m = RE_RECORD.exec(text))) {
-      const type = m[1], unit = m[2] || '', start = m[3], end = m[4], value = m[5];
-      const def = TYPES[type];
+      const tag = m[0];
+      const type = attr(RE_A_TYPE, tag);
+      const def = type ? TYPES[type] : null;
       if (!def) continue;
+      const start = attr(RE_A_START, tag), end = attr(RE_A_END, tag), value = attr(RE_A_VALUE, tag);
+      if (!start || !end || value == null) continue;
+      const unit = attr(RE_A_UNIT, tag) || '';
       const dayKey = start.slice(0, 10);
       if (!/^\d{4}-\d{2}-\d{2}$/.test(dayKey)) continue;
 
@@ -1111,12 +1247,27 @@
       acc.seen.add(sig);
       if (acc.seen.size > 900000) acc.seen.clear();
 
-      const d = acc.days[dayKey] || (acc.days[dayKey] = {});
-      const slot = d[def.k] || (d[def.k] = { sum: 0, n: 0, last: null, dur: 0 });
       acc.records++;
 
+      /* Le sommeil : l'iPhone écrit « au lit » (InBed), la montre
+         écrit les phases (AsleepCore, Deep, REM). Les additionner
+         donnait 15 h pour une nuit de 7 h. On garde les intervalles,
+         rattachés au jour du RÉVEIL, et on les fusionne à la fin. */
+      if (type === 'HKCategoryTypeIdentifierSleepAnalysis') {
+        if (/Awake/i.test(value)) continue;
+        const t1 = horodatage(start), t2 = horodatage(end);
+        if (isNaN(t1) || isNaN(t2) || t2 <= t1) continue;
+        const jourReveil = end.slice(0, 10);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(jourReveil)) continue;
+        const nuit = acc.sleep[jourReveil] || (acc.sleep[jourReveil] = { dort: [], lit: [] });
+        (/InBed/i.test(value) ? nuit.lit : nuit.dort).push([t1, t2]);
+        continue;
+      }
+
+      const d = acc.days[dayKey] || (acc.days[dayKey] = {});
+      const slot = d[def.k] || (d[def.k] = { sum: 0, n: 0, last: null, dur: 0 });
+
       if (def.agg === 'dur') {
-        if (type === 'HKCategoryTypeIdentifierSleepAnalysis' && /Awake/i.test(value)) continue;
         slot.dur += minutesBetween(start, end);
       } else {
         let v = parseFloat(value);
@@ -1141,16 +1292,36 @@
     }
   }
 
+  /* « 2024-03-02 07:10:00 +0100 » : Safari refuse l'espace avant
+     le fuseau, on le recolle. */
+  function horodatage(s) {
+    const x = String(s).trim().replace(' ', 'T').replace(/\s*([+-]\d{2}):?(\d{2})$/, '$1:$2');
+    return new Date(x).getTime();
+  }
+  /* Durée couverte par des intervalles qui peuvent se chevaucher. */
+  function minutesUnion(liste) {
+    if (!liste.length) return 0;
+    const l = liste.slice().sort((a, b) => a[0] - b[0]);
+    let total = 0, d = l[0][0], f = l[0][1];
+    for (let i = 1; i < l.length; i++) {
+      if (l[i][0] <= f) f = Math.max(f, l[i][1]);
+      else { total += f - d; d = l[i][0]; f = l[i][1]; }
+    }
+    total += f - d;
+    return total / 60000;
+  }
+
   function minutesBetween(a, b) {
-    const t1 = new Date(a.replace(' ', 'T')).getTime(), t2 = new Date(b.replace(' ', 'T')).getTime();
+    const t1 = horodatage(a), t2 = horodatage(b);
     if (isNaN(t1) || isNaN(t2)) return 0;
     return Math.max(0, (t2 - t1) / 60000);
   }
 
   function finish(acc) {
     const out = { days: [], workouts: acc.workouts, records: acc.records };
-    Object.keys(acc.days).forEach((k) => {
-      const src = acc.days[k], row = { day: k };
+    const cles = new Set(Object.keys(acc.days).concat(Object.keys(acc.sleep || {})));
+    cles.forEach((k) => {
+      const src = acc.days[k] || {}, row = { day: k };
       Object.keys(TYPES).forEach((t) => {
         const def = TYPES[t], s = src[def.k];
         if (!s) return;
@@ -1159,6 +1330,14 @@
         else if (def.agg === 'last') row[def.k] = s.last;
         else if (def.agg === 'dur') row[def.k] = Math.round(s.dur);
       });
+      /* Le sommeil réel : les phases dormies si la montre les a
+         notées, sinon le temps au lit. */
+      const nuit = acc.sleep && acc.sleep[k];
+      if (nuit) {
+        const min = Math.round(nuit.dort.length ? minutesUnion(nuit.dort) : minutesUnion(nuit.lit));
+        if (min > 0) row.sleep = min;
+      }
+      if (Object.keys(row).length < 2) return;
       out.days.push(row);
     });
     out.days.sort((a, b) => a.day < b.day ? -1 : 1);
@@ -1223,14 +1402,31 @@
        pas effacer les pas notes hier soir. Un champ vide efface
        explicitement la mesure, c'est le seul moyen de se corriger. */
     const row = { day: k };
+    let n = 0;
     METRIQUES.forEach((m) => {
       const v = res[m.cle];
-      if (v === undefined || v === '' || !isFinite(Number(v))) return;
+      if (v === undefined) return;
+      if (v === '' || !isFinite(Number(v))) {
+        /* Store.put fusionne : sans un `null` explicite, l'ancienne
+           valeur restait. On vide aussi la clé importée qui
+           l'alimente (fat, lean...), sinon elle réapparaîtrait. */
+        row[m.cle] = null;
+        const al = ALIAS.find((a) => a.cle === m.cle);
+        if (al) row[al.src] = null;
+        return;
+      }
       row[m.cle] = m.stockeEnMinutes ? Math.round(Number(v) * 60) : Number(v);
+      n++;
     });
-    if (cur.id) Store.put('healthDays', cur.id, row); else Store.add('healthDays', row);
+    if (cur.id) {
+      const fusion = Object.assign({}, Store.find('healthDays', cur.id) || {}, row);
+      const reste = Object.keys(fusion).filter((c) => c !== 'day' && c !== 'id' && c.charAt(0) !== '_' &&
+        fusion[c] != null && fusion[c] !== '');
+      /* Plus aucune mesure : la journée disparaît vraiment. */
+      if (!reste.length) Store.del('healthDays', cur.id);
+      else Store.put('healthDays', cur.id, row);
+    } else if (n) Store.add('healthDays', row);
     Store.set('healthInsight', null);
-    const n = Object.keys(row).length - 1;
     render();
     UI.toast(n ? n + (n > 1 ? ' mesures enregistrées' : ' mesure enregistrée') : 'Journée vidée');
     if (n && global.Anim) Anim.confettis(24);
@@ -1275,7 +1471,7 @@
     const days = lastDays(Math.max(14, range));
     const food = global.Food ? Food.summary(7) : [];
     UI.toast('Analyse…');
-    const table = days.filter((d) => d.steps != null || d.sleep != null).map((d) =>
+    const table = days.filter((d) => ['steps', 'sleep', 'hrRest', 'weight', 'bpSys', 'bpDia', 'exercise'].some((k) => d[k] != null)).map((d) =>
       d.day + ' : ' + [
         d.steps != null ? d.steps + ' pas' : null,
         d.exercise != null ? d.exercise + ' min exercice' : null,
@@ -1285,6 +1481,7 @@
         d.hrv != null ? 'VFC ' + Math.round(d.hrv) + ' ms' : null,
         d.weight != null ? d.weight + ' kg' : null,
         d.spo2 != null ? 'oxygène ' + Math.round(d.spo2) + ' %' : null,
+        d.bpSys != null || d.bpDia != null ? 'tension ' + (d.bpSys != null ? Math.round(d.bpSys) : '?') + '/' + (d.bpDia != null ? Math.round(d.bpDia) : '?') + ' mmHg' : null,
         d.resp != null ? 'respiration ' + Math.round(d.resp) + '/min' : null,
         d.vo2 != null ? 'VO2max ' + d.vo2 : null,
         d.distance != null ? d.distance + ' km' : null,

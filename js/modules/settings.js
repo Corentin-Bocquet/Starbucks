@@ -62,7 +62,7 @@
         '<div class="sechead"><h2 style="font-size:16px">Intelligence artificielle</h2></div>' +
         '<div class="list">' +
           '<button class="rowitem" data-act="gemini"><span class="ic marque">' + Icon.marque('gemini', 21) + '</span>' +
-            '<span class="tx"><b>Clé Gemini</b><small>' + (Store.get('geminiKey', '') ? 'Configurée · ' + mask(Store.get('geminiKey', '')) : 'Non configurée') + '</small></span>' +
+            '<span class="tx"><b>Clé Gemini</b><small>' + etatIA() + '</small></span>' +
             '<span class="rt">' + Icon('next', 15) + '</span></button>' +
           '<button class="rowitem" data-act="tmdb">' + art3d('clap') +
             '<span class="tx"><b>Clé TMDB</b><small>' + (Store.get('tmdbKey', '') ? 'Configurée' : 'Facultative, pour les affiches de films') + '</small></span>' +
@@ -80,12 +80,6 @@
               ? 'Activées · les cartes montrent les icônes en verre'
               : 'Coupées · les cartes montrent des photos') + '</small></span>' +
             '<span class="rt">' + Icon('next', 15) + '</span></button>' +
-          '<button class="rowitem" data-act="images">' + art3d('appareil') +
-            '<span class="tx"><b>Images générées</b><small>' +
-            (Imagerie.actif()
-              ? Imagerie.stats().enCache + ' en mémoire · ' + Imagerie.resteAujourdhui() + " possibles aujourd'hui"
-              : 'Coupées') + '</small></span>' +
-            '<span class="rt">' + Icon('next', 15) + '</span></button>' +
           /* Le portrait sert a la fonction « Me voir avec » des
              tenues. Il se depose ici une fois pour toutes : avant,
              l'application le redemandait a chaque essai. */
@@ -96,11 +90,11 @@
             '<span class="tx"><b>Ma photo</b><small>' +
             (Store.get('portraitPhoto', null) || Store.get('portraitPhotoUrl', null)
               ? 'Enregistrée'
-              : 'Ta photo de profil') + '</small></span>' +
+              : 'Pour « Me voir avec » dans les tenues') + '</small></span>' +
             '<span class="rt">' + Icon('next', 15) + '</span></button>' +
           '<button class="rowitem" data-act="diag">' + art3d('eclair') +
             '<span class="tx"><b>Tester l\'IA</b><small>' +
-            (AI.currentModel() ? 'Modèle actif : ' + UI.esc(AI.currentModel()) : 'Vérifie la clé et choisit le modèle') +
+            (AI.currentModel() ? 'Modèle actif : ' + UI.esc(AI.currentModel()) : "Vérifie que l'IA répond") +
             '</small></span><span class="rt">' + Icon('next', 15) + '</span></button>' +
           '<button class="rowitem" data-act="clearcache">' + art3d('refaire') +
             '<span class="tx"><b>Vider le cache des réponses IA</b></span><span class="rt">' + Icon('next', 15) + '</span></button>' +
@@ -146,7 +140,7 @@
             '<span class="switch ' + (Store.get('haptics', true) ? 'on' : '') + '"></span></button>' +
           '<button class="rowitem" data-act="sound">' + art3d('etoile') +
             '<span class="tx"><b>Sons</b><small>Coupés par défaut</small></span>' +
-            '<span class="switch ' + (Store.get('sound', true) ? 'on' : '') + '"></span></button>' +
+            '<span class="switch ' + (Store.get('sound', false) ? 'on' : '') + '"></span></button>' +
           '<button class="rowitem" data-act="weather">' + art3d('goutte') +
             '<span class="tx"><b>Tenir compte de la météo</b></span>' +
             '<span class="switch ' + (Store.get('useWeather', true) ? 'on' : '') + '"></span></button>' +
@@ -163,7 +157,7 @@
           '<button class="rowitem" data-act="import">' + art3d('livre') +
             '<span class="tx"><b>Importer une sauvegarde</b></span><span class="rt">' + Icon('next', 15) + '</span></button>' +
           '<button class="rowitem" data-act="wipe">' + art3d('corbeille') +
-            '<span class="tx"><b>Tout effacer</b><small>Definitif sur cet appareil</small></span>' +
+            '<span class="tx"><b>Tout effacer</b><small>Définitif sur cet appareil</small></span>' +
             '<span class="rt">' + Icon('next', 15) + '</span></button>' +
         '</div>' +
       '</div>' +
@@ -178,8 +172,8 @@
              l'usage : elles attendent derriere le point d'interrogation. */
           '<p class="muted" style="font-size:12px;margin-top:10px">Application personnelle' +
             UI.hint("Les recettes Starbucks sont des reconstitutions, pas des recettes officielles.\n" +
-                    "Les doses de cocktails suivent la reference internationale des barmans quand elle existe. L'abus d'alcool est dangereux pour la sante.\n" +
-                    "Les analyses de nutrition et de forme sont des estimations : elles ne remplacent pas un medecin.",
+                    "Les doses de cocktails suivent la référence internationale des barmans quand elle existe. L'abus d'alcool est dangereux pour la santé.\n" +
+                    "Les analyses de nutrition et de forme sont des estimations : elles ne remplacent pas un médecin.",
                     'Ce qu\'il faut savoir') + '</p>' +
         '</div>' +
       '</div>' +
@@ -206,7 +200,15 @@
   const row = (ic, k, v, act) => '<button class="rowitem" data-act="' + act + '"><span class="ic">' + Icon(ic, 17) + '</span>' +
     '<span class="tx"><b>' + UI.esc(k) + '</b></span><span class="rt">' + UI.esc(v) + Icon('next', 15) + '</span></button>';
   const mask = (k) => k.slice(0, 6) + '…' + k.slice(-4);
-  const lastSync = () => { const t = Store.get('_lastSync', 0); return t ? 'Dernière fois ' + UI.fmt.dateShort(t) + ' a ' + UI.fmt.time(t) : 'Jamais'; };
+  const lastSync = () => { const t = Store.get('_lastSync', 0); return t ? 'Dernière fois ' + UI.fmt.dateShort(t) + ' à ' + UI.fmt.time(t) : 'Jamais'; };
+  /* L'IA marche sans clé, par le serveur EVER : « Non configurée »
+     laissait croire qu'elle était coupée. */
+  function etatIA() {
+    const k = Store.get('geminiKey', '');
+    if (k) return 'Clé personnelle · ' + mask(k);
+    if (AI.available()) return 'IA active via le serveur EVER · clé facultative';
+    return "Non configurée : l'IA est coupée";
+  }
 
   function bind() {
     root.querySelectorAll('[data-theme]').forEach((b) => b.onclick = () => { Store.set('theme', b.dataset.theme); App.applyTheme(); render(); });
@@ -269,7 +271,7 @@
     supabase: async () => {
       const r = await UI.promptSheet('Projet Supabase', [
         { name: 'url', label: 'URL du projet', value: Store.get('supabaseUrl', ''), placeholder: 'https://xxxx.supabase.co', hint: 'Réglages > API > Project URL' },
-        { name: 'key', label: 'Clé publique (anon)', value: Store.get('supabaseAnonKey', ''), placeholder: 'eyJhbGciOi…', hint: 'Publiable : ce sont les policies RLS qui protegent les données' }
+        { name: 'key', label: 'Clé publique (anon)', value: Store.get('supabaseAnonKey', ''), placeholder: 'eyJhbGciOi…', hint: 'Publiable : ce sont les policies RLS qui protègent les données' }
       ], 'Enregistrer');
       if (!r) return;
       Store.set('supabaseUrl', r.url.trim().replace(/\/$/, ''));
@@ -280,42 +282,27 @@
       render();
     },
 
-    /* --- IA --- */
-    images: async () => {
-      /* Un seul reglage, et de quoi comprendre ce qu'il coupe. */
-      const st = Imagerie.stats();
-      const r = await UI.promptSheet('Images générées', [
-        { name: 'actif', label: 'Générer les images', type: 'select',
-          value: Store.get('imagesIA', true) ? 'oui' : 'non',
-          options: [{ v: 'oui', n: 'Oui' }, { v: 'non', n: 'Non' }] },
-        { name: 'plafond', label: 'Maximum par jour', type: 'number', inputmode: 'numeric',
-          value: st.plafond,
-          hint: 'Une image coûte environ quarante fois un texte. ' + st.enCache + ' sont déjà en mémoire et ne coûtent plus rien.' },
-        { name: 'vider', label: 'Vider ce qui est en mémoire', type: 'select', value: 'non',
-          options: [{ v: 'non', n: 'Non' }, { v: 'oui', n: 'Oui, tout regénérer' }] }
-      ], 'Enregistrer');
-      if (!r) return;
-      Store.set('imagesIA', r.actif === 'oui');
-      Store.set('imgPlafond', Math.max(0, Number(r.plafond) || 60));
-      if (r.vider === 'oui') Imagerie.vider();
-      UI.toast('Enregistré');
-      render();
-    },
-
+    /* --- IA ---
+       La ligne « Images générées » a été retirée : la génération est
+       coupée dans le code (Imagerie.actif() renvoie toujours false),
+       l'interrupteur n'avait donc aucun effet. Les images viennent du
+       catalogue livré avec l'app (img/v/). */
     gemini: async () => {
       const r = await UI.promptSheet('Clé Gemini', [
-        { name: 'key', label: 'Clé d\'API', value: Store.get('geminiKey', ''), placeholder: 'AIza…',
-          hint: 'A créer sur aistudio.google.com. Elle reste sur cet appareil.' },
-        { name: 'proxy', label: 'Ou une adresse de proxy', value: Store.get('geminiProxyUrl', ''), placeholder: 'https://…/functions/v1/gemini',
-          hint: 'Si renseignee, la clé n\'est plus nécessaire' }
+        { name: 'key', label: 'Clé d\'API (facultative)', value: Store.get('geminiKey', ''), placeholder: 'AIza…',
+          hint: "À créer sur aistudio.google.com. Sans clé, l'IA passe par le serveur EVER. Elle reste sur cet appareil." },
+        { name: 'proxy', label: 'Autre serveur IA (avancé)', value: Store.get('geminiProxyUrl', ''), placeholder: 'https://…/functions/v1/ever-ai',
+          hint: 'Laisse vide pour utiliser le serveur EVER.' }
       ], 'Enregistrer');
       if (!r) return;
-      Store.set('geminiKey', r.key.trim());
-      Store.set('geminiProxyUrl', r.proxy.trim());
-      if (r.key.trim() || r.proxy.trim()) {
+      Store.set('geminiKey', (r.key || '').trim());
+      Store.set('geminiProxyUrl', (r.proxy || '').trim());
+      if (AI.available()) {
         UI.toast('Vérification…');
         AI.forget();
-        const t = await AI.selfTest();
+        /* Sans la génération d'image : elle consomme du quota et ne
+           dit rien de la clé. */
+        const t = await AI.selfTest({ image: false });
         UI.toast(t.ok ? 'IA active · ' + t.model : t.message);
       }
       render();
@@ -372,7 +359,9 @@
     diag: async () => {
       UI.openSheet('<div class="mbody">' + UI.thinking('Test des quatre briques…') + '</div>');
       AI.forget();
-      const r = await AI.selfTest();
+      let r;
+      try { r = await AI.selfTest(); }
+      catch (e) { r = { ok: false, etapes: [], message: AI.humanError(e), code: String((e && e.message) || e) }; }
 
       /* La pastille `.ic` prend l'accent de la page, rouge dans les
          reglages : une coche de succes dans un rond rouge se lit
@@ -394,13 +383,13 @@
       const j = (AI.journal() || []).slice(0, 8);
       const quand = (t) => {
         const d = Math.round((Date.now() - t) / 60000);
-        return d < 1 ? "a l'instant" : (d < 60 ? 'il y a ' + d + ' min' : 'il y a ' + Math.round(d / 60) + ' h');
+        return d < 1 ? "à l'instant" : (d < 60 ? 'il y a ' + d + ' min' : 'il y a ' + Math.round(d / 60) + ' h');
       };
 
       UI.openSheet('<div class="mbody" style="padding-top:6px">' +
         '<h2 style="font-size:22px;margin-bottom:4px">' +
           (r.ok ? "L'IA répond" : "L'IA ne répond pas") + '</h2>' +
-        '<p class="mdesc">' + (r.cle ? 'Clé enregistrée sur cet appareil.' : (r.proxy ? 'Passe par un proxy.' : 'Aucune clé.')) + '</p>' +
+        '<p class="mdesc">' + (r.cle ? 'Clé personnelle enregistrée sur cet appareil.' : (r.proxy ? 'Passe par le serveur EVER.' : 'Aucune clé.')) + '</p>' +
 
         '<div class="list" style="margin-top:14px">' + (r.etapes || []).map(ligne).join('') + '</div>' +
 
@@ -431,12 +420,15 @@
             '</div>'
           : '') +
 
+        (r.ok ? '' : '<p class="muted" style="font-size:12px;margin-top:14px">En attendant, tout ce qui ne dépend pas de l\'IA continue de marcher : ' +
+          'saisie manuelle des repas, recherche dans la base d\'aliments, listes, tenues de ta penderie.</p>') +
+
         '<div class="btnrow" style="margin-top:18px">' +
           '<button class="btn primary grow" data-refaire>Refaire le test</button>' +
           '<button class="btn" data-sheet-close>Fermer</button>' +
         '</div>' +
         '<p class="muted" style="font-size:11px;margin-top:10px">Rien de tout ceci ne quitte le téléphone. La clé n\'est jamais journalisée.</p>' +
-        '</div>', { onMount: (sh) => {
+        '</div>', { remplacer: true, onMount: (sh) => {
           const b = sh.querySelector('[data-refaire]');
           if (b) b.onclick = () => { UI.closeSheet(); acts.diag(); };
           const v = sh.querySelector('[data-vider]');
@@ -471,7 +463,14 @@
         { name: 'sleep', label: 'Sommeil (minutes)', type: 'number', inputmode: 'numeric', value: g.sleep }
       ], 'Enregistrer');
       if (!r) return;
-      Store.set('healthGoals', { steps: +r.steps, exercise: +r.exercise, active: +r.active, sleep: +r.sleep });
+      /* Comme pour l'alimentation : un champ vidé garde l'ancienne
+         valeur au lieu d'enregistrer 0. */
+      const out = {};
+      ['steps', 'exercise', 'active', 'sleep'].forEach((k) => {
+        const v = r[k] == null ? '' : String(r[k]).trim();
+        if (v !== '' && isFinite(Number(v))) out[k] = Number(v);
+      });
+      Store.set('healthGoals', Object.assign({}, Health.goals(), out));
       render();
     },
 
@@ -503,7 +502,7 @@
     weather: () => { Store.set('useWeather', !Store.get('useWeather', true)); render(); },
     haptics: () => { Store.set('haptics', !Store.get('haptics', true)); UI.haptic('toggle'); render(); },
     sound: () => {
-      const next = !Store.get('sound', true);
+      const next = !Store.get('sound', false);
       Store.set('sound', next);
       if (next && global.Feedback) { Feedback.arm(); Feedback.fire('success'); }
       render();
@@ -522,7 +521,7 @@
         if (!f) return;
         const r = new FileReader();
         r.onload = () => {
-          try { Store.importAll(JSON.parse(String(r.result))); UI.toast('Sauvegarde restauree'); location.reload(); }
+          try { Store.importAll(JSON.parse(String(r.result))); UI.toast('Sauvegarde restaurée'); location.reload(); }
           catch (e) { UI.toast('Fichier illisible'); }
         };
         r.readAsText(f);
@@ -530,7 +529,7 @@
       input.click();
     },
     wipe: async () => {
-      if (!await UI.confirmSheet('Tout effacer', 'Toutes tes données locales seront supprimees. Si tu as un compte, elles restent sur le serveur.', true)) return;
+      if (!await UI.confirmSheet('Tout effacer', 'Toutes tes données locales seront supprimées. Si tu as un compte, elles restent sur le serveur.', true)) return;
       Store.wipe('all');
       location.reload();
     }
@@ -550,7 +549,7 @@
         '<button class="btn primary block lg" type="submit">' + (isSignup ? 'Créer le compte' : 'Se connecter') + '</button>' +
       '</form>' +
       '<button class="btn ghost block" style="margin-top:8px" data-switch>' + (isSignup ? "J'ai déjà un compte" : 'Créer un compte') + '</button>' +
-      (isSignup ? '' : '<button class="btn ghost block" data-forgot>Mot de passe oublie</button>') +
+      (isSignup ? '' : '<button class="btn ghost block" data-forgot>Mot de passe oublié</button>') +
       '</div>', {
       onMount: (s) => {
         const form = s.querySelector('[data-form]'), err = s.querySelector('[data-err]');
@@ -566,7 +565,9 @@
             } else {
               await Cloud.signIn(form.email.value.trim(), form.password.value);
               UI.closeSheet(); UI.toast('Connecté');
-              await Store.pull(); await Store.push();
+              /* Une seule synchro : Cloud.sync() est aussi appelée par
+                 l'évènement SIGNED_IN, elle ne s'exécute qu'une fois. */
+              await Cloud.sync();
             }
             render();
           } catch (e2) {
@@ -576,9 +577,9 @@
         s.querySelector('[data-switch]').onclick = () => authSheet(isSignup ? 'login' : 'signup');
         const fg = s.querySelector('[data-forgot]');
         if (fg) fg.onclick = async () => {
-          const r = await UI.promptSheet('Reinitialiser', [{ name: 'email', label: 'Adresse e-mail', type: 'email' }], 'Envoyer');
+          const r = await UI.promptSheet('Réinitialiser', [{ name: 'email', label: 'Adresse e-mail', type: 'email' }], 'Envoyer');
           if (!r || !r.email) return;
-          try { await Cloud.resetPassword(r.email); UI.toast('Mail envoye'); }
+          try { await Cloud.resetPassword(r.email); UI.toast('Mail envoyé'); }
           catch (e) { UI.toast(e.message); }
         };
       }

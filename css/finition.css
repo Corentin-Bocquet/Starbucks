@@ -144,7 +144,7 @@
   box-shadow: inset 0 1px 1px rgba(255,255,255,.25), inset 0 0 0 1px rgba(255,255,255,.08) !important;
   opacity: 1 !important;
 }
-html:not([data-theme="dark"]) :is(.vign.vide, .phic.vide) {
+html[data-theme="light"] :is(.vign.vide, .phic.vide) {
   background: linear-gradient(150deg, rgba(20,30,40,.06), rgba(20,30,40,.02)) !important;
   box-shadow: inset 0 0 0 1px rgba(20,30,40,.06) !important;
 }
@@ -233,7 +233,7 @@ html:not([data-theme="dark"]) :is(.vign.vide, .phic.vide) {
   background: linear-gradient(180deg, #fff, #DCE8EC); box-shadow: 0 6px 16px -4px rgba(0,0,0,.55), inset 0 1px 0 #fff;
 }
 .rayonslider::-moz-range-thumb { width: 30px; height: 30px; border: 0; border-radius: 50%; background: #fff; box-shadow: 0 6px 16px -4px rgba(0,0,0,.55); }
-html:not([data-theme="dark"]) .rayonslider::-webkit-slider-runnable-track { background: linear-gradient(90deg, #2E8C6E var(--p), rgba(0,0,0,.1) var(--p)); }
+html[data-theme="light"] .rayonslider::-webkit-slider-runnable-track { background: linear-gradient(90deg, #2E8C6E var(--p), rgba(0,0,0,.1) var(--p)); }
 .rayonbornes { display: flex; justify-content: space-between; font-size: 11.5px; font-weight: 650; color: var(--muted); margin-top: 2px; }
 .rayonvite { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 16px; }
 
@@ -373,7 +373,7 @@ html:not([data-theme="dark"]) .rayonslider::-webkit-slider-runnable-track { back
 .tgrand { height: 300px; padding: 10px; border-radius: 28px;
   background: linear-gradient(160deg, rgba(255,255,255,.1), rgba(255,255,255,.02)); box-shadow: inset 0 0 0 1px rgba(255,255,255,.08); }
 .tgrand .mini small { font-size: 12px; }
-html:not([data-theme="dark"]) .tgrand { background: linear-gradient(160deg, #3E4A63, #1E2635); }
+html[data-theme="light"] .tgrand { background: linear-gradient(160deg, #3E4A63, #1E2635); }
 .tphotogrande { border-radius: 26px; overflow: hidden; aspect-ratio: 3 / 4; max-height: 60vh; margin: 0 auto 14px; }
 .tphotogrande img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
@@ -500,9 +500,9 @@ html:not([data-theme="dark"]) .tgrand { background: linear-gradient(160deg, #3E4
 .wiz .track .opt .sb { margin: 0; font-size: 12px; color: var(--muted); opacity: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .wiz .track .opt .cnt { align-self: flex-start; margin-top: 6px; padding: 3px 10px; font-size: 11px; font-weight: 750; border-radius: 999px;
   background: rgba(255,255,255,.12); color: var(--ink-2, var(--ink)); }
-html:not([data-theme="dark"]) .wiz .track .opt .cnt { background: rgba(0,0,0,.06); }
+html[data-theme="light"] .wiz .track .opt .cnt { background: rgba(0,0,0,.06); }
 .wiz .track .opt.sel, :root[data-theme="dark"] .wiz .track .opt.sel { outline: 2.5px solid #fff; outline-offset: 2px; }
-html:not([data-theme="dark"]) .wiz .track .opt.sel { outline-color: var(--accent); }
+html[data-theme="light"] .wiz .track .opt.sel { outline-color: var(--accent); }
 .wiz .track .opt.mid { transform: none; }
 @media (min-width: 900px) { .trackwrap .arrows { display: flex !important; } }
 
@@ -612,7 +612,7 @@ html:not([data-theme="dark"]) .wiz .track .opt.sel { outline-color: var(--accent
 .lecpoint .n { flex: none; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 14px;
   color: #fff; background: linear-gradient(150deg, #BE5F8C, #7A2E54); }
 .lecpoint p { margin: 0; font-size: 15px; line-height: 1.55; }
-html:not([data-theme="dark"]) .lecpoint { background: #fff; box-shadow: 0 1px 0 rgba(0,0,0,.04), inset 0 0 0 1px rgba(0,0,0,.06); }
+html[data-theme="light"] .lecpoint { background: #fff; box-shadow: 0 1px 0 rgba(0,0,0,.04), inset 0 0 0 1px rgba(0,0,0,.06); }
 
 /* ============================================================
    16. Grand écran : des grilles, pas des cartes géantes
@@ -639,13 +639,13 @@ html:not([data-theme="dark"]) .lecpoint { background: #fff; box-shadow: 0 1px 0 
 }
 
 /* Thème clair : les cartes à objet 3D gardent un texte foncé lisible. */
-:root:not([data-theme="dark"]) .kart:is(.catpiece, :has(.vis3d)) { background: linear-gradient(165deg, #fff, #F3F1EE); }
-:root:not([data-theme="dark"]) .kart:is(.catpiece, :has(.vis3d))::before { display: none; }
-:root:not([data-theme="dark"]) .kart:is(.catpiece, :has(.vis3d)) .voile { display: none; }
-:root:not([data-theme="dark"]) .kart:is(.catpiece, :has(.vis3d)) .tx b { color: #14151A; text-shadow: none; }
-:root:not([data-theme="dark"]) .kart:is(.catpiece, :has(.vis3d)) .tx small { color: #5A5E68; opacity: 1; text-shadow: none; }
-:root:not([data-theme="dark"]) .tcarte.ajout { background: rgba(20,21,26,.04); box-shadow: inset 0 0 0 1.5px rgba(20,21,26,.1); }
-:root:not([data-theme="dark"]) .tplus { background: rgba(20,21,26,.06); color: #14151A; box-shadow: none; }
+:root[data-theme="light"] .kart:is(.catpiece, :has(.vis3d)) { background: linear-gradient(165deg, #fff, #F3F1EE); }
+:root[data-theme="light"] .kart:is(.catpiece, :has(.vis3d))::before { display: none; }
+:root[data-theme="light"] .kart:is(.catpiece, :has(.vis3d)) .voile { display: none; }
+:root[data-theme="light"] .kart:is(.catpiece, :has(.vis3d)) .tx b { color: #14151A; text-shadow: none; }
+:root[data-theme="light"] .kart:is(.catpiece, :has(.vis3d)) .tx small { color: #5A5E68; opacity: 1; text-shadow: none; }
+:root[data-theme="light"] .tcarte.ajout { background: rgba(20,21,26,.04); box-shadow: inset 0 0 0 1.5px rgba(20,21,26,.1); }
+:root[data-theme="light"] .tplus { background: rgba(20,21,26,.06); color: #14151A; box-shadow: none; }
 
 /* La roue : un nom long rétrécit, puis se coupe proprement, sans
    jamais sortir du cadre. */
@@ -686,7 +686,7 @@ html:not([data-theme="dark"]) .lecpoint { background: #fff; box-shadow: 0 1px 0 
 .pcarte .ptx small { font-size: 10.5px; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 .pcarte .ptx b { font-size: 15px; font-weight: 800; letter-spacing: -.015em; line-height: 1.2;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-:root:not([data-theme="dark"]) .pcarte { background: linear-gradient(165deg, #fff, #F2F0EC); box-shadow: 0 14px 30px -22px rgba(20,21,26,.45), inset 0 0 0 1px rgba(20,21,26,.06); }
+:root[data-theme="light"] .pcarte { background: linear-gradient(165deg, #fff, #F2F0EC); box-shadow: 0 14px 30px -22px rgba(20,21,26,.45), inset 0 0 0 1px rgba(20,21,26,.06); }
 @media (min-width: 900px) { .pcarte { width: 230px; } }
 
 /* Tous les carrousels s'aimantent sur la marge, pas sur le bord de l'écran. */
@@ -739,7 +739,7 @@ html:not([data-theme="dark"]) .lecpoint { background: #fff; box-shadow: 0 1px 0 
   margin: 4px auto 14px; padding: 12px 14px 12px 16px; border-radius: 20px; text-align: left; color: var(--ink);
   background: linear-gradient(160deg, rgba(255,255,255,.1), rgba(255,255,255,.03));
   -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); box-shadow: inset 0 0 0 1px rgba(255,255,255,.1); }
-:root:not([data-theme="dark"]) .monbar { background: #fff; box-shadow: 0 6px 20px -14px rgba(0,0,0,.4), inset 0 0 0 1px rgba(20,21,26,.06); }
+:root[data-theme="light"] .monbar { background: #fff; box-shadow: 0 6px 20px -14px rgba(0,0,0,.4), inset 0 0 0 1px rgba(20,21,26,.06); }
 .monbar .mbtx { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .monbar .mbtx b { font-size: 15px; font-weight: 780; }
 .monbar .mbtx small { font-size: 12.5px; color: var(--muted); }

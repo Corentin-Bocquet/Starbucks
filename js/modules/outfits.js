@@ -12,6 +12,10 @@
   'use strict';
 
   let root = null, ctx = null, view = 'jour';
+  /* L'échec du mode Inventer, montré dans la page au lieu d'un
+     sablier qui tourne pour toujours. Le jeton écarte la réponse
+     d'une demande dépassée par une plus récente. */
+  let erreurJour = null, jetonIA = 0;
 
   const garments = () => Store.all('garments');
   const outfits  = () => Store.all('outfits');
@@ -25,21 +29,51 @@
       weekend: [0, 6].indexOf(new Date().getDay()) >= 0,
       date: UI.day.today(), budget: Store.get('budget', 2)
     };
+    erreurJour = null;
     render();
-    composerLeJour();
-    Ctx.snapshot().then((full) => {
-      if (!root.isConnected) return;
-      ctx = full;
-      if (full.weather) render();
-    }).catch(() => {});
+    preparerLeJour(el);
 
     /* Rattrapage discret : sur un appareil qui vient de se connecter,
-       les images n'existent qu'en ligne. On les redescend en fond. */
-    if (global.Cloud && Cloud.ready() && Store.all('garments').some((g) => g.photoUrl && !g.photo)) {
-      Photos.sync('garments', 'photo', 'garments').then((r) => {
-        if (r.down && root && root.isConnected) render();
-      }).catch(() => {});
+       les images n'existent qu'en ligne. On les redescend en fond, et
+       on envoie celles qui ne sont encore que sur cet appareil. Les
+       photos portées des tenues suivent le même chemin. */
+    if (global.Cloud && Cloud.ready()) {
+      [['garments', garments()], ['outfits', outfits()]].forEach((c) => {
+        if (!c[1].some((r) => (r.photoUrl && !r.photo) || (r.photo && !r.photoUrl))) return;
+        Photos.sync(c[0], 'photo', 'garments').then((r) => {
+          if ((r.down || r.up) && root === el && el.isConnected) render();
+        }).catch(() => {});
+      });
     }
+  }
+
+  /* La météo d'abord, la tenue ensuite. Sans cela, la tenue du jour
+     était calculée pour 16 degrés et sans pluie, puis figée pour la
+     journée. On attend la météo trois secondes au plus ; si elle
+     arrive plus tard, on recompose tant que l'utilisateur n'a rien
+     touché. */
+  async function preparerLeJour(el) {
+    const snap = Ctx.snapshot().catch(() => null);
+    const premier = await Promise.race([snap, new Promise((r) => setTimeout(() => r(null), 3000))]);
+    if (root !== el || !el.isConnected) return;
+    if (premier) ctx = premier;
+    render();
+    composerLeJour();
+    if (premier) return;
+    const full = await snap;
+    if (!full || root !== el || !el.isConnected) return;
+    ctx = full;
+    render();
+    if (full.weather) composerLeJour();
+  }
+
+  /* Ce qui, dans la météo, change la tenue : la température par
+     tranches de trois degrés, le type de ciel, et la pluie prévue. */
+  const pluvieux = (wx) => !!wx && (['pluie', 'orage', 'neige'].indexOf(wx.kind) >= 0 ||
+    (wx.rainProb != null && wx.rainProb >= 60));
+  function empreinteMeteo(wx) {
+    if (!wx) return 'sans';
+    return Math.round(wx.temp / 3) + '|' + (wx.kind || '') + '|' + (pluvieux(wx) ? 'p' : 's');
   }
 
   function render() {
@@ -85,15 +119,42 @@
         '<button class="cote' + (mode === 'inventer' ? ' on' : '') + '" data-mode="inventer">' +
           Icon('sparkle', 16) + 'Inventer</button>' +
       '</div>' +
-      (mode === 'penderie' && garments().length < 3
-        ? tenueDeBase(wx)
-        : (tenues
+      (mode === 'penderie' && (garments().length < 3 || (tenues && !tenues.length))
+        ? tenueDeBase(wx, garments().length < 3 ? null : ceQuiManque())
+        : (tenues && tenues.length
             ? '<div class="carrousel" style="margin-top:14px">' + tenues.map(carteStyle).join('') + '</div>' +
               '<button class="btn block" style="margin-top:6px" data-act="regenererTout">' +
                 Icon('refresh', 16) + 'Tout régénérer</button>'
-            : '<div class="panel" style="text-align:center;margin-top:14px" data-attente>' +
-              UI.thinking(mode === 'inventer' ? 'L\'IA compose…' : 'Composition…') + '</div>')) +
+            : (mode === 'inventer' && erreurJour
+                ? carteErreurIA(erreurJour)
+                : '<div class="panel" style="text-align:center;margin-top:14px" data-attente>' +
+                  UI.thinking(mode === 'inventer' ? 'L\'IA compose…' : 'Composition…') + '</div>'))) +
       '</div>';
+  }
+
+  /* L'IA n'a pas pu inventer : on le dit, avec de quoi repartir. */
+  function carteErreurIA(err) {
+    const cle = err.code === 'NO_KEY' || err.code === 'BAD_KEY';
+    return '<div class="panel" style="text-align:center;margin-top:14px" data-erreur-ia>' +
+      '<b style="display:block;font-size:16px;margin-bottom:6px">' +
+        (cle ? 'Inventer des tenues demande une clé IA' : 'Impossible d\'inventer les tenues') + '</b>' +
+      '<p class="muted" style="font-size:13px;margin-bottom:12px">' + UI.esc(err.message) + '</p>' +
+      '<div class="row" style="gap:8px">' +
+        (cle
+          ? '<button class="btn primary grow" data-act="reglagesIA">Ouvrir les réglages</button>'
+          : '<button class="btn primary grow" data-act="reessayerIA">' + Icon('refresh', 16) + 'Réessayer</button>') +
+        '<button class="btn grow" data-mode="penderie">' + Icon('shirt', 16) + 'Ma penderie</button>' +
+      '</div></div>';
+  }
+
+  /* Trois pièces ne suffisent pas si ce sont trois hauts : il faut
+     de quoi faire une tenue. On dit ce qui manque. */
+  function ceQuiManque() {
+    const manque = [['haut', 'un haut'], ['bas', 'un bas'], ['chaussures', 'des chaussures']]
+      .filter((x) => !bySlot(x[0]).length).map((x) => x[1]);
+    if (!manque.length) return 'Tes pièces ne vont pas encore ensemble : ajoute un bas ou des chaussures pour composer une tenue.';
+    const liste = manque.length > 1 ? manque.slice(0, -1).join(', ') + ' et ' + manque[manque.length - 1] : manque[0];
+    return 'Ajoute ' + liste + ' à ta penderie, et EVER composera avec ce que tu as vraiment.';
   }
 
   /* ============================================================
@@ -108,7 +169,7 @@
      ============================================================ */
   function piecesDuTemps(wx) {
     const t = wx ? wx.temp : ({ hiver: 4, automne: 12, printemps: 15, ete: 25 })[UI.day.season()] || 15;
-    const pluie = wx && /pluie|averse|orage|bruine|neige/i.test(wx.text || '');
+    const pluie = !!wx && (pluvieux(wx) || /pluie|averse|orage|bruine|neige/i.test(wx.text || ''));
     let p;
     if (t < 8)       p = { haut: 'Pull en laine', bas: 'Jean brut', manteau: 'Manteau chaud', chaussures: 'Boots en cuir' };
     else if (t < 15) p = { haut: 'Pull fin ou sweat', bas: 'Chino', manteau: 'Veste ou trench', chaussures: 'Baskets en cuir' };
@@ -118,11 +179,11 @@
     return { t: t, pluie: pluie, p: p };
   }
 
-  function tenueDeBase(wx) {
+  function tenueDeBase(wx, manque) {
     const r = piecesDuTemps(wx);
     const slots = [['haut', 'Haut'], ['bas', 'Bas'], ['manteau', 'Veste'], ['chaussures', 'Chaussures']]
       .filter((x) => r.p[x[0]]);
-    const conseil = r.pluie ? 'Il va pleuvoir : couvre-toi.'
+    const conseil = r.pluie ? (wx && wx.kind === 'neige' ? 'Il va neiger : couvre-toi.' : 'Il va pleuvoir : couvre-toi.')
       : r.t < 8 ? 'Il fait froid : superpose.'
       : r.t < 15 ? 'Frais : une couche en plus.'
       : r.t < 22 ? 'Doux : léger, avec une veste le soir.' : 'Chaud : matières légères.';
@@ -136,7 +197,8 @@
         '<button class="btn primary grow" data-mode="inventer">' + Icon('sparkle', 16) + 'Des idées avec l\'IA</button>' +
         '<button class="btn" data-act="addGarment">' + Icon('camera', 16) + 'Mes vêtements</button>' +
       '</div>' +
-      '<p class="muted" style="font-size:12px;margin-top:10px">Ajoute trois vêtements en photo, et EVER compose avec ce que tu as vraiment.</p>' +
+      '<p class="muted" style="font-size:12px;margin-top:10px" data-manque>' +
+        UI.esc(manque || 'Ajoute trois vêtements en photo, et EVER compose avec ce que tu as vraiment.') + '</p>' +
       '</div>';
   }
 
@@ -189,6 +251,26 @@
   const piecesDe = (t) => (t.items && t.items.length
     ? t.items.map((id) => garments().find((g) => g.id === id)).filter(Boolean)
     : (t.pieces || [])).filter(Boolean);
+
+  /* L'empreinte d'une tenue : ses vêtements, triés, ou à défaut ses
+     pièces inventées. Deux tenues de même empreinte sont la même
+     tenue, quel que soit leur nom. */
+  function signature(t) {
+    if (t.items && t.items.length) return 'i:' + t.items.slice().sort().join(',');
+    const p = (t.pieces || []).map((x) => String(typeof x === 'string' ? x : (x && x.nom) || '').trim().toLowerCase())
+      .filter(Boolean).sort();
+    return p.length ? 'p:' + p.join('|') : '';
+  }
+  function tenueIdentique(t) {
+    const s = signature(t);
+    return s ? outfits().find((o) => signature(o) === s) || null : null;
+  }
+  function nomLibre(base) {
+    const pris = new Set(outfits().map((o) => String(o.nom || '').trim().toLowerCase()));
+    let n = outfits().length + 1;
+    while (pris.has((base + ' ' + n).toLowerCase())) n++;
+    return base + ' ' + n;
+  }
 
   const court = (n) => { const x = String(n || '').trim(); return x.length > 22 ? x.slice(0, 21) + '…' : x; };
 
@@ -253,15 +335,24 @@
   }
 
   /* ---------- Fabrication des cinq tenues ---------- */
+  /* Le jour en cache reste valable si la météo n'a pas changé, ou si
+     l'utilisateur a déjà relancé ou gardé une tenue : on ne lui
+     retire pas ce qu'il a choisi. */
+  function jourValable(jour, mode) {
+    if (!jour || jour.day !== UI.day.today() || jour.mode !== mode) return false;
+    if (jour.touche) return true;
+    return jour.meteo === empreinteMeteo(ctx && ctx.weather);
+  }
+
   async function composerLeJour(force) {
     const mode = MODE();
     const jour = Store.get('tenuesJour', null);
-    if (!force && jour && jour.day === UI.day.today() && jour.mode === mode) return;
+    if (!force && jourValable(jour, mode)) return;
 
     if (mode === 'penderie') {
       if (garments().length < 3) return;
       const tenues = SEED.MOODS.map((m) => tenueDepuisPenderie(m.id)).filter(Boolean);
-      Store.set('tenuesJour', { day: UI.day.today(), mode: mode, tenues: tenues });
+      Store.set('tenuesJour', { day: UI.day.today(), mode: mode, meteo: empreinteMeteo(ctx && ctx.weather), tenues: tenues });
       render();
       return;
     }
@@ -293,14 +384,31 @@
   };
 
   async function inventerLeJour(seulement) {
-    if (!AI.available()) return UI.echecIA('NO_KEY', { titre: "Inventer des tenues demande une clé IA" });
+    const avant = Store.get('tenuesJour', null);
+    const fraisAvant = avant && avant.day === UI.day.today() && avant.mode === 'inventer' && avant.tenues && avant.tenues.length;
+    /* Relancer une seule carte n'a de sens que si les cartes du jour
+       sont là ; sinon on refait toute la journée. */
+    if (seulement && !fraisAvant) seulement = null;
+
+    if (!AI.available()) {
+      if (seulement) return UI.echecIA('NO_KEY', { titre: "Inventer des tenues demande une clé IA" });
+      erreurJour = { code: 'NO_KEY', message: 'Ajoute ta clé Gemini dans les réglages, ou compose avec ta penderie.' };
+      if (root && root.isConnected) render();
+      return;
+    }
     const wx = ctx && ctx.weather;
     const cibles = seulement ? [seulement] : SEED.MOODS.map((m) => m.id);
+    const jeton = seulement ? jetonIA : ++jetonIA;
+    if (!seulement && erreurJour) { erreurJour = null; if (root && root.isConnected) render(); }
 
     try {
       const res = await AI.json(
         "Compose une tenue masculine pour chacun de ces registres, pour aujourd'hui.\n\n" +
-        (wx ? 'Météo : ' + wx.temp + ' degrés, ' + wx.text + ', ressenti ' + wx.feels + '°.\n' : '') +
+        (wx ? 'Météo : ' + wx.temp + ' degrés, ' + wx.text + ', ressenti ' + wx.feels + '°' +
+          (wx.tmin != null && wx.tmax != null ? ', entre ' + wx.tmin + ' et ' + wx.tmax + ' degrés dans la journée' : '') +
+          (wx.rainProb != null ? ', ' + wx.rainProb + ' % de risque de pluie' : '') + '.\n' +
+          (pluvieux(wx) ? (wx.kind === 'neige' ? 'Il neige : chaque tenue a une veste chaude et des chaussures qui tiennent la neige.\n'
+            : 'Il pleut ou va pleuvoir : chaque tenue a une veste ou un manteau imperméable.\n') : '') : '') +
         'Saison : ' + (ctx ? ctx.season : UI.day.season()) + '.\n\n' +
         cibles.map((c) => '- ' + nomDeStyle(c) + ' : ' + REGLES[c]).join('\n') + '\n\n' +
         "Chaque tenue liste quatre à cinq pièces précises, avec leur couleur : « chino beige », « chemise en lin blanche ». " +
@@ -313,32 +421,74 @@
           pourquoi: AI.T.str('Une ligne : pourquoi ca marche aujourd hui')
         })) }), { cache: false, temperature: 0.95 });
 
+      if (!seulement && jeton !== jetonIA) return;
       const neuves = (res.tenues || []).map((t) => ({
         mood: t.mood, nom: t.nom, source: 'ia',
         pieces: t.pieces || [], resume: t.resume, pourquoi: t.pourquoi
-      }));
+      })).filter((t) => t.pieces.length);
 
       const jour = Store.get('tenuesJour', null);
       let tenues;
-      if (seulement && jour && jour.mode === 'inventer') {
-        tenues = jour.tenues.map((t) => (t.mood === seulement && neuves[0]) ? neuves[0] : t);
+      if (seulement) {
+        if (!jour || jour.day !== UI.day.today() || jour.mode !== 'inventer') return;
+        /* Une seule carte demandée : elle garde son registre, même si
+           l'IA en a renvoyé un autre, pour ne jamais avoir deux
+           cartes du même mood. */
+        const neuve = neuves.find((t) => t.mood === seulement) || neuves[0];
+        if (!neuve) { UI.toast('Pas de nouvelle idée pour ce style, réessaie'); return; }
+        neuve.mood = seulement;
+        tenues = jour.tenues.map((t) => t.mood === seulement ? neuve : t);
       } else {
-        tenues = neuves;
+        /* Une carte par mood, dans l'ordre des moods. */
+        tenues = [];
+        SEED.MOODS.forEach((m) => {
+          const t = neuves.find((x) => x.mood === m.id);
+          if (t) tenues.push(t);
+        });
+        neuves.forEach((t) => {
+          if (tenues.indexOf(t) >= 0) return;
+          const libre = SEED.MOODS.find((m) => !tenues.some((x) => x.mood === m.id));
+          if (libre) { t.mood = libre.id; tenues.push(t); }
+        });
+        if (!tenues.length) throw new Error('EMPTY');
       }
-      Store.set('tenuesJour', { day: UI.day.today(), mode: 'inventer', tenues: tenues });
-      render();
-    } catch (e) { UI.echecIA(e, { titre: "Les tenues du jour n'ont pas pu être inventées", reessayer: () => inventerLeJour(seulement) }); }
+      erreurJour = null;
+      Store.set('tenuesJour', {
+        day: UI.day.today(), mode: 'inventer', meteo: empreinteMeteo(wx),
+        touche: seulement ? true : undefined, tenues: tenues
+      });
+      if (root && root.isConnected) render();
+    } catch (e) {
+      if (seulement) {
+        UI.echecIA(e, { titre: "La tenue n'a pas pu être réinventée", reessayer: () => inventerLeJour(seulement) });
+        return;
+      }
+      if (jeton !== jetonIA) return;
+      const code = String((e && e.message) || e || '');
+      if (code === 'ABORT') return;
+      const cache = Store.get('tenuesJour', null);
+      erreurJour = {
+        code: code,
+        message: code === 'EMPTY' ? "L'IA n'a renvoyé aucune tenue." : (AI.humanError ? AI.humanError(e) : "L'IA n'a pas répondu.")
+      };
+      /* Les cartes déjà là pour aujourd'hui restent affichées : on
+         prévient seulement que la mise à jour a échoué. */
+      if (cache && cache.day === UI.day.today() && cache.mode === 'inventer' && cache.tenues && cache.tenues.length) {
+        UI.toast('Les tenues n\'ont pas pu être mises à jour');
+      }
+      if (root && root.isConnected) render();
+    }
   }
 
   function relancer(mood) {
     UI.haptic('light');
     if (MODE() === 'inventer') return inventerLeJour(mood);
     const jour = Store.get('tenuesJour', null);
-    if (!jour) return composerLeJour(true);
+    if (!jour || jour.day !== UI.day.today() || jour.mode !== 'penderie') return composerLeJour(true);
     const neuve = tenueDepuisPenderie(mood);
     if (!neuve) { UI.toast('Pas assez de pièces pour ce style'); return; }
     Store.set('tenuesJour', {
-      day: UI.day.today(), mode: 'penderie',
+      day: jour.day, mode: 'penderie', meteo: jour.meteo, touche: true,
       tenues: jour.tenues.map((t) => t.mood === mood ? neuve : t)
     });
     render();
@@ -367,11 +517,22 @@
       onMount: async (sh) => {
           await Photos.hydrate(sh);
           sh.querySelector('[data-garder]').onclick = () => {
-            Store.add('outfits', {
+            const nouvelle = {
               nom: t.nom || m.nom, mood: mood,
               items: t.items || [], pieces: t.source === 'ia' ? t.pieces : null,
               note: t.pourquoi || '', source: t.source
-            });
+            };
+            const deja = tenueIdentique(nouvelle);
+            if (deja) {
+              UI.closeSheet(); UI.haptic('light'); UI.toast('Déjà dans tes tenues');
+              ouvrirTenue(deja.id);
+              return;
+            }
+            Store.add('outfits', nouvelle);
+            /* Une tenue gardée ne doit plus être remplacée en douce
+               si la météo bouge dans la journée. */
+            const j = Store.get('tenuesJour', null);
+            if (j && j.day === UI.day.today()) { j.touche = true; Store.set('tenuesJour', j); }
             UI.closeSheet(); UI.haptic('success'); UI.toast('Tenue gardée');
             view = 'tenues'; render();
           };
@@ -522,7 +683,7 @@
   function photoSyncBlock(all) {
     if (!all.length) return '';
     const connecte = global.Cloud && Cloud.ready();
-    const aEnvoyer = Photos.pendingUploads('garments');
+    const aEnvoyer = Photos.pendingUploads('garments') + Photos.pendingUploads('outfits');
     const sansRien = all.filter((g) => !g.photo && !g.photoUrl).length;
 
     if (!connecte) {
@@ -555,7 +716,13 @@
     const setMsg = (t) => { const e = box.querySelector('[data-msg]'); if (e) e.textContent = t; };
     const setProg = (a, b) => { const e = box.querySelector('[data-prog]'); if (e) e.style.width = Math.max(2, Math.round(a / Math.max(1, b) * 100)) + '%'; };
     try {
-      const r = await Photos.sync('garments', 'photo', 'garments', (a, b) => { setProg(a, b); setMsg(a + ' sur ' + b); });
+      /* Les vêtements puis les photos portées des tenues, sur une
+         seule barre de progression. */
+      const nG = garments().length, nT = outfits().length, total = nG + nT;
+      const progres = (base) => (a) => { setProg(base + a, total); setMsg((base + a) + ' sur ' + total); };
+      const r = await Photos.sync('garments', 'photo', 'garments', progres(0));
+      const r2 = await Photos.sync('outfits', 'photo', 'garments', progres(nG));
+      r.up += r2.up; r.down += r2.down;
       UI.closeSheet();
       UI.toast(r.up + ' envoyée' + (r.up > 1 ? 's' : '') + (r.down ? ', ' + r.down + ' récupérée' + (r.down > 1 ? 's' : '') : ''));
       render();
@@ -677,7 +844,9 @@
             if (!f) return;
             try {
               const saved = await Photos.save(f, 'garments', 1200);
+              const ancienne = (Store.find('outfits', id) || {}).photo;
               Store.put('outfits', id, { photo: saved.id, photoUrl: saved.url || null });
+              if (ancienne && ancienne !== saved.id) await Photos.del(ancienne);
               UI.toast('Photo ajoutée'); UI.haptic('success');
               if (root) render();
               ouvrirTenue(id);
@@ -685,11 +854,40 @@
           }, { titre: 'Ta photo dans cette tenue', capture: 'user' });
         };
         const sp = sh.querySelector('[data-sansphoto]');
-        if (sp) sp.onclick = () => { Store.put('outfits', id, { photo: null, photoUrl: null }); if (root) render(); ouvrirTenue(id); };
+        if (sp) sp.onclick = async () => {
+          const ancienne = (Store.find('outfits', id) || {}).photo;
+          Store.put('outfits', id, { photo: null, photoUrl: null });
+          if (ancienne) await Photos.del(ancienne);
+          if (root) render(); ouvrirTenue(id);
+        };
         sh.querySelector('[data-edit]').onclick = () => { UI.closeSheet(); editerTenue(id); };
       }
     };
     if (empile) Cartes.empiler(vue); else Cartes.ouvrir(vue);
+  }
+
+  /* Un vêtement supprimé quitte aussi les tenues qui le portaient, et
+     les tenues du jour. On signale celles qui tombent sous deux
+     pièces, au lieu de les laisser amputées en silence. */
+  function retirerDesTenues(id, touchees) {
+    let bancales = 0;
+    (touchees || []).forEach((o) => {
+      const items = (o.items || []).filter((x) => x !== id);
+      Store.put('outfits', o.id, { items: items });
+      if (items.length < 2) bancales++;
+    });
+    const jour = Store.get('tenuesJour', null);
+    if (jour && jour.mode === 'penderie' && (jour.tenues || []).some((t) => (t.items || []).indexOf(id) >= 0)) {
+      /* La carte qui portait ce vêtement est recomposée sans lui. */
+      jour.tenues = jour.tenues.map((t) =>
+        (t.items || []).indexOf(id) < 0 ? t : tenueDepuisPenderie(t.mood)).filter(Boolean);
+      Store.set('tenuesJour', jour);
+    }
+    if (bancales) {
+      UI.toast(bancales + ' tenue' + (bancales > 1 ? 's ont' : ' a') + ' maintenant moins de deux pièces');
+    } else if (touchees && touchees.length) {
+      UI.toast('Retiré de ' + touchees.length + ' tenue' + (touchees.length > 1 ? 's' : ''));
+    }
   }
 
   /* La deuxieme pop-up : celle ou on change vraiment les choses. */
@@ -1009,9 +1207,16 @@
       };
 
       sh.querySelector('[data-del]').onclick = async () => {
-        const sur = await UI.confirmSheet('Supprimer ?', 'Ce vêtement disparaît de la penderie et des tenues.', true);
+        const touchees = outfits().filter((o) => (o.items || []).indexOf(id) >= 0);
+        const nb = touchees.length;
+        const sur = await UI.confirmSheet('Supprimer ?', nb
+          ? 'Ce vêtement est utilisé dans ' + nb + ' tenue' + (nb > 1 ? 's' : '') + '. Il disparaît de la penderie et en sera retiré.'
+          : 'Ce vêtement disparaît de la penderie.', true);
         if (!sur) { openGarment(id); return; }
-        await Photos.del(g.photo); Store.del('garments', id); UI.closeSheet(); render();
+        await Photos.del(g.photo);
+        Store.del('garments', id);
+        retirerDesTenues(id, touchees);
+        UI.closeSheet(); render();
       };
 
       sh.querySelector('[data-rephoto]').onclick = () => {
@@ -1323,7 +1528,9 @@
   function buildOutfit(mood) {
     const wx = ctx && ctx.weather;
     const temp = wx ? wx.temp : 16;
-    const rain = wx ? (wx.kind === 'pluie' || wx.kind === 'orage') : false;
+    /* La neige compte comme la pluie, et un après-midi pluvieux
+       aussi, même s'il fait sec au réveil. */
+    const rain = pluvieux(wx);
 
     /* Chaleur cible : 1 quand il fait 30 degres, 5 quand il gele. */
     const targetWarm = temp >= 26 ? 1 : temp >= 20 ? 2 : temp >= 13 ? 3 : temp >= 5 ? 4 : 5;
@@ -1375,6 +1582,7 @@
           Photos.img(g, 'photo', 'position:relative;width:100%;height:100%;object-fit:cover') +
           '</div><small style="font-size:10.5px;color:var(--muted);display:block;margin-top:4px">' + UI.esc(g.nom.slice(0, 14)) + '</small></button>').join('') +
         '</div></div>').join('') +
+      '<label class="field"><span>Nom</span><input type="text" data-nomt value="' + UI.attr(nomLibre('Tenue')) + '"></label>' +
       '<label class="field"><span>Mood</span><select data-mood>' + SEED.MOODS.map((m) => '<option value="' + m.id + '"' + (m.id === moodVoulu ? ' selected' : '') + '>' + m.nom + '</option>').join('') + '</select></label>' +
       '<button class="btn primary block lg" data-save>Enregistrer la tenue</button></div>', {
       onMount: async (s) => {
@@ -1387,7 +1595,10 @@
         });
         s.querySelector('[data-save]').onclick = () => {
           if (chosen.length < 2) { UI.toast('Choisis au moins deux pièces'); return; }
-          Store.add('outfits', { nom: 'Tenue ' + (outfits().length + 1), mood: s.querySelector('[data-mood]').value, items: chosen.slice() });
+          const deja = tenueIdentique({ items: chosen });
+          if (deja) { UI.toast('Déjà dans tes tenues : ' + (deja.nom || 'Tenue')); return; }
+          const nom = (s.querySelector('[data-nomt]').value || '').trim() || nomLibre('Tenue');
+          Store.add('outfits', { nom: nom, mood: s.querySelector('[data-mood]').value, items: chosen.slice() });
           UI.closeSheet(); view = 'tenues'; render(); UI.toast('Tenue enregistrée');
         };
       }
@@ -1405,7 +1616,7 @@
       const res = await AI.json(
         "Voici une garde-robe. Compose des tenues cohérentes en couleur et en registre.\n\n" + list + "\n\n" +
         "Règles : un haut, un bas, des chaussures au minimum ; harmonie ou contraste assume, jamais trois couleurs vives ; " +
-        "au maximum deux accessoires. Cinq tenues. Utilisé uniquement les identifiants fournis.",
+        "au maximum deux accessoires. Cinq tenues. Utilise uniquement les identifiants fournis.",
         AI.T.obj({ tenues: AI.T.arr(AI.T.obj({
           nom: AI.T.str('Nom court et parlant'),
           mood: AI.T.enu(['chill', 'soiree', 'classe', 'oldmoney', 'sport'], ''),
@@ -1414,14 +1625,20 @@
         })) }), { cache: false, temperature: 0.9 });
 
       const known = new Set(all.map((g) => g.id));
-      let n = 0;
+      let n = 0, doublons = 0;
       (res.tenues || []).forEach((t) => {
-        const items = (t.pieces || []).filter((p) => known.has(p));
+        const items = Array.from(new Set((t.pieces || []).filter((p) => known.has(p))));
         if (items.length < 2) return;
-        Store.add('outfits', { nom: t.nom, mood: t.mood, items: items, note: t.pourquoi, source: 'ia' });
+        /* Une tenue déjà enregistrée, ou déjà ajoutée dans ce même
+           lot, n'est pas ajoutée une deuxième fois. */
+        if (tenueIdentique({ items: items })) { doublons++; return; }
+        const pris = outfits().some((o) => String(o.nom || '').trim().toLowerCase() === String(t.nom || '').trim().toLowerCase());
+        Store.add('outfits', { nom: !t.nom || pris ? nomLibre(t.nom || 'Tenue') : t.nom, mood: t.mood, items: items, note: t.pourquoi, source: 'ia' });
         n++;
       });
-      UI.closeSheet(); UI.toast(n + ' tenue' + (n > 1 ? 's générées' : ' générée'));
+      UI.closeSheet();
+      UI.toast(n + ' tenue' + (n > 1 ? 's générées' : ' générée') +
+        (doublons ? ', ' + doublons + ' déjà dans tes tenues' : ''));
       view = 'tenues'; render();
     } catch (e) { UI.closeSheet(); UI.echecIA(e, { titre: "Les tenues n'ont pas pu être générées" }); }
   }
@@ -1491,6 +1708,8 @@
     composeOutfit: composeOutfit,
     aiOutfits: aiOutfits,
     regenererTout: () => { UI.haptic('light'); composerLeJour(true); },
+    reessayerIA: () => { UI.haptic('light'); erreurJour = null; render(); composerLeJour(true); },
+    reglagesIA: () => App.go('#/m/settings/ia'),
     toutePenderie: () => toutePenderie(),
     toutesTenues: () => toutesTenues(),
     portrait: definirPortrait

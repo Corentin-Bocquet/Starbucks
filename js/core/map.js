@@ -196,6 +196,10 @@
      echouent, la fiche s'affiche quand meme, sans carte, avec les
      boutons de navigation qui eux marchent toujours.
      ============================================================ */
+  /* Une coordonnée absente (null, vide) n'est pas 0 : Number(null)
+     vaut 0 et posait l'épingle au large de l'Afrique. */
+  const coord = (v) => (v == null || v === '') ? NaN : Number(v);
+
   async function geocode(q) {
     try {
       const r = await fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&accept-language=fr&q=' + encodeURIComponent(q),
@@ -257,7 +261,7 @@
       { onMount: async (sh) => {
           if (opts.onMount) opts.onMount(sh);
           const boite = sh.querySelector('[data-carte]');
-          let lat = Number(lieu.lat), lon = Number(lieu.lon);
+          let lat = coord(lieu.lat), lon = coord(lieu.lon);
           if (!isFinite(lat) || !isFinite(lon)) {
             const g = await geocode([lieu.nom, lieu.adresse, lieu.ville].filter(Boolean).join(', '));
             if (g) { lat = g.lat; lon = g.lon; }
@@ -311,7 +315,7 @@
      ============================================================ */
   async function mini(boite, lieu) {
     if (!boite || !lieu) return;
-    let lat = Number(lieu.lat), lon = Number(lieu.lon);
+    let lat = coord(lieu.lat), lon = coord(lieu.lon);
     if (!isFinite(lat) || !isFinite(lon)) {
       const g = await geocode([lieu.nom, lieu.adresse].filter(Boolean).join(', '));
       if (g) { lat = g.lat; lon = g.lon; }
@@ -366,7 +370,7 @@
      la ville en cours : mieux vaut le bon quartier que rien. */
   function vignette(lieu, opts) {
     opts = opts || {};
-    let lat = Number(lieu && lieu.lat), lon = Number(lieu && lieu.lon);
+    let lat = coord(lieu && lieu.lat), lon = coord(lieu && lieu.lon);
     if (!isFinite(lat) || !isFinite(lon)) {
       const v = global.Ctx ? Ctx.place() : null;
       if (v && isFinite(v.lat)) { lat = v.lat; lon = v.lon; }

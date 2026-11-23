@@ -35,7 +35,7 @@
   const pending = new Map();
 
   const prefs = () => ({
-    sound: Store.get('sound', true),
+    sound: Store.get('sound', false),
     haptics: Store.get('haptics', true)
   });
 

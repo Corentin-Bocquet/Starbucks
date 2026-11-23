@@ -66,7 +66,14 @@
           if (garde[c] == null || garde[c] === '') patch[c] = autre[c];
         });
         if (autre.status === 'vu') patch.status = 'vu';
-        if (Store.isFav('media', autre.id)) Store.toggleFav('media', garde.id);
+        /* On force le favori au lieu de le basculer : si les deux
+           copies étaient favorites, basculer le retirait. La clé de
+           la copie supprimée est retirée aussi, sinon elle reste
+           orpheline dans les favoris. */
+        if (Store.isFav('media', autre.id)) {
+          if (!Store.isFav('media', garde.id)) Store.toggleFav('media', garde.id);
+          Store.toggleFav('media', autre.id);
+        }
         Store.del('media', autre.id);
         n++;
       });
@@ -154,7 +161,7 @@
       onResult: (m, box) => { box.innerHTML = grandeCarte(m); brancherCarte(box, m); Store.log('media', { id: m.id, label: m.titre }); }
     });
     bind();
-    Imagerie.peupler(root, { generer: true, max: 3 });
+    Imagerie.peupler(root);
   }
 
   function enteteBlock() {
@@ -354,22 +361,33 @@
     const maj = () => { render(); if (rafraichir) rafraichir(); };
 
     if (q('[data-seen]')) q('[data-seen]').onclick = async () => {
-      if (m.status === 'vu') {
+      /* On relit l'état en base : l'objet capturé au dessin de la
+         carte peut être périmé (un premier clic l'a déjà changé). */
+      const actuel = Store.find('media', m.id) || m;
+      if (actuel.status === 'vu') {
         /* Le retour en arrière manquait : on ne pouvait plus
            dé-marquer un titre vu par erreur. */
         Store.put('media', m.id, { status: 'avoir', seenAt: null });
+        m.status = 'avoir';
         UI.haptic('light');
         UI.toast('Remis dans « à voir »');
-        render();
+        maj();
         return;
       }
       Store.put('media', m.id, { status: 'vu', seenAt: Date.now() });
+      m.status = 'vu';
       UI.haptic('success');
-      const aime = await UI.confirmSheet('Tu as aimé ?', 'Ça sert directement aux prochaines propositions.', false);
-      Reco.learn(m, aime);
-      if (aime && !Store.isFav('media', m.id)) Store.toggleFav('media', m.id);
       if (global.Game) Game.award('media-vu', 8);
-      render();
+      maj();
+      /* Oui / Non / Plus tard. Fermer la fenêtre ou répondre « Plus
+         tard » n'apprend rien au moteur : seul un Oui ou un Non
+         explicite compte. */
+      const avis = await demanderAvis(actuel.titre);
+      if (avis === 'oui' || avis === 'non') {
+        Reco.learn(m, avis === 'oui');
+        if (avis === 'oui' && !Store.isFav('media', m.id)) Store.toggleFav('media', m.id);
+        maj();
+      }
     };
 
     if (q('[data-fav]')) q('[data-fav]').onclick = () => {
@@ -408,6 +426,41 @@
     if (q('[data-majsaisons]')) q('[data-majsaisons]').onclick = async () => { await majSaisons(m.id); maj(); };
   }
 
+  /* « Tu as aimé ? » avec trois réponses. Renvoie 'oui', 'non', ou
+     null (Plus tard, ou fenêtre fermée). */
+  function demanderAvis(titre) {
+    return new Promise((resolve) => {
+      let fini = false;
+      /* Ouverte depuis la fiche d'un titre : on revient sur la fiche
+         au lieu de tout fermer. */
+      const repondre = (v) => {
+        if (fini) return; fini = true;
+        const sh = document.querySelector('#sheet');
+        if (sh && sh.querySelector('[data-sheet-back]')) UI.backSheet(); else UI.closeSheet();
+        resolve(v);
+      };
+      UI.openSheet(
+        '<div class="mbody" style="padding-top:6px">' +
+          '<h2 style="font-size:22px">Tu as aimé ?</h2>' +
+          '<p class="mdesc">' + UI.esc(titre ? '« ' + titre + ' » : ta réponse' : 'Ta réponse') +
+            ' sert directement aux prochaines propositions.</p>' +
+          '<div class="btnrow" style="margin-top:22px">' +
+            '<button class="btn primary grow" data-avis="oui">Oui</button>' +
+            '<button class="btn grow" data-avis="non">Non</button>' +
+          '</div>' +
+          '<button class="btn ghost block" style="margin-top:8px" data-avis="plus-tard">Plus tard</button>' +
+        '</div>',
+        {
+          onClose: () => { if (!fini) { fini = true; resolve(null); } },
+          onMount: (sh) => sh.querySelectorAll('[data-avis]').forEach((b) => b.onclick = () => {
+            const v = b.dataset.avis;
+            repondre(v === 'plus-tard' ? null : v);
+          })
+        }
+      );
+    });
+  }
+
   /* ============================================================
      Le nombre de saisons, tenu à jour
 
@@ -431,7 +484,10 @@
           return;
         }
       }
-      if (!AI.available()) return UI.echecIA('NO_KEY', { titre: "Les idées de films demandent une clé IA" });
+      if (!AI.available()) {
+        UI.toast('Vérification automatique indisponible : ajuste le nombre avec « + » et « − »');
+        return;
+      }
       const res = await AI.json(
         'Combien de saisons de la série « ' + m.titre + ' » sont sorties à ce jour ? ' +
         'Donne le nombre de saisons diffusées, et la date de la dernière.',
@@ -444,7 +500,12 @@
       Store.put('media', id, { saisons: n, majSaisons: Date.now(), suite: res.suite || '' });
       UI.toast(n + ' saison' + (n > 1 ? 's' : '') + (res.suite ? ' · ' + res.suite : ''));
       render();
-    } catch (e) { UI.echecIA(e, { titre: "Les saisons n'ont pas pu être mises à jour" }); }
+    } catch (e) {
+      UI.echecIA(e, {
+        titre: "Les saisons n'ont pas pu être mises à jour",
+        repli: { nom: 'Ajuster à la main avec « + » et « − »', faire: () => {} }
+      });
+    }
   }
 
   /* ============================================================
@@ -504,13 +565,27 @@
             });
           };
 
+          /* Jeton de requête : la réponse d'une ancienne frappe ne
+             doit pas écraser celle d'une frappe plus récente. */
+          let jeton = 0;
           q.oninput = UI.debounce(async () => {
             const v = q.value.trim();
+            const moi = ++jeton;
             if (v.length < 2) { resultats = []; out.innerHTML = ''; return; }
             out.innerHTML = UI.thinking('Recherche…');
-            resultats = tmdbKey() ? await tmdbSearch(v) : await aiSearch(v);
+            const trouves = tmdbKey() ? await tmdbSearch(v) : await aiSearch(v);
+            if (moi !== jeton || !out.isConnected) return;
+            resultats = trouves;
             if (!resultats.length) {
-              out.innerHTML = '<button class="btn block" data-manuel>' + Icon('plus', 16) +
+              const echec = trouves.echec && trouves.echec !== 'ABORT';
+              out.innerHTML = (echec
+                ? '<p class="muted" style="font-size:13px;margin-bottom:10px">' +
+                  UI.esc(trouves.echec === 'NO_KEY'
+                    ? "La recherche automatique n'est pas disponible. Tu peux ajouter le titre tel que tu l'as tapé."
+                    : "La recherche n'a pas abouti (" + AI.humanError(trouves.echec).replace(/\.$/, '') +
+                      "). Tu peux ajouter le titre tel que tu l'as tapé.") + '</p>'
+                : '<p class="muted" style="font-size:13px;margin-bottom:10px">Aucun résultat pour « ' + UI.esc(v) + ' ».</p>') +
+                '<button class="btn block" data-manuel>' + Icon('plus', 16) +
                 'Ajouter « ' + UI.esc(v) + ' » quand même</button>';
               out.querySelector('[data-manuel]').onclick = () => {
                 ajouter({ titre: v, type: 'film', status: 'avoir' }, true);
@@ -605,8 +680,11 @@
     } catch (e) { return []; }
   }
 
+  /* Renvoie la liste des résultats. En cas d'échec de l'IA, la
+     liste porte `echec` (le code), pour que l'écran dise que la
+     recherche a échoué au lieu de laisser croire qu'il n'y a rien. */
   async function aiSearch(q) {
-    if (!AI.available()) return [];
+    if (!AI.available()) { const r = []; r.echec = 'NO_KEY'; return r; }
     try {
       const res = await AI.json(
         'Films et séries correspondant à « ' + q + ' ». Titres réels uniquement, huit maximum.',
@@ -616,15 +694,20 @@
           note: AI.T.num('Note sur 10'), saisons: AI.T.int('Nombre de saisons, 0 pour un film'),
           resume: AI.T.str('Deux phrases')
         })) }), { ttl: 30 * 86400e3 });
-      return (res.resultats || []).map((r) => { if (!r.saisons) delete r.saisons; return r; });
-    } catch (e) { return []; }
+      return ((res && res.resultats) || []).map((r) => { if (!r.saisons) delete r.saisons; return r; });
+    } catch (e) { const r = []; r.echec = String((e && e.message) || 'UPSTREAM'); return r; }
   }
 
   /* ============================================================
      Les idées
      ============================================================ */
   async function reco() {
-    if (!AI.available()) return UI.echecIA('NO_KEY', { titre: "Les idées de films demandent une clé IA" });
+    if (!AI.available()) {
+      return UI.echecIA('NO_KEY', {
+        titre: "Les idées de films ne sont pas disponibles",
+        repli: { nom: 'Ajouter un titre moi-même', faire: addFlow }
+      });
+    }
     const all = items();
     const aimes = all.filter((m) => Store.isFav('media', m.id)).map((m) => m.titre);
     const vus = all.filter((m) => m.status === 'vu').map((m) => m.titre);
@@ -661,7 +744,13 @@
          lettres. On va les chercher tout de suite, en tache de
          fond, et le carrousel se remplit tout seul. */
       affichesDesIdees();
-    } catch (e) { UI.closeSheet(); UI.echecIA(e, { titre: "Pas d'idées de films pour le moment", reessayer: () => reco() }); }
+    } catch (e) {
+      UI.closeSheet();
+      UI.echecIA(e, {
+        titre: "Pas d'idées de films pour le moment", reessayer: () => reco(),
+        repli: { nom: 'Ajouter un titre moi-même', faire: addFlow }
+      });
+    }
   }
 
   /* Va chercher l'affiche de chaque suggestion. TMDB quand la cle
@@ -802,7 +891,9 @@
         zone.innerHTML = grandeCarte(m).replace('<div class="result">', '<div class="result plein">');
         brancherCarte(zone, m, rafraichir);
       };
-      brancherCarte(sh.querySelector('.fichemedia'), m0, rafraichir);
+      /* Toujours depuis la base, jamais depuis l'objet de départ :
+         au retour sur la fiche, onMount est rejoué. */
+      rafraichir();
       sh.querySelector('[data-del]').onclick = () => {
         Store.del('media', id); UI.closeSheet(); UI.haptic('warning'); render();
       };

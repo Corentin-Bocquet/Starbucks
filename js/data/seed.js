@@ -230,5 +230,26 @@
     { id: 'platine', nom: 'Platine', min: 5000 }
   ];
 
+  /* ---------- Identifiants stables ----------
+     Sans id, chaque copie recevait un id au hasard : un deuxième
+     appareil, ou « Tout effacer » suivi d'une reconnexion, ajoutait
+     tout le jeu de départ une seconde fois au lieu de le fusionner.
+     Un id tiré du nom est le même partout. */
+  const slug = (t) => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  const marquer = (liste, prefixe, suffixe) => {
+    const vus = new Set();
+    liste.forEach((x) => {
+      let id = prefixe + slug(x.nom);
+      if (vus.has(id)) id += '-' + suffixe(x);
+      vus.add(id);
+      x.id = id;
+    });
+  };
+  Object.keys(ACTIVITIES).forEach((ville) => marquer(ACTIVITIES[ville], 'seed:' + ville + ':', (x) => slug(x.kind)));
+  /* Deux « Sushi » existent (fait maison et à commander) : le
+     second prend sa catégorie en suffixe. */
+  marquer(FOODS, 'seed:food:', (x) => slug(x.cat));
+
   global.SEED = { ACTIVITIES, FOODS, FOOD_CATS, GIFT_CATS, MOODS, GARMENT_SLOTS, NUTRI_DEFAULTS, TIERS };
 })(window);
