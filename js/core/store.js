@@ -18,8 +18,23 @@
 
   const NS = 'ever.v1.';
   const listeners = new Map();
-  let dirty = new Set();
   let syncTimer = null;
+
+  /* ---------- Ce qui ne quitte jamais l'appareil ----------
+     Les clés d'API, les caches et les petits souvenirs d'interface
+     ne sont ni poussés vers le serveur ni écrasés au retour. Les
+     clés qui commencent par `_` (comme `_lastSync`) non plus.
+     L'export manuel « Tout exporter » reste complet. */
+  const LOCAL_ONLY = new Set([
+    'geminiKey', 'geminiProxyUrl', 'tmdbKey', 'googleClientId',
+    'aiCache', 'aiJournal', 'aiModels', 'imgQuota', 'googleDayCache',
+    'lastTab', 'portraitPhoto'
+  ]);
+  const LOCAL_PREFIX = ['bq.', 'img.', 'dernier.'];
+  function localOnly(key) {
+    const k = String(key || '');
+    return k.charAt(0) === '_' || LOCAL_ONLY.has(k) || LOCAL_PREFIX.some((p) => k.indexOf(p) === 0);
+  }
 
   /* ---------- Acces brut ---------- */
   function raw(key, fallback) {
@@ -37,9 +52,19 @@
     }
   }
 
+  /* Ce qui reste à pousser survit à un rechargement : une
+     modification faite hors ligne remonte à la session suivante. */
+  let dirty = new Set(raw('_dirty', []));
+  function saveDirty() { write('_dirty', Array.from(dirty)); }
+
   /* ---------- Réglages ---------- */
   function get(key, fallback) { return raw('s.' + key, fallback); }
-  function set(key, value) { write('s.' + key, value); emit('setting:' + key, value); markDirty('settings'); return value; }
+  function set(key, value) {
+    write('s.' + key, value);
+    emit('setting:' + key, value);
+    if (!localOnly(key)) markDirty('settings');
+    return value;
+  }
 
   /* ---------- Collections ---------- */
   function all(name, includeDeleted) {
@@ -116,7 +141,9 @@
 
   /* ---------- Synchronisation ---------- */
   function markDirty(name) {
+    if (!name || String(name).charAt(0) === '_') return;
     dirty.add(name);
+    saveDirty();
     if (!global.Cloud || !Cloud.ready()) return;
     clearTimeout(syncTimer);
     syncTimer = setTimeout(() => { push(); }, 1500);
@@ -124,16 +151,19 @@
 
   async function push() {
     if (!global.Cloud || !Cloud.ready() || !dirty.size) return;
-    const names = Array.from(dirty); dirty = new Set();
+    const names = Array.from(dirty); dirty = new Set(); saveDirty();
     try {
       for (const n of names) {
-        if (n === 'settings') await Cloud.putSettings(exportSettings());
+        if (n === 'settings') await Cloud.putSettings(exportSettings(true));
         else await Cloud.putCollection(n, all(n, true));
       }
-      set('_lastSync', Date.now());
+      /* Écrit sans markDirty : sinon chaque push en relançait un
+         autre 1,5 s plus tard, indéfiniment. */
+      write('s._lastSync', Date.now());
       emit('sync', { ok: true, at: Date.now() });
     } catch (e) {
       names.forEach((n) => dirty.add(n));
+      saveDirty();
       emit('sync', { ok: false, error: String(e && e.message || e) });
     }
   }
@@ -141,17 +171,32 @@
   async function pull() {
     if (!global.Cloud || !Cloud.ready()) return false;
     try {
+      /* Des réglages modifiés ici et pas encore partis seraient
+         écrasés par la version du serveur : on les pousse d'abord. */
+      if (dirty.has('settings')) await push();
+      if (dirty.has('settings')) return false;
       const remote = await Cloud.getAll();
       if (!remote) return false;
       if (remote.settings) {
+        let ancien = false;
         Object.keys(remote.settings).forEach((k) => {
-          if (k.charAt(0) === '_') return;
+          if (localOnly(k)) { ancien = true; return; }
           write('s.' + k, remote.settings[k]);
         });
+        /* Le serveur garde encore des clés d'une version précédente :
+           le prochain envoi, filtré, les fera disparaître. */
+        if (ancien) dirty.add('settings');
       }
       Object.keys(remote.collections || {}).forEach((name) => {
         write('c.' + name, mergeCollections(raw('c.' + name, []), remote.collections[name] || []));
       });
+      /* Ce qui a été modifié depuis la dernière synchro (hors ligne,
+         avant la connexion) repart, fusionné avec le serveur. */
+      const depuis = get('_lastSync', 0) || 0;
+      COLL_KEYS().forEach((name) => {
+        if (raw('c.' + name, []).some((x) => (x._up || 0) > depuis)) dirty.add(name);
+      });
+      saveDirty();
       emit('pulled', true);
       return true;
     } catch (e) {
@@ -176,7 +221,12 @@
   const SETTING_KEYS = () => Object.keys(localStorage).filter((k) => k.indexOf(NS + 's.') === 0).map((k) => k.slice((NS + 's.').length));
   const COLL_KEYS = () => Object.keys(localStorage).filter((k) => k.indexOf(NS + 'c.') === 0).map((k) => k.slice((NS + 'c.').length));
 
-  function exportSettings() { const o = {}; SETTING_KEYS().forEach((k) => { o[k] = get(k); }); return o; }
+  /* `pourSynchro` : sans les clés qui restent sur l'appareil. */
+  function exportSettings(pourSynchro) {
+    const o = {};
+    SETTING_KEYS().forEach((k) => { if (!pourSynchro || !localOnly(k)) o[k] = get(k); });
+    return o;
+  }
   function exportAll() {
     const o = { version: 1, exportedAt: new Date().toISOString(), settings: exportSettings(), collections: {} };
     COLL_KEYS().forEach((k) => { o.collections[k] = all(k, true); });
@@ -210,7 +260,7 @@
     favs, isFav, toggleFav, favKey,
     log, history,
     on, emit,
-    push, pull, markDirty,
+    push, pull, markDirty, localOnly,
     exportAll, importAll, wipe, usage,
     NS: NS
   };

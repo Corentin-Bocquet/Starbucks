@@ -10,9 +10,10 @@
 
    - La clé Gemini n'est PAS ici. Une clé d'API Google posée dans
      un dépôt public est lisible par tout le monde et le quota se
-     vide en quelques heures. Elle se saisit dans Réglages, elle
-     reste sur l'appareil. Pour une vraie mise en production,
-     passer par la fonction edge sql/edge/gemini-proxy.ts.
+     vide en quelques heures. Elle vit côté serveur, dans la
+     fonction edge sql/edge/ever-ai.ts (voir geminiProxyUrl plus
+     bas). Une clé personnelle reste possible dans Réglages : elle
+     reste alors sur l'appareil.
    ============================================================ */
 window.EVER_CONFIG = {
   supabaseUrl:     'https://qjxeimsinxqvlodsusww.supabase.co',

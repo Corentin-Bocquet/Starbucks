@@ -1705,12 +1705,15 @@ footer#codexFoot { padding: 22px var(--gut) 34px; display: flex; justify-content
 }
 
 /* La barre du haut */
-#topbar {
+/* Par classe et pas par id : un id écrasait le verre Aurora
+   (:root[data-theme="dark"] .topbar). */
+.topbar {
   background: color-mix(in srgb, var(--bg) 68%, transparent);
   backdrop-filter: blur(24px) saturate(180%);
   -webkit-backdrop-filter: blur(24px) saturate(180%);
 }
-#topbar.scrolled { box-shadow: 0 1px 0 var(--hairline), 0 8px 24px -14px rgba(20,17,15,.24); }
+
+.topbar.scrolled { box-shadow: 0 1px 0 var(--hairline), 0 8px 24px -14px rgba(20,17,15,.24); }
 
 /* Les boutons ronds du haut */
 .tbtn {
@@ -2664,7 +2667,10 @@ footer#codexFoot { padding: 22px var(--gut) 34px; display: flex; justify-content
    entière défilable de quelques pixels vers la droite, et on voit
    une bande claire apparaître au bord.
    ============================================================ */
-html, body { overflow-x: hidden; max-width: 100%; }
+/* `clip` et pas `hidden` : avec `hidden` sur html ET body, body
+   devient un conteneur de défilement et la barre du haut (sticky)
+   se cale sur lui, donc elle part avec la page. */
+html, body { overflow-x: clip; max-width: 100%; }
 .view, .wrap, .section { max-width: 100%; }
 .wrap { overflow-x: clip; }
 
@@ -3035,3 +3041,16 @@ html, body { overflow-x: hidden; max-width: 100%; }
 .sheet:has(> .retourpop) > .mbody > .sechead:first-child {
   margin-top: 34px;
 }
+
+/* ============================================================
+   47. Icône de ligne lisible en Aurora
+
+   En sombre, l'accent par défaut est un cyan très clair (#8FD8F0) :
+   l'icône blanche posée dessus tombait à un contraste de 1,6:1.
+   Sur cet accent-là, l'icône passe en encre foncée.
+   ============================================================ */
+:root[data-theme="dark"] body[data-accent="brand"] .rowitem .ic:not(.marque) { color: #061015; }
+
+/* La feuille reçoit le focus à l'ouverture (lecteur d'écran,
+   clavier) : pas d'anneau sur la feuille elle-même. */
+.sheet:focus { outline: none; }

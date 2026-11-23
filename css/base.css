@@ -36,7 +36,7 @@ h2 { font-size: var(--t-xl); }
 h3 { font-size: var(--t-md); }
 h4 { font-size: var(--t-base); }
 
-::sélection { background: var(--accent); color: #fff; }
+::selection { background: var(--accent); color: #fff; }
 
 /* Focus visible, jamais d'anneau au clic souris */
 :focus-visible {

@@ -18,13 +18,27 @@
      x-ever-model qui dit quel modèle a répondu.
    GET ?diag=1 : la liste classée, pour Réglages > Diagnostic.
 
-   Garde-fous : origine autorisée, taille de requête bornée,
-   débit par adresse IP. Suffisant pour un usage personnel ; si
-   l'app s'ouvre au public, exiger un compte connecté.
+   Garde-fous :
+   - l'en-tête Origin est OBLIGATOIRE et doit être dans ORIGINS.
+     Une requête sans Origin (curl, script) est refusée en 403,
+     sauf si elle porte un jeton de session utilisateur valide ;
+   - seuls les modèles de MODELES_OK peuvent être demandés par le
+     client. Un autre nom (un « pro », un modèle d'images coûteux
+     demandé en texte) est ignoré : la fonction choisit elle-même ;
+   - taille de requête bornée, débit par adresse IP et, quand
+     l'appelant est connecté, débit par compte ;
+   - le client envoie le jeton de session (JWT) quand il en a un.
+     Avec le secret EVER_AI_REQUIRE_JWT=1, un jeton utilisateur
+     valide devient obligatoire. On l'active une fois que tous les
+     appareils ont la version de l'app qui l'envoie.
 
    Déploiement :
      supabase functions deploy ever-ai --no-verify-jwt
-     (GEMINI_API_KEY est déjà un secret du projet)
+     (GEMINI_API_KEY est déjà un secret du projet ; SUPABASE_URL et
+     SUPABASE_ANON_KEY sont fournis par Supabase.)
+     --no-verify-jwt reste nécessaire tant que des appareils
+     n'envoient que la clé anon : la vérification du jeton est faite
+     ici, voir utilisateur().
    ============================================================ */
 
 const GEMINI = 'https://generativelanguage.googleapis.com/v1beta/models';
@@ -41,6 +55,38 @@ const cors = (origin: string) => ({
   'Access-Control-Expose-Headers': 'x-ever-model',
   'Vary': 'Origin'
 });
+
+/* ---------- Modèles autorisés ----------
+   Familles « flash » seulement, texte et image : c'est ce que l'app
+   utilise. Le client ne peut pas forcer un modèle plus cher. */
+const MODELES_OK = /^gemini-\d+(\.\d+)?-flash(-lite)?(-image)?(-preview)?(-latest|-\d{2,3})?$/i;
+function modeleAutorise(n: string) { return MODELES_OK.test(n || ''); }
+
+/* ---------- Jeton de session ----------
+   Le client envoie « Authorization: Bearer <jeton> ». La clé anon
+   est elle-même un JWT, mais sans utilisateur : on ne la compte pas
+   comme une session. Un vrai jeton est vérifié auprès de Supabase
+   Auth (une fois par minute au plus pour un même jeton). */
+const SB_URL = Deno.env.get('SUPABASE_URL') || '';
+const SB_ANON = Deno.env.get('SUPABASE_ANON_KEY') || '';
+const REQUIRE_JWT = /^(1|true|oui)$/i.test(Deno.env.get('EVER_AI_REQUIRE_JWT') || '');
+const jetons = new Map<string, { at: number; id: string | null }>();
+
+async function utilisateur(req: Request): Promise<string | null> {
+  const auth = req.headers.get('Authorization') || '';
+  const t = auth.replace(/^Bearer\s+/i, '').trim();
+  if (!t || t === SB_ANON || !SB_URL) return null;
+  const vu = jetons.get(t);
+  if (vu && Date.now() - vu.at < 60e3) return vu.id;
+  let id: string | null = null;
+  try {
+    const r = await fetch(SB_URL + '/auth/v1/user', { headers: { apikey: SB_ANON, Authorization: 'Bearer ' + t } });
+    if (r.ok) { const u = await r.json(); id = (u && u.id) || null; }
+  } catch (_) { id = null; }
+  if (jetons.size > 500) jetons.clear();
+  jetons.set(t, { at: Date.now(), id });
+  return id;
+}
 
 /* ---------- Débit ---------- */
 const hits = new Map<string, number[]>();
@@ -105,13 +151,19 @@ async function generate(key: string, model: string, payload: unknown) {
 
 Deno.serve(async (req) => {
   const origin = req.headers.get('Origin') || '';
-  const okOrigin = !origin || ORIGINS.some((o) => origin === o || origin.startsWith(o + ':'));
+  const okOrigin = !!origin && ORIGINS.some((o) => origin === o || origin.startsWith(o + ':'));
   const h = cors(okOrigin ? origin : ORIGINS[0]);
   const json = (obj: unknown, status = 200) =>
     new Response(JSON.stringify(obj), { status, headers: { ...h, 'Content-Type': 'application/json' } });
 
   if (req.method === 'OPTIONS') return new Response('ok', { headers: h });
-  if (!okOrigin) return json({ error: { message: 'Origine non autorisée' } }, 403);
+
+  /* Sans Origin : refusé, sauf jeton utilisateur valide (tâche
+     planifiée d'un compte connecté). Origin inconnue : refusé. */
+  const uid = await utilisateur(req);
+  if (origin && !okOrigin) return json({ error: { message: 'Origine non autorisée' } }, 403);
+  if (!origin && !uid) return json({ error: { message: 'Origine requise' } }, 403);
+  if (REQUIRE_JWT && !uid) return json({ error: { message: 'Connexion requise' } }, 401);
 
   const key = Deno.env.get('GEMINI_API_KEY');
   if (!key) return json({ error: { message: 'Clé absente côté serveur' } }, 500);
@@ -123,7 +175,8 @@ Deno.serve(async (req) => {
   if (req.method !== 'POST') return json({ error: { message: 'Méthode non autorisée' } }, 405);
 
   const ip = (req.headers.get('x-forwarded-for') || '').split(',')[0].trim() || 'anon';
-  if (limited('m:' + ip, 40, 60e3) || limited('d:' + ip, 1500, 86400e3)) {
+  if (limited('m:' + ip, 40, 60e3) || limited('d:' + ip, 1500, 86400e3)
+      || (uid && (limited('um:' + uid, 40, 60e3) || limited('ud:' + uid, 800, 86400e3)))) {
     return json({ error: { message: 'Trop de requêtes, patiente une minute' } }, 429);
   }
 
@@ -134,14 +187,21 @@ Deno.serve(async (req) => {
   try { body = JSON.parse(raw); } catch { return json({ error: { message: 'Requête illisible' } }, 400); }
   if (!body.payload) return json({ error: { message: 'payload manquant' } }, 400);
 
-  const kind: 'text' | 'image' = body.kind === 'image' || /image/i.test(body.model || '') ? 'image' : 'text';
-  const asked = body.model && !/^auto/.test(body.model) ? [body.model] : [];
+  /* Le type vient de la demande, jamais du nom de modèle : un nom
+     de modèle d'images ne doit pas transformer un appel texte en
+     génération d'image, plus chère. */
+  const kind: 'text' | 'image' = body.kind === 'image' ? 'image' : 'text';
+  /* Un modèle demandé hors liste blanche est ignoré, et un modèle
+     d'images ne sert jamais pour du texte (ni l'inverse). */
+  const voulu = String(body.model || '');
+  const asked = voulu && !/^auto/.test(voulu) && modeleAutorise(voulu)
+    && (kind === 'image') === /image/i.test(voulu) ? [voulu] : [];
 
   /* Deux passes : la seconde après avoir redemandé la liste à Google. */
   let last: Response | null = null;
   for (let passe = 0; passe < 2; passe++) {
     const m = await models(key, passe === 1);
-    const list = uniq(asked.concat(m[kind], REPLI[kind])).slice(0, 7);
+    const list = uniq(asked.concat(m[kind].filter(modeleAutorise), REPLI[kind])).slice(0, 7);
     let gone = false;
     for (const model of list) {
       const res = await generate(key, model, body.payload);

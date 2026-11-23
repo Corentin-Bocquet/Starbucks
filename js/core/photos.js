@@ -176,8 +176,13 @@
         n.src = src;
         n.removeAttribute('data-photo');
         n.removeAttribute('data-photo-url');
-        /* Une URL distante peut échouer : on le signale au parent. */
-        n.onerror = () => { n.dataset.broken = '1'; n.style.display = 'none'; };
+        /* La copie locale peut être illisible : on retente avec
+           l'URL en ligne avant d'abandonner. Une URL distante peut
+           échouer aussi : on le signale au parent. */
+        n.onerror = () => {
+          if (url && src !== url && n.getAttribute('src') !== url) { src = url; n.src = url; return; }
+          n.dataset.broken = '1'; n.style.display = 'none';
+        };
       } else {
         n.dataset.broken = '1';
         n.style.display = 'none';

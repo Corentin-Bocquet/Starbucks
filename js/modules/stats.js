@@ -318,7 +318,12 @@
   function cupsBlock() {
     if (!global.Mood) return '';
     const b = Mood.balance(7);
-    const jours = Mood.joursSansLien();
+    /* Le compteur ne connaît que ce qui est noté dans l'appli : sans
+       aucune humeur ni activité notée depuis 7 jours, il accuserait
+       à tort. On ne l'affiche alors pas. */
+    const cut = Date.now() - 7 * 86400e3;
+    const noteRecemment = ['humeur', 'activite'].some((k) => Store.history(k, 400).some((h) => (h.at || 0) >= cut));
+    const jours = noteRecemment ? Mood.joursSansLien() : null;
     const vides = Object.keys(b).filter((m) => b[m] === 0);
 
     const cartes = Object.keys(MOODS.MOLECULES).map((m) => {
@@ -358,8 +363,10 @@
   /* La fiche d'un objectif : ou en est-on, et le bouton qui envoie
      le remplir plutot que de le contempler. */
   const OU = {
-    journal: ['#/m/foods', 'Ouvrir l\'alimentation'],
-    analyse: ['#/m/foods', 'Analyser ma journée'],
+    /* `food` est le journal (Alimentation) ; `foods` est Délices,
+       la roulette. */
+    journal: ['#/food', 'Ouvrir l\'alimentation'],
+    analyse: ['#/food', 'Analyser ma journée'],
     bouger: ['#/health', 'Voir ma santé'],
     seance: ['#/m/sport', 'Ajouter une séance'],
     roulette: ['#/activities', 'Tourner la roue'],

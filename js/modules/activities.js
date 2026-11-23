@@ -20,11 +20,48 @@
 
   let root = null, ctx = null, roul = null, events = [], eventsLoading = false;
 
+  /* Une seule source de verite pour le lieu : Ctx.place(). La ville
+     des activites (prefs.city) en est toujours derivee, jamais
+     stockee a part : le guide, les bons plans et la position
+     peuvent changer de ville, la pastille suit. */
   const prefs = () => Object.assign({
-    city: 'le-touquet', category: 'all', favOnly: false, avoidRecent: true,
+    category: 'all', favOnly: false, avoidRecent: true,
     source: 'all', events: false, mood: null
-  }, Store.get('actPrefs', {}));
-  const setPrefs = (p) => Store.set('actPrefs', Object.assign(prefs(), p));
+  }, Store.get('actPrefs', {}), { city: villeCourante() });
+  const setPrefs = (p) => {
+    const next = Object.assign(prefs(), p);
+    delete next.city;
+    Store.set('actPrefs', next);
+  };
+
+  /* Les villes connues de l'app, avec leurs coordonnees : choisir
+     « Le Touquet » dans la liste marche aussi hors ligne. */
+  const VILLES_CONNUES = {
+    'le-touquet': { name: 'Le Touquet', lat: 50.5167, lon: 1.5833, country: 'France', admin: 'Hauts-de-France' },
+    'meribel':    { name: 'Méribel', lat: 45.3967, lon: 6.5656, country: 'France', admin: 'Auvergne-Rhône-Alpes' }
+  };
+  /* « Le Touquet-Paris-Plage » (nom officiel renvoye par la
+     recherche) doit retrouver les activites de « le-touquet ». */
+  function citySlug(name) {
+    const s = slug(name);
+    if (!s) return '';
+    const ids = Object.keys(VILLES_CONNUES);
+    Store.all('activities').forEach((a) => { if (a.city && ids.indexOf(a.city) < 0) ids.push(a.city); });
+    return ids.find((id) => s === id || s.indexOf(id + '-') === 0) || s;
+  }
+  function villeCourante() {
+    const pl = global.Ctx ? Ctx.place() : null;
+    return citySlug(pl && pl.name) || 'le-touquet';
+  }
+  /* Le nom a afficher : le nom court d'une ville connue (« Le
+     Touquet » plutot que « Le Touquet-Paris-Plage »), sinon le nom
+     du lieu tel quel, avec ses accents. */
+  function nomLieu() {
+    const id = prefs().city;
+    if (VILLES_CONNUES[id]) return VILLES_CONNUES[id].name;
+    const pl = global.Ctx ? Ctx.place() : null;
+    return (pl && pl.name) || cityName(id);
+  }
 
   const cities = () => {
     const set = new Map();
@@ -43,7 +80,7 @@
     return (kind === 'de' ? 'de ' : 'à ') + n;
   }
 
-  const slug = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  function slug(s) { return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
 
   /* ============================================================
      Autour de toi : une base d'idées pour n'importe quelle ville
@@ -179,10 +216,12 @@
 
     /* Une humeur choisie prend le dessus sur tout le reste : elle ne
        filtre pas la liste habituelle, elle la remplace. C'est ce qui
-       permet d'appliquer la règle sociale sans exception — voir
-       js/engines/mood.js. */
-    if (p.mood && global.Mood && Mood.etat(p.mood)) {
-      let list = Mood.sourcesFor(p.mood, {
+       permet d'appliquer la règle sociale sans exception (voir
+       js/engines/mood.js). L'humeur n'est jamais gardée en mémoire :
+       elle n'existe que le temps de la pop-up de la roue, qui la
+       passe ici en paramètre. */
+    if (opts.mood && global.Mood && Mood.etat(opts.mood)) {
+      let list = Mood.sourcesFor(opts.mood, {
         city: p.city, ctx: ctx,
         temps: (global.Cal ? Cal.timeAvailable() : 0) || null
       });
@@ -222,8 +261,12 @@
   function mount(el) {
     root = el;
     /* L'humeur ne survit pas a la sortie de l'onglet : on arrive
-       toujours sur une page neutre, sans sentiment pre-coche. */
-    setPrefs({ mood: null });
+       toujours sur une page neutre, sans sentiment pre-coche. Seule
+       exception : un autre ecran (Stats, « Voir du monde ») peut en
+       demander une explicitement ; on ouvre alors la roue avec, une
+       seule fois, sans la garder. */
+    const demande = prefs().mood;
+    if (demande) setPrefs({ mood: null });
     ctx = {
       place: Ctx.place(), weather: null,
       season: UI.day.season(), slot: UI.day.slot(),
@@ -232,6 +275,7 @@
     };
     events = [];
     render();
+    if (demande && global.Mood && Mood.etat(demande)) setTimeout(() => ouvrirRoue(demande), 0);
     Ctx.snapshot().then((full) => {
       if (!root.isConnected) return;
       ctx = full;
@@ -242,8 +286,15 @@
     if (global.Cal && Cal.googleReady()) Cal.refreshGoogleDay();
   }
 
-  async function loadEvents() {
-    if (eventsLoading || !ctx) return;
+  /* Renvoie toujours une promesse : la feuille des réglages s'en
+     sert pour se mettre à jour quand la recherche se termine. */
+  let eventsPromesse = Promise.resolve();
+  function loadEvents() {
+    if (eventsLoading || !ctx) return eventsPromesse;
+    eventsPromesse = chargerEvents();
+    return eventsPromesse;
+  }
+  async function chargerEvents() {
     eventsLoading = true;
     render();
     try { events = await Events.fetchFor(ctx, 10); }
@@ -279,7 +330,7 @@
   function barreBudget() {
     const b = (ctx && ctx.budget) || 2;
     return '<div class="section" style="padding-top:12px">' +
-      '<div class="seg full" role="group" aria-label="Budget">' + [1, 2, 3, 4].map((n) =>
+      '<div class="seg" role="group" aria-label="Budget">' + [1, 2, 3, 4].map((n) =>
         '<button data-budget="' + n + '" class="' + (b === n ? 'on' : '') + '">' + '€'.repeat(n) + '</button>').join('') +
       '</div></div>';
   }
@@ -307,7 +358,6 @@
     avif: 'Stressé', mou: 'Pas confiant', tendresse: 'Moment calme' };
 
   function grilleActions() {
-    const p = prefs();
     const carte = (d) =>
       '<div class="lanceur" style="--l1:' + d.t[0] + ';--l2:' + d.t[1] + '">' +
         (global.Ic ? '<span class="lic">' + Ic.balise(d.ic) + '</span>' : '') +
@@ -320,7 +370,7 @@
       '</div>';
     const bulle = (e) => {
       const mol = MOODS.MOLECULES[e.molecule] || {};
-      return '<button class="bulle' + (p.mood === e.id ? ' on' : '') + '" data-mood="' + e.id + '" style="--mc:' + UI.attr(mol.teinte || '#6FB2E8') + '">' +
+      return '<button class="bulle" data-mood="' + e.id + '" style="--mc:' + UI.attr(mol.teinte || '#6FB2E8') + '">' +
         '<span class="pt">' + Icon(e.icon, 14) + '</span><span class="bt">' + UI.esc(COURT[e.id] || e.nom) + '</span></button>';
     };
     return '<div class="section" style="padding-top:8px">' +
@@ -333,8 +383,15 @@
       '<div class="raccourcis">' +
         '<button class="btn" data-act="add">' + Icon('plus', 16) + 'Ajouter</button>' +
         '<button class="btn" data-act="history">' + Icon('clock', 16) + 'Historique</button>' +
-        '<button class="btn" data-act="guide">' + Icon('map', 16) + 'Le guide</button>' +
-      '</div></div>';
+      '</div>' +
+      /* Le guide nomme sa ville (« Guide du Touquet ») et tient sur
+         toute la largeur : l'icone a gauche, la fleche a droite, les
+         deux centrees verticalement sur le texte. */
+      '<button class="btn block" data-act="guide" style="margin-top:8px;display:flex;align-items:center;gap:10px;justify-content:flex-start;padding:0 14px 0 16px">' +
+        '<span style="display:inline-flex;align-items:center;flex:none">' + Icon('map', 17) + '</span>' +
+        '<span style="flex:1;text-align:left;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Guide ' + UI.esc(prep(nomLieu(), 'de')) + '</span>' +
+        '<span style="display:inline-flex;align-items:center;flex:none;opacity:.55">' + Icon('next', 16) + '</span>' +
+      '</button></div>';
   }
 
   /* Le curseur à glisser. Au-delà de 70 % de la course, ça lance ;
@@ -383,10 +440,11 @@
         acts[g.dataset.glisse]();
       }, true);
     });
+    /* Une bulle ouvre la roue filtree par cette humeur, sans rien
+       retenir : a la fermeture, l'accueil est neutre comme avant. */
     root.querySelectorAll('[data-mood]').forEach((b) => b.onclick = () => {
       UI.haptic('select');
-      setPrefs({ mood: b.dataset.mood, category: 'all' });
-      ouvrirRoue();
+      ouvrirRoue(b.dataset.mood);
     });
   }
 
@@ -397,10 +455,9 @@
   /* L'humeur. On choisit dans la pop-up, le resultat s'affiche
      dans la meme pop-up : on ne repart pas chercher ailleurs. */
   function ouvrirMood() {
-    const p = prefs();
     const carte = (e) => {
       const mol = MOODS.MOLECULES[e.molecule];
-      return '<button class="moodcarte' + (p.mood === e.id ? ' on' : '') + '" data-m="' + e.id + '"' +
+      return '<button class="moodcarte" data-m="' + e.id + '"' +
         ' style="--mc:' + mol.teinte + '">' +
         '<span class="ic">' + Icon(e.icon, 22) + '</span>' +
         '<b>' + UI.esc(e.nom) + '</b>' +
@@ -410,21 +467,18 @@
       teteSheet('Choisis ton mood', 'On te propose ce qui va vraiment avec.', ['#4B3A8C', '#8A6FD6'], 'coeur') +
       '<div class="mbody">' +
         '<div class="moodgrille">' + MOODS.ETATS.map(carte).join('') + '</div>' +
-        (p.mood ? '<button class="btn ghost block" style="margin-top:14px" data-off>Enlever le mood</button>' : '') +
         '<div id="moodOut"></div>' +
       '</div>',
       { onMount: (sh) => {
         const out = sh.querySelector('#moodOut');
-        const off = sh.querySelector('[data-off]');
-        if (off) off.onclick = () => { setPrefs({ mood: null }); UI.closeSheet(); render(); };
         sh.querySelectorAll('[data-m]').forEach((b) => b.onclick = () => {
           UI.haptic('select');
-          setPrefs({ mood: b.dataset.m, category: 'all' });
+          const m = b.dataset.m;
           sh.querySelectorAll('[data-m]').forEach((x) => x.classList.toggle('on', x === b));
-          out.innerHTML = moodBanner(prefs()) +
+          out.innerHTML = moodBanner(m) +
             '<button class="btn primary block lg" style="margin-top:14px" data-go>' +
             Icon('dice', 18) + 'Tourner avec ce mood</button>';
-          out.querySelector('[data-go]').onclick = () => { UI.closeSheet(); ouvrirRoue(); };
+          out.querySelector('[data-go]').onclick = () => { UI.closeSheet(); ouvrirRoue(m); };
           out.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         });
       } });
@@ -432,14 +486,18 @@
 
   /* La roue, dans sa pop-up. Le resultat s'affiche dessous, sans
      jamais revenir polluer l'accueil. */
-  function ouvrirRoue() {
+  function ouvrirRoue(mood) {
     const p = prefs();
+    const etat = mood && global.Mood ? Mood.etat(mood) : null;
+    if (!etat) mood = null;
     const cats = Array.from(new Set(Store.all('activities').filter((a) => a.city === p.city).map((a) => a.category)));
+    const sousTitre = etat
+      ? 'Pour : ' + (COURT[mood] || etat.nom) + (Mood.estSociale(etat.molecule) ? '. Rien de solo ici.' : '.')
+      : 'Tout ce qui est possible ici.';
     UI.openSheet(
-      teteSheet('Tourner la roue', p.mood ? 'Filtrée par ton mood du moment.' : 'Tout ce qui est possible ici.',
-        ['#B4472C', '#E8804F'], 'cible') +
+      teteSheet('Tourner la roue', sousTitre, ['#B4472C', '#E8804F'], 'cible') +
       '<div class="mbody">' +
-        (p.mood ? '' : '<div class="chips" style="margin-bottom:12px">' +
+        (mood ? '' : '<div class="chips" style="margin-bottom:12px">' +
           '<button class="chip ' + (p.category === 'all' ? 'on' : '') + '" data-cat="all">Tout</button>' +
           cats.map((c) => '<button class="chip ' + (p.category === c ? 'on' : '') + '" data-cat="' + UI.attr(c) + '">' + UI.esc(c) + '</button>').join('') +
           '</div>') +
@@ -448,11 +506,11 @@
       { onMount: (sh) => {
         const monter = () => {
           roul = Roulette.mount(sh.querySelector('#actRoul'), {
-            items: () => pool().map((a) => Object.assign({}, a, { label: a.nom, icon: iconFor(a) })),
+            items: () => pool({ mood: mood }).map((a) => Object.assign({}, a, { label: a.nom, icon: iconFor(a) })),
             weight: (a) => weightOf(a),
             cta: 'TOURNER',
             emptyText: 'Aucune activité avec ces filtres',
-            onResult: (a, box) => onResult(a, box)
+            onResult: (a, box) => onResult(a, box, null, { mood: mood })
           });
         };
         monter();
@@ -505,22 +563,59 @@
       teteSheet('Réglages', 'Ce qui entre dans le tirage.', ['#4A5464', '#8492A6'], 'roue') +
       '<div class="mbody"><div class="list">' +
         ligne('favOnly', 'Mes favoris seulement', 'Ignore tout le reste', p.favOnly) +
-        ligne('avoidRecent', 'Éviter ce que je viens de faire', 'Sur les dix derniers jours', p.avoidRecent) +
+        ligne('avoidRecent', 'Éviter ce qui vient de sortir', 'Sur les ' + JOURS_RECENTS + ' derniers jours', p.avoidRecent) +
         ligne('events', 'Événements du moment', 'Concerts, marchés, expositions', p.events) +
       '</div>' +
       '<div id="evOut">' + eventsBlock() + '</div>' +
       '</div>',
       { onMount: (sh) => {
+        /* La liste des événements se redessine quand la recherche se
+           termine, et ses boutons sont branchés à chaque fois. */
+        const majEvents = () => {
+          const out = sh.querySelector('#evOut');
+          if (!out || !out.isConnected) return;
+          out.innerHTML = eventsBlock();
+          const ref = out.querySelector('[data-act="refreshEvents"]');
+          if (ref) ref.onclick = () => {
+            UI.haptic('tap');
+            Events.clearCache(ctx.place.name);
+            events = [];
+            const pr = loadEvents();
+            majEvents();
+            pr.then(majEvents);
+          };
+          out.querySelectorAll('[data-ev]').forEach((b) => b.onclick = () => {
+            const ev = events.find((e) => e.id === b.dataset.ev);
+            if (ev) ouvrirEvenement(ev);
+          });
+        };
+        majEvents();
+        if (prefs().events && eventsLoading) eventsPromesse.then(majEvents);
         sh.querySelectorAll('[data-toggle]').forEach((b) => b.onclick = () => {
           const k = b.dataset.toggle, next = !prefs()[k];
           setPrefs({ [k]: next });
           UI.haptic('toggle');
           b.querySelector('.switch').classList.toggle('on', next);
           if (k === 'events') {
-            if (next && !events.length) loadEvents();
-            sh.querySelector('#evOut').innerHTML = eventsBlock();
+            const pr = next && !events.length ? loadEvents() : null;
+            majEvents();
+            if (pr) pr.then(majEvents);
           }
+          render();
         });
+      } });
+  }
+
+  /* Un événement de la liste : sa carte résultat, avec Voir sur la
+     carte et Planifier, dans sa propre pop-up. Ce n'est pas un
+     tirage : rien n'est noté dans l'historique. */
+  function ouvrirEvenement(ev) {
+    UI.openSheet(
+      teteSheet(ev.nom, Events.label(ev), ['#4A5464', '#8492A6'], 'etoile') +
+      '<div class="mbody"><div data-result></div></div>',
+      { onMount: (sh) => {
+        const box = sh.querySelector('[data-result]');
+        onResult(ev, box, null, { pasDeLog: true });
       } });
   }
 
@@ -559,7 +654,7 @@
     const quand = QUAND[UI.day.slot()] || "aujourd'hui";
     return '<div class="section tete-act">' +
       '<div class="row" style="gap:8px;flex-wrap:wrap">' +
-        '<button class="chip" data-place>' + Icon('pin', 15) + UI.esc(cityName(prefs().city)) + Icon('next', 13) + '</button>' +
+        '<button class="chip" data-place>' + Icon('pin', 15) + UI.esc(nomLieu()) + Icon('next', 13) + '</button>' +
         (wx ? '<span class="chip">' + Icon(wx.icon, 15) + wx.temp + '° ' + UI.esc(quand) + '</span>' : '') +
         '<span class="chip">' + (localesEtat === 'load' ? '<span class="minispin"></span>' : '') + n + ' idée' + (n > 1 ? 's' : '') + '</span>' +
         '<button class="chip" data-rayon aria-label="Régler la distance">' + Icon('location', 14) + rayon() + ' km' + Icon('next', 12) + '</button>' +
@@ -570,8 +665,8 @@
 
   /* Le bandeau qui explique la règle. C'est lui qui fait la
      différence entre un filtre et un vrai conseil. */
-  function moodBanner(p) {
-    const e = Mood.etat(p.mood);
+  function moodBanner(mood) {
+    const e = Mood.etat(mood);
     if (!e) return '';
     const mol = Mood.molecule(e.molecule);
     const sociale = Mood.estSociale(e.molecule);
@@ -604,7 +699,7 @@
     const up = Events.soon(events, 10);
     if (!up.length) {
       return '<div class="section"><div class="banner">' + Icon('calendar', 18) +
-        '<span>Rien d\'annoncé ' + UI.esc(prep(cityName(prefs().city))) + ' ces jours-ci.</span></div></div>';
+        '<span>Rien d\'annoncé ' + UI.esc(prep(nomLieu())) + ' ces jours-ci.</span></div></div>';
     }
     return '<div class="section"><div class="sechead"><h2 style="font-size:16px">En ce moment</h2>' +
       '<button data-act="refreshEvents">Actualiser</button></div>' +
@@ -642,13 +737,34 @@
     return m[a.kind] || 'activity';
   }
 
+  /* « Éviter ce qui vient de sortir » : ce que la roue a déjà
+     proposé (tirage) et ce qui a vraiment été fait (activite), sur la
+     même fenêtre que le libellé du réglage. */
+  const JOURS_RECENTS = 14;
+  function recentsActivites() {
+    const out = Reco.recentMap('activite', JOURS_RECENTS);
+    const tires = Reco.recentMap('tirage', JOURS_RECENTS);
+    Object.keys(tires).forEach((id) => { if (!out[id] || tires[id] > out[id]) out[id] = tires[id]; });
+    return out;
+  }
+  function recentsLieux() {
+    const out = Reco.recentMap('etablissement', JOURS_RECENTS);
+    const cut = Date.now() - JOURS_RECENTS * 86400e3;
+    Store.history('tirage', 400).forEach((h) => {
+      const id = h.payload && h.payload.venueId;
+      if (id && h.at >= cut && !out[id]) out[id] = h.at;
+    });
+    return out;
+  }
+
   function weightOf(a) {
     const p = prefs();
-    if (p.mood && a.isMood && global.Mood) return Mood.weight(a, ctx);
+    if (a.isMood && global.Mood) return Mood.weight(a, ctx);
     const copy = Object.assign({}, a);
     Reco.scorePlace(copy, ctx, {
       favIds: new Set(Store.all('activities').filter((x) => Store.isFav('activity', x.id)).map((x) => x.id)),
-      recent: p.avoidRecent ? Reco.recentMap('activite', 45) : {}
+      recent: p.avoidRecent ? recentsActivites() : {},
+      recentMot: 'proposé'
     });
     /* Un événement qui a lieu aujourd'hui mérite d'être poussé. */
     if (a.isEvent) {
@@ -663,25 +779,47 @@
   /* ============================================================
      Résultat
      ============================================================ */
-  async function onResult(a, box, why) {
-    Store.log('activite', { id: a.id, label: a.nom, kind: a.kind, category: a.category });
-    if (global.Game) Game.award('roulette', 5);
+  /* Un tirage n'est pas une sortie. On le note sous « tirage »
+     (ce que la roue a proposé), une seule fois, avec l'établissement
+     quand il y en a un. L'historique « activite », qui nourrit
+     l'équilibre des humeurs et l'alerte « jours sans voir
+     personne », est réservé à ce qui a vraiment été fait. */
+  function noterTirage(a, venue) {
+    Store.log('tirage', {
+      id: a.id, label: a.nom, kind: a.kind, category: a.category,
+      venueId: venue ? venue.id : undefined, venue: venue ? venue.nom : undefined
+    });
+  }
 
-    if (a.isMood && global.Mood) Mood.log(prefs().mood, a);
+  async function onResult(a, box, why, opts) {
+    opts = opts || {};
+    const loguer = !opts.pasDeLog;
+    if (loguer && global.Game) Game.award('roulette', 5);
+    if (loguer && a.isMood && global.Mood && opts.mood) Mood.log(opts.mood, a);
 
     box.innerHTML = resultCard(a, null, true, why);
     bindResult(box, a, null);
     Photos.hydrate(box);
-    if (a.isEvent) { const s = box.querySelector('[data-venue]'); if (s) s.innerHTML = ''; return; }
+    const sansLieu = () => {
+      const s = box.querySelector('[data-venue]'); if (s) s.innerHTML = '';
+      if (loguer) noterTirage(a, null);
+    };
+    if (a.isEvent) return sansLieu();
 
-    /* Une source d'humeur qui ne se rattache à aucun lieu — un câlin,
-       une douche froide, un appel — n'a pas d'établissement à
+    /* Une source d'humeur qui ne se rattache à aucun lieu (un câlin,
+       une douche froide, un appel) n'a pas d'établissement à
        chercher. Aller interroger l'IA là-dessus serait absurde. */
-    if (a.isMood && !needsVenue(a.kind)) { const s = box.querySelector('[data-venue]'); if (s) s.innerHTML = ''; return; }
+    if (a.isMood && !needsVenue(a.kind)) return sansLieu();
 
     const p = prefs();
-    if (p.source === 'mine') return;
-    const local = Store.all('places').filter((x) => x.kind === a.kind && (!x.city || x.city === p.city));
+    if (p.source === 'mine') return sansLieu();
+    /* Les adresses gardées autrefois portaient les coordonnées du
+       centre-ville, pas les leurs : on les oublie pour que la carte
+       cherche la vraie adresse et qu'aucune distance fausse
+       (« 0 m ») ne s'affiche. */
+    const pl = (ctx && ctx.place) || {};
+    const local = Store.all('places').filter((x) => x.kind === a.kind && (!x.city || x.city === p.city))
+      .map((x) => (x.lat === pl.lat && x.lon === pl.lon) ? Object.assign({}, x, { lat: undefined, lon: undefined }) : x);
     let candidates = local;
 
     if (AI.available() && needsVenue(a.kind)) {
@@ -691,6 +829,7 @@
       catch (e) {
         const s2 = box.querySelector('[data-venue]');
         if (s2) s2.innerHTML = '<p class="muted" style="font-size:12.5px">' + UI.esc(AI.humanError(e)) + '</p>';
+        if (loguer) noterTirage(a, null);
         return;
       }
     }
@@ -699,18 +838,21 @@
     if (!candidates.length) {
       const s = box.querySelector('[data-venue]');
       if (s) s.innerHTML = avant ? '<p class="muted" style="font-size:12.5px">Aucune adresse connue dans ton budget ' + '€'.repeat(budget()) + ' pour ça.</p>' : '';
+      if (loguer) noterTirage(a, null);
       return;
     }
 
     const ranked = Reco.rank(candidates, ctx, {
       favIds: new Set(Store.all('places').filter((x) => Store.isFav('place', x.id)).map((x) => x.id)),
-      recent: p.avoidRecent ? Reco.recentMap('etablissement', 45) : {}
+      recent: p.avoidRecent ? recentsLieux() : {},
+      recentMot: 'proposé'
     });
     const venue = Roulette.pick(ranked, { weight: (x) => x._score, sharpness: 1.9 });
+    if (!box.isConnected) { if (loguer) noterTirage(a, venue); return; }
     box.innerHTML = resultCard(a, Object.assign(venue, { _pool: ranked.length }), false, why);
     bindResult(box, a, venue);
     Photos.hydrate(box);
-    Store.log('etablissement', { id: venue.id, label: venue.nom, kind: a.kind, act: a.nom });
+    if (loguer) noterTirage(a, venue);
   }
 
   const VENUE_KINDS = new Set(['bar', 'cafe', 'restaurant', 'brunch', 'glacier', 'musee', 'galerie', 'exposition', 'cinema', 'bowling', 'karting', 'escape', 'spa', 'golf', 'shopping', 'marche', 'equitation', 'tennis']);
@@ -785,7 +927,7 @@
       (a.isEvent && a.source ? '<p class="muted" style="font-size:11.5px;margin-top:8px">Source : ' + UI.esc(a.source) + '</p>' : '') +
       (a.isEvent && !a.fiable ? '<div class="warn" style="margin-top:10px">Date et lieu à vérifier avant de te déplacer.</div>' : '') +
       (a.isMood && a.note ? '<div class="rwhy">' + UI.esc(a.note) + '</div>' : '') +
-      (a.isMood && a.avecQuelquun
+      (a.isMood && a.avecQuelquun && global.Mood && Mood.estSociale(a.molecule)
         ? '<div class="warn" style="margin-top:10px">Celle-là ne marche qu\'à plusieurs. Seul, elle ne t\'apportera rien.</div>'
         : '') +
       (why ? '<div class="rwhy"><b>Pourquoi ? </b>' + UI.esc(why) + '</div>' : '') +
@@ -821,7 +963,7 @@
       const slotFree = Cal.freeSlot(a.isEvent ? a.debut : UI.day.today(), Cal.durationOf(a));
       Cal.add({
         title: (venue ? venue.nom : a.nom),
-        location: venue ? (venue.adresse || cityName(prefs().city)) : (a.lieu || cityName(prefs().city)),
+        location: venue ? (venue.adresse || nomLieu()) : (a.lieu || nomLieu()),
         description: a.isEvent ? a.description : a.nom,
         kind: 'activite',
         minutes: Cal.durationOf(a),
@@ -905,12 +1047,12 @@
   function openMaps(v) {
     if (!v) return;
     if (!global.MapPick || !MapPick.fiche) {
-      const q = encodeURIComponent((v.nom || '') + ' ' + (v.adresse || cityName(prefs().city)));
+      const q = encodeURIComponent((v.nom || '') + ' ' + (v.adresse || nomLieu()));
       window.open('https://maps.apple.com/?q=' + q, '_blank', 'noopener');
       return;
     }
     MapPick.fiche({
-      nom: v.nom, adresse: v.adresse || '', ville: cityName(prefs().city),
+      nom: v.nom, adresse: v.adresse || '', ville: nomLieu(),
       lat: v.lat, lon: v.lon, rating: v.rating, reviews: v.reviews,
       price: v.price, hours: v.hours, pitch: v.pitch,
       distance: v._distance, categorie: v.categorie || v.kind || ''
@@ -1055,7 +1197,7 @@
   async function findVenues(a) {
     const p = prefs();
     const res = await AI.json(
-      "Liste des établissements réels de type « " + a.nom + " » " + prep(cityName(p.city)) + ".\n" +
+      "Liste des établissements réels de type « " + a.nom + " » " + prep(nomLieu()) + ".\n" +
       Ctx.describe(ctx) + "\n\n" +
       "Règles strictes :\n" +
       "- uniquement des lieux qui existent vraiment et que tu connais ;\n" +
@@ -1070,8 +1212,10 @@
       nom: v.nom, adresse: v.adresse, kind: a.kind, category: a.category,
       rating: v.note > 0 ? v.note : null, reviews: v.avis > 0 ? v.avis : null,
       price: v.prix || null, pitch: v.pitch, hours: v.horaires || '',
-      city: p.city, source: 'ai',
-      lat: ctx.place.lat, lon: ctx.place.lon
+      /* Pas de coordonnées : l'IA ne les connaît pas, et celles du
+         centre-ville donnaient « 0 m » et une épingle au mauvais
+         endroit. La fiche carte géocode l'adresse elle-même. */
+      city: p.city, source: 'ai'
     }));
   }
 
@@ -1083,7 +1227,8 @@
       Store.set('budget', +b.dataset.budget);
       ctx.budget = +b.dataset.budget;
       UI.haptic('select');
-      root.querySelectorAll('[data-budget]').forEach((x) => x.classList.toggle('on', x === b));
+      /* Le budget filtre le vivier : la pastille « N idées » suit. */
+      render();
     });
     const pb = root.querySelector('[data-place]');
     if (pb) pb.onclick = placePicker;
@@ -1100,9 +1245,9 @@
     add: () => ouvrirAjout(),
     history: () => showHistory(),
     reglages: () => ouvrirReglages(),
-    guide: () => App.go('#/m/city/' + prefs().city),
+    guide: () => App.go('#/m/city/' + slug(nomLieu())),
     surprise: () => surprise(),
-    refreshEvents: () => { Events.clearCache(ctx.place.name); events = []; loadEvents(); }
+    refreshEvents: () => { Events.clearCache(ctx.place.name); events = []; return loadEvents(); }
   };
 
   /* ============================================================
@@ -1194,10 +1339,15 @@
             racine.querySelectorAll('[data-c]').forEach((b) => b.onclick = async (e) => {
               if (e.target.closest('[data-fav]')) return;
               const id = b.dataset.c, nom = b.dataset.nom;
-              setPrefs({ city: id, category: 'all' });
-              const trouve = await Ctx.searchCity(nom);
-              if (trouve[0]) Ctx.setPlace(trouve[0]);
-              noterVisite(id, nom, trouve[0] || null);
+              /* Le lieu réel d'abord (Ctx.place) : la ville affichée en
+                 découle. On prend les coordonnées déjà connues, et on
+                 ne cherche en ligne qu'à défaut. */
+              const connue = (villesRecentes().find((v) => v.id === id && v.place && v.place.lat != null) || {}).place ||
+                VILLES_CONNUES[id] || (await Ctx.searchCity(nom))[0];
+              if (!connue) { UI.toast('Ville introuvable, vérifie ta connexion'); return; }
+              Ctx.setPlace(connue);
+              setPrefs({ category: 'all' });
+              noterVisite(id, nom, connue);
               UI.closeSheet();
               await refreshCtx();
             });
@@ -1218,7 +1368,7 @@
             const r = await Ctx.searchCity(v);
             if (!r.length) { out.innerHTML = '<p class="muted" style="font-size:13px">Aucune ville trouvée.</p>'; return; }
             out.innerHTML = '<div class="list">' + r.map((c, i) => {
-              const id = slug(c.name);
+              const id = citySlug(c.name);
               return '<div class="rowitem villeligne" data-i="' + i + '">' +
                 (global.MapPick && MapPick.vignette(c) || '<span class="ic">' + Icon('location', 17) + '</span>') +
                 '<span class="tx"><b>' + UI.esc(c.name) + '</b><small>' + UI.esc(c.label) + '</small></span>' +
@@ -1237,8 +1387,8 @@
               if (e.target.closest('[data-fav]')) return;
               const c = r[+b.dataset.i];
               Ctx.setPlace(c);
-              setPrefs({ city: slug(c.name), category: 'all' });
-              noterVisite(slug(c.name), c.name, c);
+              setPrefs({ category: 'all' });
+              noterVisite(citySlug(c.name), c.name, c);
               UI.closeSheet();
               await refreshCtx();
             });
@@ -1249,15 +1399,15 @@
             const choisi = await MapPick.pick(Ctx.place());
             if (!choisi) return;
             Ctx.setPlace(choisi);
-            setPrefs({ city: slug(choisi.name), category: 'all' });
-            noterVisite(slug(choisi.name), choisi.name, choisi);
+            setPrefs({ category: 'all' });
+            noterVisite(citySlug(choisi.name), choisi.name, choisi);
             await refreshCtx();
           };
           sh.querySelector('[data-locate]').onclick = async () => {
             try {
               const p = await Ctx.locate();
-              setPrefs({ city: slug(p.name), category: 'all' });
-              noterVisite(slug(p.name), p.name, p);
+              setPrefs({ category: 'all' });
+              noterVisite(citySlug(p.name), p.name, p);
               UI.closeSheet();
               await refreshCtx();
             } catch (e) { UI.toast(e.message); }
@@ -1444,7 +1594,7 @@
     Store.add('places', {
       nom: r.nom, kind: (r.kind || 'autre').toLowerCase(), adresse: r.adresse,
       rating: Number(r.rating) || null, reviews: null, price: Number(r.price) || null,
-      city: prefs().city, source: 'user', lat: ctx.place.lat, lon: ctx.place.lon
+      city: prefs().city, source: 'user'
     });
     UI.toast('Ajouté'); render();
     managePlaces();
@@ -1474,14 +1624,23 @@
     return f ? f[0] : 'Autres';
   }
 
+  /* Les tirages (« tirage »), plus les anciennes lignes où chaque
+     tirage notait l'activité PUIS l'établissement : on fusionne
+     ces paires pour ne pas compter deux fois la même proposition. */
+  function lignesHistorique() {
+    const tirages = Store.history('tirage', 200);
+    const etabs = Store.history('etablissement', 200);
+    const acts = Store.history('activite', 200).filter((x) => !etabs.some((e) =>
+      e.payload && e.payload.act === x.payload.label && Math.abs(e.at - x.at) < 120e3));
+    return tirages.concat(acts, etabs).sort((a, b) => b.at - a.at);
+  }
+
   function showHistory() {
-    const h = Store.history('activite', 120)
-      .concat(Store.history('etablissement', 120))
-      .sort((a, b) => b.at - a.at);
+    const h = lignesHistorique();
 
     if (!h.length) {
       Cartes.ouvrir({
-        tete: Cartes.tete('Historique', 'Ce que la roue a déjà donné.', ['#6B5330', '#A98A55'], 'refaire'),
+        tete: Cartes.tete('Historique', 'Ce que la roue t\'a déjà proposé.', ['#6B5330', '#A98A55'], 'refaire'),
         corps: UI.empty('clock', 'Rien encore', 'Lance la roue une première fois.')
       });
       return;
@@ -1490,17 +1649,20 @@
     /* On range par famille en gardant l'ordre chronologique. */
     const paquets = {};
     h.forEach((x, i) => {
-      const nom = x.payload.label || '';
-      const kind = x.payload.kind || '';
-      const fam = x.kind === 'etablissement' ? 'Manger et boire' : familleDe(kind);
+      const pl = x.payload || {};
+      const venue = x.kind === 'tirage' ? pl.venue : null;
+      const nom = venue || pl.label || '';
+      const kind = pl.kind || '';
+      const fam = familleDe(kind);
       const act = Store.all('activities').find((a) => a.nom === nom);
-      const slugImg = x.kind === 'etablissement'
+      const slugImg = (x.kind === 'etablissement' || venue)
         ? (Vis.trouve(nom, 'activite') || (kind && Vis.KINDS[kind]) || 'lieu')
-        : (act ? Vis.activite(act) : Vis.activite({ nom: nom, kind: kind, category: x.payload.category }));
+        : (act ? Vis.activite(act) : Vis.activite({ nom: nom, kind: kind, category: pl.category }));
       (paquets[fam] = paquets[fam] || []).push({
         id: 'h' + i,
         titre: nom,
-        sous: UI.fmt.date(x.at),
+        sous: (venue && pl.label ? pl.label + ' · ' : '') + UI.fmt.date(x.at),
+        fait: x.kind === 'activite' && !!pl.fait,
         img: Vis.src(slugImg),
         slug: slugImg,
         at: x.at
@@ -1515,7 +1677,7 @@
     }).join('');
 
     Cartes.ouvrir({
-      tete: Cartes.tete('Historique', h.length + ' sorties enregistrées', ['#6B5330', '#A98A55'], 'refaire'),
+      tete: Cartes.tete('Historique', h.length + ' proposition' + (h.length > 1 ? 's' : '') + ' de la roue', ['#6B5330', '#A98A55'], 'refaire'),
       corps: corps,
       onCarte: (id) => {
         const tous = [].concat.apply([], Object.values(paquets));
@@ -1524,7 +1686,7 @@
         Cartes.empiler({
           tete: Cartes.tete(c.titre, c.sous, ['#6B5330', '#A98A55'], 'lieu'),
           corps: '<div class="histvis">' + Vis.html(c.slug) + '</div>' +
-            '<p class="mdesc" style="margin-top:14px">Fait le ' + UI.esc(UI.fmt.date(c.at)) + '.</p>' +
+            '<p class="mdesc" style="margin-top:14px">' + (c.fait ? 'Fait le ' : 'Proposé le ') + UI.esc(UI.fmt.date(c.at)) + '.</p>' +
             '<button class="btn primary block lg" style="margin-top:14px" data-refaire>' +
               Icon('refresh', 17) + 'Le refaire</button>',
           onMount: (sh) => {
@@ -1538,5 +1700,5 @@
 
 
   App.register('activities', { mount: mount });
-  global.Activities = { mount, surprise, threeIdeas };
+  global.Activities = { mount, surprise, threeIdeas, citySlug };
 })(window);

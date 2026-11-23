@@ -13,7 +13,9 @@
    ============================================================ */
 const VERSION = 'ever-v11.6.0';
 const SHELL = VERSION + '-shell';
-const MEDIA = VERSION + '-media';
+/* Nom fixe, indépendant de VERSION : les images ne changent pas
+   d'une mise en ligne à l'autre, inutile de retélécharger 24 Mo. */
+const MEDIA = 'ever-media-v1';
 
 const CORE = [
   './', './index.html', './manifest.webmanifest',
@@ -21,6 +23,7 @@ const CORE = [
   './js/config.js',
   './js/core/icons.js', './js/core/visuels.js', './js/core/art.js', './js/core/gestes.js', './js/core/molette.js', './js/core/banques.js', './js/core/ic.js', './js/core/stock.js', './js/core/portes.js', './js/core/cartes.js', './js/core/graph.js', './js/core/anim.js', './js/core/anime.js', './js/core/imagerie.js', './js/core/feedback.js', './js/core/ui.js', './js/core/store.js', './js/core/photos.js',
   './js/core/ai.js', './js/core/cloud.js', './js/core/calendar.js', './js/core/map.js',
+  './js/vendor/zxing.min.js',
   './js/data/codex.data.js', './js/data/cocktails.plus.js', './js/data/cocktails.plus2.js', './js/data/codex.config.js', './js/data/seed.js', './js/data/moods.js', './js/data/aliments.js', './js/data/sport.js',
   './js/engines/context.js', './js/engines/reco.js', './js/engines/roulette.js', './js/engines/events.js', './js/engines/mood.js', './js/engines/rang.js',
   './js/app.js',
@@ -42,7 +45,7 @@ self.addEventListener('install', (e) => {
 self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys()
-      .then((keys) => Promise.all(keys.filter((k) => k.indexOf(VERSION) !== 0).map((k) => caches.delete(k))))
+      .then((keys) => Promise.all(keys.filter((k) => k.indexOf(VERSION) !== 0 && k !== MEDIA).map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
@@ -73,7 +76,13 @@ self.addEventListener('fetch', (e) => {
       fetch(req).then((res) => {
         if (res.ok) { const copy = res.clone(); caches.open(SHELL).then((c) => c.put(req, copy)); }
         return res;
-      }).catch(() => caches.match(req).then((hit) => hit || caches.match('./index.html')))
+      }).catch(() => caches.match(req).then((hit) => {
+        if (hit) return hit;
+        /* index.html seulement pour une page : un script ou une
+           feuille de style absents recevaient du HTML hors ligne. */
+        if (req.mode === 'navigate') return caches.match('./index.html');
+        return new Response('', { status: 504, statusText: 'Hors ligne' });
+      }))
     );
   }
 });

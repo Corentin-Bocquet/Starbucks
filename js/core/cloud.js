@@ -61,18 +61,46 @@
       });
       const { data } = await client.auth.getSession();
       session = data ? data.session : null;
-      client.auth.onAuthStateChange((_evt, s) => {
+      client.auth.onAuthStateChange((evt, s) => {
+        const avant = session && session.user ? session.user.id : null;
         session = s;
+        /* supabase-js émet INITIAL_SESSION à l'abonnement, puis
+           TOKEN_REFRESHED toutes les heures : ni l'un ni l'autre ne
+           change de compte, on ne resynchronise pas pour eux. */
+        if (evt === 'INITIAL_SESSION' || evt === 'TOKEN_REFRESHED') return;
+        const apres = s && s.user ? s.user.id : null;
+        if (evt === 'SIGNED_IN' && apres === avant && synchroPour === apres) return;
         Store.emit('auth', s ? s.user : null);
-        if (s) { Store.pull().then(() => Store.push()); }
+        if (evt === 'SIGNED_OUT' || !s) { synchroPour = null; return; }
+        if (evt === 'SIGNED_IN') sync();
       });
       Store.emit('auth', user());
-      if (session) { await Store.pull(); await Store.push(); }
+      if (session) await sync();
       return true;
     } catch (e) {
       console.warn('[EVER] Supabase indisponible :', e.message);
       return false;
     }
+  }
+
+  /* ---------- Une seule synchro à la fois ----------
+     Démarrage, connexion, et l'écran de connexion lui-même
+     demandaient chacun pull puis push : trois allers-retours pour
+     rien. On les fusionne, une fois par compte et par session. */
+  let synchroPour = null;
+  let synchroEnCours = null;
+  function sync() {
+    if (!ready()) return Promise.resolve(false);
+    const id = user().id;
+    if (synchroEnCours) return synchroEnCours;
+    if (synchroPour === id) return Promise.resolve(true);
+    synchroPour = id;
+    synchroEnCours = (async () => {
+      try { await Store.pull(); await Store.push(); return true; }
+      catch (e) { synchroPour = null; return false; }
+      finally { synchroEnCours = null; }
+    })();
+    return synchroEnCours;
   }
 
   /* ---------- Authentification ---------- */
@@ -108,6 +136,7 @@
     if (!client) return;
     await client.auth.signOut();
     session = null;
+    synchroPour = null;
     Store.emit('auth', null);
   }
 
@@ -290,7 +319,7 @@
   }
 
   global.Cloud = {
-    init, configured, ready, user, client: () => client,
+    init, configured, ready, user, client: () => client, sync,
     signUp, signIn, signInMagic, resetPassword, signOut,
     putSettings, putCollection, getAll,
     createSharedList, joinSharedList, myLists, listItems, addListItem, removeListItem, leaveList,

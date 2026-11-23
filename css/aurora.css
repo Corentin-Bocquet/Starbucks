@@ -204,7 +204,7 @@
    le mode « écran » n'aurait plus rien derrière lui avec quoi se
    fondre. Le noir du fichier resterait un carré noir. */
 .lanceur .lic img { width: 100%; height: 100%; object-fit: contain; background: transparent; }
-html:not([data-theme="dark"]) .lanceur .lic img { mix-blend-mode: multiply; filter: saturate(1.1); }
+html[data-theme="light"] .lanceur .lic img { mix-blend-mode: multiply; filter: saturate(1.1); }
 .lanceur .fonte {
   position: absolute; left: 0; right: 0; bottom: 0; height: 58%; z-index: 1;
   background: linear-gradient(to top, color-mix(in srgb, var(--l2) 88%, transparent) 25%, transparent);

@@ -49,19 +49,58 @@
      Le bouton retour du téléphone fait la même chose, et la touche
      Échap aussi.
      ============================================================ */
-  const sheetStack = [];
   const historique = [];   /* les écrans précédents, pour y revenir */
   let sautHistorique = false;
+  let fermeture = null;    /* onClose de l'écran affiché */
+  let retourPrevu = false; /* un history.back() est programmé */
+  let retourEnVol = false; /* history.back() lancé, popstate attendu */
+  let focusAvant = null;   /* rendu à la fermeture */
+
+  /* Appelle un rappel de fermeture sans laisser une erreur bloquer
+     la fermeture elle-même. */
+  function rappeler(cb) { if (cb) { try { cb(); } catch (e) { console.error(e); } } }
+
+  /* ============================================================
+     L'historique du navigateur
+
+     La première feuille ouverte ajoute une entrée (même adresse,
+     état { sheet: 1 }). Le bouton retour du téléphone consomme
+     cette entrée au lieu de changer de page : l'adresse ne bouge
+     pas, donc aucun changement de route.
+
+     Fermer depuis l'interface (croix, bouton) rend l'entrée avec
+     history.back(), au tour suivant : si un lien a navigué entre
+     temps (App.go la remplace), ou si une autre feuille s'est
+     ouverte, il n'y a plus rien à rendre.
+     ============================================================ */
+  const etatFeuille = () => !!(history.state && history.state.sheet);
+  /* Après un rechargement, l'entrée courante peut porter l'état
+     d'une feuille qui n'est plus ouverte. */
+  if (etatFeuille()) { try { history.replaceState(null, ''); } catch (e) {} }
 
   function openSheet(html, opts) {
     opts = opts || {};
     const ov = $('#ov'), sheet = $('#sheet');
+    const dejaOuverte = ov.classList.contains('on');
+
+    if (!dejaOuverte) {
+      focusAvant = document.activeElement;
+      /* Une fermeture vient d'être demandée mais son retour n'a pas
+         encore eu lieu : on réutilise l'entrée existante. */
+      if (etatFeuille()) retourPrevu = false;
+      else { try { history.pushState({ sheet: 1 }, ''); } catch (e) {} }
+    }
 
     /* On empile l'écran courant avant de le remplacer, sauf quand
-       c'est justement un retour qui redessine. */
-    if (!sautHistorique && ov.classList.contains('on') && sheet.innerHTML) {
-      historique.push({ html: sheet.innerHTML, remonter: sheet.__remonter || null });
-      if (historique.length > 12) historique.shift();
+       c'est justement un retour qui redessine, ou quand le nouvel
+       écran remplace l'ancien (attente de l'IA : on ne veut pas
+       revenir sur un sablier). */
+    if (!sautHistorique && dejaOuverte && sheet.innerHTML) {
+      if (opts.remplacer) rappeler(fermeture);
+      else {
+        historique.push({ html: sheet.innerHTML, remonter: sheet.__remonter || null, fermeture: fermeture });
+        if (historique.length > 12) rappeler(historique.shift().fermeture);
+      }
     }
 
     const peutRevenir = historique.length > 0 && !opts.racine;
@@ -81,12 +120,18 @@
     ov.classList.add('on');
     document.body.style.overflow = 'hidden';
     sheet.scrollTop = 0;
+    sheet.setAttribute('role', 'dialog');
+    sheet.setAttribute('aria-modal', 'true');
+    sheet.tabIndex = -1;
     if (global.Feedback) global.Feedback.fire('sheetOpen');
-    sheetStack.push(opts.onClose || null);
+    fermeture = opts.onClose || null;
     /* Le module peut fournir sa propre façon de se redessiner : on
        la rappelle au retour, ce qui rebranche ses évènements. */
     sheet.__remonter = opts.onMount || null;
     if (opts.onMount) opts.onMount(sheet);
+    /* Le focus entre dans la feuille (clavier, lecteur d'écran),
+       sur la feuille elle-même : pas de clavier qui surgit. */
+    if (!sheet.contains(document.activeElement)) { try { sheet.focus({ preventScroll: true }); } catch (e) {} }
     return sheet;
   }
 
@@ -127,6 +172,10 @@
     if (!historique.length) { closeSheet(); return; }
     const p = historique.pop();
     const sheet = $('#sheet');
+    /* L'écran qu'on quitte est fini : son rappel est appelé, et
+       celui de l'écran retrouvé redevient le rappel courant. */
+    rappeler(fermeture);
+    fermeture = p.fermeture || null;
     sautHistorique = true;
     sheet.innerHTML = p.html;
     sheet.classList.toggle('a-retour', historique.length > 0);
@@ -142,15 +191,32 @@
     haptic('tap');
   }
 
-  function closeSheet() {
+  /* `parRetour` : la fermeture vient du bouton retour du
+     téléphone, l'entrée d'historique est déjà consommée. */
+  function closeSheet(parRetour) {
     const ov = $('#ov');
     if (!ov || !ov.classList.contains('on')) return;
     ov.classList.remove('on');
     document.body.style.overflow = '';
-    historique.length = 0;
     if (global.Feedback) global.Feedback.fire('sheetClose');
-    const cb = sheetStack.pop();
-    if (cb) cb();
+    /* Tous les écrans encore empilés se ferment avec elle : chacun
+       reçoit son rappel, du plus récent au plus ancien. Une invite
+       restée dessous ne reste plus jamais sans réponse. */
+    const cbs = [fermeture].concat(historique.map((h) => h.fermeture).reverse());
+    fermeture = null;
+    historique.length = 0;
+    cbs.forEach(rappeler);
+    if (focusAvant && focusAvant.isConnected && !ov.classList.contains('on')) {
+      try { focusAvant.focus({ preventScroll: true }); } catch (e) {}
+    }
+    focusAvant = null;
+    if (parRetour !== true && etatFeuille()) {
+      retourPrevu = true;
+      setTimeout(() => {
+        if (retourPrevu && etatFeuille() && !ov.classList.contains('on')) { retourEnVol = true; history.back(); }
+        retourPrevu = false;
+      }, 0);
+    }
   }
 
   /* --- Confirmation, remplace window.confirm pour rester dans la DA --- */
@@ -655,9 +721,22 @@
      quitter la page : c'est ce que tout le monde attend. */
   global.addEventListener('popstate', () => {
     const ov = $('#ov');
-    if (ov && ov.classList.contains('on')) {
-      if ($('#sheet').classList.contains('a-retour')) backSheet();
-      else closeSheet();
+    /* C'est le retour que closeSheet a lancé lui-même. Si une
+       feuille s'est rouverte entre-temps, elle reprend une entrée. */
+    if (retourEnVol) {
+      retourEnVol = false;
+      if (ov && ov.classList.contains('on') && !etatFeuille()) { try { history.pushState({ sheet: 1 }, ''); } catch (e) {} }
+      return;
     }
+    if (!ov || !ov.classList.contains('on')) return;
+    /* On est revenu sur l'entrée d'une feuille (bouton Suivant du
+       navigateur, par exemple) : rien à fermer. */
+    if (etatFeuille()) return;
+    if ($('#sheet').classList.contains('a-retour')) {
+      backSheet();
+      /* La feuille reste ouverte : elle reprend une entrée pour le
+         prochain retour. */
+      try { history.pushState({ sheet: 1 }, ''); } catch (e) {}
+    } else closeSheet(true);
   });
 })(window);

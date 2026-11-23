@@ -52,7 +52,10 @@
   function mount(el, rest) {
     root = el;
     const slug = rest && rest[0];
-    city = slug ? unslug(slug) : (Ctx.place().name || 'Amiens');
+    /* Le lieu courant (Ctx.place) prime quand la route le désigne :
+       on garde ainsi son vrai nom, avec ses accents. */
+    const pl = Ctx.place();
+    city = (!slug || (pl && pl.name && villeSlug(pl.name) === villeSlug(unslug(slug)))) ? (pl.name || 'Le Touquet') : unslug(slug);
     load();
   }
   const unslug = (s) => ({ 'le-touquet': 'Le Touquet', 'meribel': 'Méribel' })[s] || s.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
@@ -102,7 +105,7 @@
         '<div class="secbar"><h2>Le guide ' + UI.esc(prep(city, 'de')) + '</h2></div>' +
         Cartes.grille(dispo.map((sec) => ({
           id: sec.k, titre: sec.nom, ph: sec.ph, type: 'icone',
-          sous: Array.isArray(data[sec.k]) ? data[sec.k].length + ' entrées' : 'À lire'
+          sous: Array.isArray(data[sec.k]) ? data[sec.k].length + (data[sec.k].length > 1 ? ' entrées' : ' entrée') : 'À lire'
         }))) +
       '</div>' +
       Portes.section('', [
@@ -162,7 +165,7 @@
     }
     if (sec.type === 'list') {
       Cartes.ouvrir({
-        tete: Cartes.tete(sec.nom, v.length + ' points', teinte, sec.art),
+        tete: Cartes.tete(sec.nom, v.length + (v.length > 1 ? ' points' : ' point'), teinte, sec.art),
         corps: '<article class="lecture">' + entete +
           '<div class="lecliste">' + v.map((x, i) =>
             '<div class="lecpoint"><span class="n">' + (i + 1) + '</span><p>' + UI.esc(x) + '</p></div>').join('') + '</div>' +
@@ -172,7 +175,7 @@
     }
 
     Cartes.ouvrir({
-      tete: Cartes.tete(sec.nom, v.length + ' adresses ' + prep(city), teinte, sec.art),
+      tete: Cartes.tete(sec.nom, v.length + (v.length > 1 ? ' adresses ' : ' adresse ') + prep(city), teinte, sec.art),
       corps: Cartes.grille(v.map((x, i) => ({
         id: 'p' + i, titre: x.nom, sous: x.description || x.adresse || '',
         img: Vis.src(Vis.trouve(x.nom, 'lieu') || sec.ph)
@@ -208,9 +211,7 @@
           MapPick.fiche({ nom: x.nom, adresse: x.adresse, ville: city, categorie: sec.nom, pitch: x.description });
         };
         sh.querySelector('[data-gard]').onclick = () => {
-          Store.add('places', { nom: x.nom, kind: kindOf(sec.k), adresse: x.adresse || '',
-            city: slug(city), source: 'guide' });
-          UI.haptic('success'); UI.toast('Gardé dans tes adresses');
+          garder({ nom: x.nom, kind: kindOf(sec.k), adresse: x.adresse || '' });
         };
       }
     });
@@ -232,7 +233,7 @@
     const l = data.cinq_choses || [];
     if (!l.length) return '';
     return '<div class="section"><div class="panel" style="background:var(--accent-soft)">' +
-      '<h3 style="font-size:15px;margin-bottom:10px;display:flex;align-items:center;gap:8px">' + Icon('sparkle', 17) + 'Cinq choses a savoir</h3>' +
+      '<h3 style="font-size:15px;margin-bottom:10px;display:flex;align-items:center;gap:8px">' + Icon('sparkle', 17) + 'Cinq choses à savoir</h3>' +
       '<ol style="padding-left:20px">' + l.map((x) => '<li style="margin-bottom:8px;font-size:14px;line-height:1.5">' + UI.esc(x) + '</li>').join('') + '</ol>' +
       '</div></div>';
   }
@@ -248,24 +249,6 @@
         '<p class="muted" style="font-size:12.5px;margin-top:6px;line-height:1.45">' + UI.esc(x.description || '') + '</p>' +
         (x.distance ? '<div class="meta"><span>' + UI.esc(x.distance) + '</span></div>' : '') +
         '</div></div>').join('') + '</div></div>';
-  }
-
-  function section(s) {
-    const v = data[s.k];
-    if (!v || (Array.isArray(v) && !v.length)) return '';
-    let body;
-    if (s.type === 'text') body = '<p style="font-size:14px;line-height:1.6;color:var(--ink-2)">' + UI.esc(v) + '</p>';
-    else if (s.type === 'list') body = '<ul style="padding-left:19px">' + v.map((x) => '<li style="margin-bottom:7px;font-size:13.8px;line-height:1.5">' + UI.esc(x) + '</li>').join('') + '</ul>';
-    else body = '<div class="list">' + v.map((x) =>
-      '<div class="rowitem" data-place="' + UI.attr(x.nom) + '" data-pitch="' + UI.attr(x.description || '') + '" data-adresse="' + UI.attr(x.adresse || '') + '" data-cat="' + UI.attr(s.nom) + '">' +
-      (global.Stock ? Stock.ic(x.nom + ' ' + s.nom, { classe: 'vignligne', type: 'lieu' })
-                    : '<span class="ic">' + Icon(s.icon, 17) + '</span>') +
-      '<span class="tx"><b>' + UI.esc(x.nom) + '</b><small>' + UI.esc(x.description || '') + '</small></span>' +
-      '<button class="rt" data-savep=\'' + UI.attr(JSON.stringify({ nom: x.nom, kind: kindOf(s.k), adresse: x.adresse || '' })) + '\'>' + Icon('star', 15) + '</button>' +
-      '</div>').join('') + '</div>';
-
-    return '<div class="section"><div class="sechead"><h2 style="font-size:16px;display:flex;align-items:center;gap:8px">' + Icon(s.icon, 17) + UI.esc(s.nom) + '</h2></div>' +
-      '<div class="panel">' + body + '</div></div>';
   }
 
   const kindOf = (k) => ({ ou_manger: 'restaurant', ou_boire: 'bar', ou_cafe: 'cafe', shopping: 'shopping', ou_sortir: 'bar', a_voir: 'monument', a_faire: 'autre', insolite: 'monument' })[k] || 'autre';
@@ -294,12 +277,13 @@
     if (!AI.available()) {
       root.innerHTML = '<div class="wrap">' + header() + '<div class="section">' +
         UI.empty('key', 'Clé Gemini requise', "Le guide est écrit à la demande. Ajoute ta clé dans Réglages, elle reste sur ton téléphone.") +
-        '<button class="btn primary block" data-act="settings">Ouvrir les réglages</button></div></div>';
-      bindHeader();
+        '<button class="btn primary block" data-act="settings">Ouvrir les réglages</button></div>' + ZONE + '</div>';
+      bindHeader(); monterBonsPlans();
       const b = root.querySelector('[data-act="settings"]');
       if (b) b.onclick = () => App.go('#/m/settings/ia');
       return;
     }
+    const pour = city;
     const season = UI.day.season();
     try {
       const res = await AI.json(
@@ -315,14 +299,22 @@
         "- Une ligne par lieu, précise et concrete.\n" +
         "- Réponds en francais.",
         SCHEMA, { cache: !force, ttl: 30 * 86400e3, temperature: 0.7 });
+      Store.set(cacheKey(pour, season), { at: Date.now(), data: res });
+      /* L'utilisateur a pu changer de ville ou quitter la page pendant
+         l'écriture : on garde le guide en cache sans l'afficher. */
+      if (pour !== city || !root || !root.isConnected) return;
       data = res;
-      Store.set(cacheKey(city, season), { at: Date.now(), data: res });
       if (global.Game) Game.award('guide', 12);
       render(Date.now());
     } catch (e) {
+      if (pour !== city || !root || !root.isConnected) return;
       root.innerHTML = '<div class="wrap">' + header() + '<div class="section">' +
-        UI.empty('alert', 'Guide indisponible', AI.humanError(e)) + '</div></div>';
-      bindHeader();
+        UI.empty('alert', 'Guide indisponible', AI.humanError(e)) +
+        '<button class="btn primary block" data-act="retry">' + Icon('refresh', 16) + 'Réessayer</button></div>' +
+        ZONE + '</div>';
+      bindHeader(); monterBonsPlans();
+      const r = root.querySelector('[data-act="retry"]');
+      if (r) r.onclick = () => { UI.haptic('tap'); data = null; render(); generate(true); };
     }
   }
 
@@ -377,11 +369,10 @@
                 pitch: r.description || '', categorie: r.kind || ''
               });
               out.querySelector('[data-keep]').onclick = () => {
-                const place = Ctx.place();
-                Store.add('places', { nom: r.nom, kind: r.kind, adresse: r.adresse, city: slug(city), source: 'guide', lat: place.lat, lon: place.lon });
-                UI.toast('Ajouté à mes établissements');
+                garder({ nom: r.nom, kind: r.kind, adresse: r.adresse || '' });
               };
-              Store.log('etablissement', { id: r.id, label: r.nom });
+              /* Un tirage, pas une sortie : voir activities.js. */
+              Store.log('tirage', { id: 'guide-' + slug(r.nom), label: r.nom, kind: r.kind });
             }
           });
           box.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -413,16 +404,32 @@
     root.querySelectorAll('[data-savep]').forEach((b) => b.onclick = (e) => {
       e.stopPropagation();
       let p; try { p = JSON.parse(b.dataset.savep); } catch (err) { return; }
-      const place = Ctx.place();
-      Store.add('places', Object.assign(p, { city: slug(city), source: 'guide', lat: place.lat, lon: place.lon }));
-      UI.haptic('light'); UI.toast('Ajouter à mes adresses');
+      garder(p);
     });
     root.querySelectorAll('[data-act]').forEach((b) => b.onclick = () => {
       if (b.dataset.act === 'refresh') { data = null; render(); generate(true); }
       if (b.dataset.act === 'roue') spinFromGuide();
     });
   }
-  const slug = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-');
+  function slug(s) { return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
+  /* La même clé de ville qu'Activités (« le-touquet » pour « Le
+     Touquet-Paris-Plage »), pour que les adresses gardées ici
+     ressortent dans la roue. */
+  function villeSlug(nom) {
+    return (global.Activities && Activities.citySlug) ? Activities.citySlug(nom) : slug(nom);
+  }
+
+  /* Garder une adresse du guide, une seule fois. Sans coordonnées :
+     celles du centre-ville fausseraient la carte et les distances ;
+     la fiche géocode l'adresse elle-même. */
+  const normNom = (s) => slug(s).replace(/-/g, '');
+  function garder(p) {
+    const ville = villeSlug(city);
+    const deja = Store.all('places').find((x) => normNom(x.nom) === normNom(p.nom) && (!x.city || x.city === ville));
+    if (deja) { UI.haptic('light'); UI.toast('Déjà dans tes adresses'); return; }
+    Store.add('places', { nom: p.nom, kind: p.kind || 'autre', adresse: p.adresse || '', city: ville, source: 'guide' });
+    UI.haptic('success'); UI.toast('Ajouté à tes adresses');
+  }
 
   function pickCity() {
     UI.openSheet('<div class="mbody" style="padding-top:6px"><h2 style="font-size:22px;margin-bottom:12px">Quelle ville ?</h2>' +

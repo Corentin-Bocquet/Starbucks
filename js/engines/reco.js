@@ -102,7 +102,7 @@
       const confidence = Math.min(1, Math.log10(1 + n) / 2.6);   // 400 avis ~ confiance pleine
       const above = (p.rating - 4.0) * 22;                        // 4,5 -> +11
       s += above * (0.35 + 0.65 * confidence);
-      if (p.rating >= 4.5 && n >= 100) why.push('très bien note (' + p.rating.toFixed(1).replace('.', ',') + ' sur ' + UI.fmt.n(n) + ' avis)');
+      if (p.rating >= 4.5 && n >= 100) why.push('très bien noté (' + p.rating.toFixed(1).replace('.', ',') + ' sur ' + UI.fmt.n(n) + ' avis)');
     }
 
     /* Distance, avec tolerance liée au type. */
@@ -111,7 +111,7 @@
       const tol = tolerance(p.kind);
       const penalty = Math.min(34, Math.pow(d / tol, 1.35) * 16);
       s -= penalty;
-      if (d < tol * 0.25) why.push('a ' + UI.fmt.km(d));
+      if (d < tol * 0.25) why.push('à ' + UI.fmt.km(d));
       p._distance = d;
     }
 
@@ -136,12 +136,12 @@
     if (p.seasons && p.seasons.length && ctx && p.seasons.indexOf(ctx.season) < 0) s *= 0.25;
 
     /* Ouvert ou ferme, quand l'information existe. */
-    if (p.openNow === false) { s *= 0.15; why.push('probablement ferme maintenant'); }
+    if (p.openNow === false) { s *= 0.15; why.push('probablement fermé maintenant'); }
 
     /* Préférences apprises. */
     const pref = prefOf(p);
     s += pref * 12;
-    if (pref > 0.4) why.push('tu aimés ce genre');
+    if (pref > 0.4) why.push('tu aimes ce genre');
     if (pref < -0.4) why.push('tu avais dit non à ce genre');
 
     /* Favori. */
@@ -150,7 +150,14 @@
     /* Déjà fait recemment. */
     if (opts.recent && opts.recent[p.id]) {
       const days = (Date.now() - opts.recent[p.id]) / 86400e3;
-      if (days < 30) { s *= 0.25 + 0.75 * (days / 30); why.push('déjà fait il y a ' + Math.round(days) + ' jours'); }
+      if (days < 30) {
+        s *= 0.25 + 0.75 * (days / 30);
+        /* « déjà proposé » pour ce que la roue a seulement tiré,
+           « déjà fait » pour ce qui a été vécu. */
+        const mot = 'déjà ' + (opts.recentMot || 'fait');
+        const j = Math.floor(days);
+        why.push(j < 1 ? mot + " aujourd'hui" : (j === 1 ? mot + ' hier' : mot + ' il y a ' + j + ' jours'));
+      }
     }
 
     p._score = Math.max(1, Math.round(s));

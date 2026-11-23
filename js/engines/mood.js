@@ -72,7 +72,9 @@
         .filter((a) => !social || KINDS_SOCIAUX.has(a.kind))
         .map((a) => Object.assign({}, a, {
           isMood: true, molecule: mol, principale: false,
-          avecQuelquun: social || KINDS_SOCIAUX.has(a.kind),
+          /* « à plusieurs » seulement si la molécule visée l'exige :
+             un café pour « Sans énergie » se prend très bien seul. */
+          avecQuelquun: social,
           minutes: null
         }));
       list = list.concat(locales);
@@ -95,7 +97,10 @@
      reste : météo, budget, heure, et ce qui a déjà servi récemment. */
   function weight(s, ctx) {
     const copy = Object.assign({}, s);
-    Reco.scorePlace(copy, ctx, { recent: Reco.recentMap('humeur', 21) });
+    const recent = Reco.recentMap('humeur', 21);
+    const tires = Reco.recentMap('humeur-tire', 21);
+    Object.keys(tires).forEach((id) => { if (!recent[id]) recent[id] = tires[id]; });
+    Reco.scorePlace(copy, ctx, { recent: recent, recentMot: 'proposé' });
     let w = copy._score;
     if (s.principale) w *= 1.6;
     if (s.m && s.m.length > 2) w *= 1.2;      /* remplit trois tasses d'un coup */
@@ -108,14 +113,21 @@
      On ne compte pas des points, on compte des tasses. Sept jours
      glissants, ce qui est la bonne échelle : une semaine sans voir
      personne se voit, une journée non. */
-  function log(etatId, source) {
+  /* Un tirage n'est pas un moment vécu : la roue note ce qu'elle a
+     proposé sous « humeur-tire », qui sert seulement à varier les
+     propositions. L'équilibre des tasses et l'alerte « jours sans
+     voir personne » ne lisent que « humeur », réservé à ce qui a été
+     fait (logFait, appelé par un futur bouton « On y va »). */
+  function payload(etatId, source) {
     const e = etat(etatId);
-    Store.log('humeur', {
+    return {
       id: source.id, label: source.nom,
       etat: etatId, molecule: e ? e.molecule : null,
       avecQuelquun: !!source.avecQuelquun
-    });
+    };
   }
+  function log(etatId, source) { Store.log('humeur-tire', payload(etatId, source)); }
+  function logFait(etatId, source) { Store.log('humeur', payload(etatId, source)); }
 
   function balance(days) {
     days = days || 7;
@@ -187,7 +199,7 @@
   }
 
   global.Mood = {
-    etat, molecule, estSociale, sourcesFor, weight, log,
+    etat, molecule, estSociale, sourcesFor, weight, log, logFait,
     balance, pluVide, joursSansLien, gens, describe,
     KINDS_SOCIAUX
   };

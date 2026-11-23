@@ -25,7 +25,7 @@
     fav: new Set(), stock: { sb: new Set(), ck: new Set(), mm: new Set() },
     wiz: { sb: [null, null, null], ck: [null, null, null], mm: [null, null, null] },
     cat: { sb: 'all', ck: 'all', mm: 'all' },
-    moment: null
+    moment: null, pileTout: false
   };
 
   function loadState() {
@@ -52,7 +52,21 @@
      donne le stock coche par l'utilisateur, donc elle propose ce
      qui est faisable ce soir, pas une recette a faire les courses.
      ============================================================ */
-  const creations = (t) => Store.all('creations').filter((c) => c.tab === (t || S.tab));
+  /* Les créations enregistrées avant que l'IA ne fournisse les clés
+     de l'assistant (base, gour, alcool, moment, mode) et la liste sk
+     les reçoivent ici, sans toucher à ce qui est stocké. */
+  function completer(c) {
+    const x = Object.assign({}, c);
+    if (!x.sk || !x.sk.length) x.sk = skDepuis(x.tab, x.ing);
+    if (x.tab === 'sb' && !x.gour) x.gour = gourDe(x.kcal);
+    if (x.tab === 'ck' && !x.alcool) x.alcool = 'autre';
+    if (x.tab === 'mm') {
+      if (!x.moment) x.moment = x.cat === 'mamie-sucre' ? 'dessert' : 'plat';
+      if (!x.mode) x.mode = /sans/i.test(x.four || '') ? 'sansfour' : 'four';
+    }
+    return x;
+  }
+  const creations = (t) => Store.all('creations').filter((c) => c.tab === (t || S.tab)).map(completer);
   const ALL = (t) => creations(t).concat(DATA[t] ? DATA[t]() : []);
   const estCreation = (d) => !!(d && d.cree);
 
@@ -131,11 +145,32 @@
   }
   function searchable(d) {
     const base = d.nom + ' ' + d.desc + ' ' + (d.tag || []).join(' ') + ' ' + d.ing.map((i) => i.n).join(' ');
-    return S.tab === 'ck' ? base + ' ' + d.verre + ' ' + d.tech : base;
+    return S.tab === 'ck' ? base + ' ' + (d.verre || '') + ' ' + (d.tech || '') : base;
   }
+  /* Sans accents (« creme » trouve « crème », « pina » trouve
+     « Piña ») et triée : nom exact, nom qui commence par la
+     recherche, nom qui la contient, puis tags et ingrédients, puis
+     description. Avec « Avec ce que j'ai », même filtre qu'ailleurs. */
+  const N = (s) => Vis.norm(s);
   function searchHits() {
-    const w = S.q.toLowerCase().split(' ').filter(Boolean);
-    return ALL(S.tab).filter((d) => { const s = searchable(d).toLowerCase(); return w.every((x) => s.indexOf(x) >= 0); });
+    const q = N(S.q), w = q.split(' ').filter(Boolean);
+    if (!w.length) return [];
+    const score = (d) => {
+      const nom = N(d.nom);
+      if (nom === q) return 0;
+      if (nom.indexOf(q) === 0) return 1;
+      if (nom.indexOf(q) >= 0) return 2;
+      if (w.every((x) => nom.indexOf(x) >= 0)) return 3;
+      const tags = N((d.tag || []).join(' ') + ' ' + (d.ing || []).map((i) => i.n).join(' '));
+      if (w.every((x) => tags.indexOf(x) >= 0)) return 4;
+      return 5;
+    };
+    return ALL(S.tab)
+      .filter((d) => !monBar() || doable(d, 'ck'))
+      .filter((d) => { const s = N(searchable(d)); return w.every((x) => s.indexOf(x) >= 0); })
+      .map((d, i) => ({ d: d, s: score(d), i: i }))
+      .sort((a, b) => a.s - b.s || a.i - b.i)
+      .map((x) => x.d);
   }
 
   /* ---------- Cartes ---------- */
@@ -147,7 +182,7 @@
     const stockBadge = estCreation(d) ? '<span class="badge sec">Ma création</span>'
       : ms.length ? '<span class="badge miss">Il manque ' + ms.length + '</span>' : '';
     if (S.tab === 'sb') return '<div class="card" data-id="' + UI.attr(d.id) + '">' +
-      (BADGE[d.statut] ? '<span class="badge ' + (BCLS[d.statut] || '') + '">' + BADGE[d.statut] + '</span>' : stockBadge) +
+      (!estCreation(d) && BADGE[d.statut] ? '<span class="badge ' + (BCLS[d.statut] || '') + '">' + BADGE[d.statut] + '</span>' : stockBadge) +
       favBtn(k) +
       (estCreation(d) ? vignetteCreation(d, 'sb') : '<div class="ph"><img loading="lazy" src="' + IMG[d.id] + '" alt=""></div>') +
       '<div class="bd"><h3>' + UI.esc(d.nom) + '</h3>' +
@@ -243,14 +278,17 @@
     if (S.q) {
       const l = searchHits();
       app.innerHTML = '<div class="section"><div class="sechead"><h2>Recherche</h2><span>' + l.length + ' résultat' + (l.length > 1 ? 's' : '') + '</span></div>' +
+        interMonBar() +
         (l.length ? '<div class="rail" style="margin-top:14px">' + l.map(card).join('') + '</div>'
-                  : UI.empty('search', 'Rien trouvé', "Essaie un ingrédient, un nom d'alcool, ou vide la barre.")) +
+                  : UI.empty('search', 'Rien trouvé', monBar()
+                    ? "Rien avec ton bar. Coupe « Avec ce que j'ai » pour chercher dans tous les cocktails."
+                    : "Essaie un ingrédient, un nom d'alcool, ou vide la barre.")) +
         '</div>' + boutonCreer();
-      bindCards(app); bindCreer(app); Imagerie.peupler(app); renderFoot(); return;
+      bindCards(app); bindCreer(app); bindMonBar(app); Imagerie.peupler(app); renderFoot(); return;
     }
 
     if (S.all) {
-      app.innerHTML = allView(); bindCards(app); bindCreer(app); Imagerie.peupler(app);
+      app.innerHTML = allView(); bindCards(app); bindCreer(app); bindMonBar(app); Imagerie.peupler(app);
       app.querySelectorAll('[data-c]').forEach((b) => b.onclick = () => { S.cat[S.tab] = b.dataset.c; render(); });
       renderFoot(); return;
     }
@@ -330,7 +368,9 @@
   }
 
   function allView() {
-    const all = ALL(S.tab), c = S.cat[S.tab];
+    /* Même règle que l'assistant et « Les plus faits » : avec
+       l'interrupteur actif, seulement ce que le bar permet. */
+    const all = ALL(S.tab).filter((d) => !monBar() || doable(d, 'ck')), c = S.cat[S.tab];
     const list = c === 'all' ? all : all.filter((d) => d.cat === c);
     let chips = '<button class="chip ' + (c === 'all' ? 'on' : '') + '" data-c="all">Tout <span class="n">' + all.length + '</span></button>';
     CATLIST[S.tab]().forEach((x) => {
@@ -355,7 +395,10 @@
         '<p class="secdesc">' + UI.esc(CATOBJ[c].desc) + '</p>' +
         '<div class="rail">' + list.map(card).join('') + '</div></div>';
     }
-    return '<div style="padding-top:16px"><div class="chips">' + chips + '</div></div>' + body + boutonCreer();
+    return (S.tab === 'ck' ? '<div class="section" style="padding-top:16px">' + interMonBar() + '</div>' : '') +
+      '<div style="padding-top:16px"><div class="chips">' + chips + '</div></div>' + body +
+      (!all.length ? UI.empty('glass', 'Rien de faisable avec ton bar', "Coupe « Avec ce que j'ai » pour voir tous les cocktails, ou complète ton stock.") : '') +
+      boutonCreer();
   }
 
   function countFor(idx, val) {
@@ -435,41 +478,53 @@
     }
 
     const r = results();
-    const pile = r.list.slice(0, Math.min(r.exact, 8)), proches = r.list.slice(r.exact);
+    /* Huit d'abord ; « Voir les N » ouvre toutes les recettes exactes. */
+    const max = S.pileTout ? r.exact : Math.min(r.exact, 8);
+    const pile = r.list.slice(0, max), proches = r.list.slice(r.exact);
     const shown = pile.concat(proches);
     const relax = !r.list.length && monBar()
       ? '<div class="note">Rien de faisable avec ton bar pour ces choix. Coupe « Avec ce que j\'ai » pour tout voir, ou complète ton bar.</div>'
       : r.list.length < MINI && monBar()
         ? '<div class="note">Ton bar ne permet que ' + r.list.length + ' recette' + (r.list.length > 1 ? 's' : '') + ' ici. Coupe « Avec ce que j\'ai » pour en voir plus.</div>' : '';
-    const more = r.exact > 8 ? '<p class="secdesc">' + (r.exact - 8) + ' autre' + (r.exact - 8 > 1 ? 's' : '') + ' correspondent aussi, affine ou ouvre la liste complète.</p>' : '';
+    const reste = r.exact - pile.length;
+    const more = reste > 0 ? '<p class="secdesc">' + reste + (reste > 1 ? ' autres correspondent' : ' autre correspond') + ' aussi : affine ou ouvre la liste complète.</p>' : '';
+    const voirTout = reste > 0 ? '<div class="wizact" style="margin-top:12px"><button class="btn sm" data-pletout="1">Voir les ' + r.exact + '</button></div>' : '';
     const railProches = proches.length
       ? '<div class="sechead" style="margin-top:14px"><h2 style="font-size:16px">' + (pile.length ? 'Proches de ton choix' : 'Rien de pile, mais très proche') + '</h2></div>' +
         '<div class="rail">' + proches.map(card).join('') + '</div>' : '';
     return '<div class="wiz"><div class="crumbs">' + crumbs + '<button class="crumb ghost" data-reset="1">recommencer</button></div>' +
-      '<div class="wizhead"><div class="num">Résultat</div><h2>' + shown.length + ' propositions pour toi</h2>' +
+      '<div class="wizhead"><div class="num">Résultat</div><h2>' + (S.pileTout ? r.list.length : shown.length) + ' proposition' + ((S.pileTout ? r.list.length : shown.length) > 1 ? 's' : '') + ' pour toi</h2>' +
       '<p>' + (S.tab === 'ck' ? (monBar() ? 'Seulement ce que tu peux faire avec ton bar.' : 'Le badge indique si ton bar suffit.') : 'Classées par pertinence.') + '</p></div>' + interMonBar() +
-      relax + more + (pile.length ? '<div class="rail">' + pile.map(card).join('') + '</div>' : '') + railProches +
+      relax + more + (pile.length ? (S.pileTout && pile.length > 8
+        ? '<div class="grid two tight" style="margin-top:14px">' + pile.map(card).join('') + '</div>'
+        : '<div class="rail">' + pile.map(card).join('') + '</div>') : '') + voirTout + railProches +
       '<div class="wizact" style="margin-top:18px"><button class="btn sm" data-back="1">' + Icon('back', 15) + 'Changer le dernier choix</button>' +
       '<button class="btn sm primary" data-reset="1">Recommencer</button></div>' +
       boutonCreer() + '</div>';
   }
 
+  function bindMonBar(app) {
+    app.querySelectorAll('[data-monbar]').forEach((b) => b.onclick = () => {
+      Store.set('ck.monBar', !monBar()); UI.haptic('select'); render();
+    });
+  }
+
   function bindWiz() {
     const app = UI.$('#codexApp');
     app.querySelectorAll('[data-toutvoir]').forEach((b) => b.onclick = () => { S.all = true; render(); });
+    app.querySelectorAll('[data-pletout]').forEach((b) => b.onclick = () => { S.pileTout = true; UI.haptic('light'); render(); });
     app.querySelectorAll('[data-v]').forEach((b) => b.onclick = () => {
+      S.pileTout = false;
       S.wiz[S.tab][S.step] = b.dataset.null === '1' ? null : b.dataset.v;
       S.step++; UI.haptic('light'); render();
       const bar = UI.$('#codexBar');
       if (bar) window.scrollTo({ top: bar.offsetTop - 1, behavior: 'smooth' });
     });
-    app.querySelectorAll('[data-back]').forEach((b) => b.onclick = () => { S.step = Math.max(0, S.step - 1); render(); });
-    app.querySelectorAll('[data-skip]').forEach((b) => b.onclick = () => { S.wiz[S.tab][S.step] = null; S.step++; render(); });
-    app.querySelectorAll('[data-goto]').forEach((b) => b.onclick = () => { S.step = +b.dataset.goto; render(); });
-    app.querySelectorAll('[data-reset]').forEach((b) => b.onclick = () => { S.wiz[S.tab] = [null, null, null]; S.step = 0; render(); });
-    app.querySelectorAll('[data-monbar]').forEach((b) => b.onclick = () => {
-      Store.set('ck.monBar', !monBar()); UI.haptic('select'); render();
-    });
+    app.querySelectorAll('[data-back]').forEach((b) => b.onclick = () => { S.pileTout = false; S.step = Math.max(0, S.step - 1); render(); });
+    app.querySelectorAll('[data-skip]').forEach((b) => b.onclick = () => { S.pileTout = false; S.wiz[S.tab][S.step] = null; S.step++; render(); });
+    app.querySelectorAll('[data-goto]').forEach((b) => b.onclick = () => { S.pileTout = false; S.step = +b.dataset.goto; render(); });
+    app.querySelectorAll('[data-reset]').forEach((b) => b.onclick = () => { S.pileTout = false; S.wiz[S.tab] = [null, null, null]; S.step = 0; render(); });
+    bindMonBar(app);
 
     const tr = UI.$('#codexTrack');
     if (tr) {
@@ -543,6 +598,17 @@
     q: AI.T.str('Quantite precise, avec l unite')
   }), 'Tous les ingredients, avec les quantites');
 
+  /* Les valeurs permises par l'assistant pour une clé (base, alcool,
+     humeur, moment, mode) : une création les reçoit, sinon elle
+     disparaît dès qu'on fait un choix dans l'assistant. */
+  const OPTS = (tab, key) => {
+    const st = WIZ[tab].find((x) => x.key === key);
+    return st ? st.opts.map((o) => o.v).filter(Boolean) : [];
+  };
+  const permis = (tab, key, v) => OPTS(tab, key).indexOf(v) >= 0 ? v : null;
+  /* Mêmes seuils que l'étape « Léger ou gourmand ? » (taille Grande). */
+  const gourDe = (kcal) => !kcal ? null : kcal < 150 ? 'leger' : kcal <= 300 ? 'equilibre' : 'gourmand';
+
   const SCHEMAS = {
     sb: () => AI.T.obj({
       nom: AI.T.str('Nom court et appetissant, en francais'),
@@ -552,11 +618,12 @@
       kcal: AI.T.int('Calories estimees pour un format Grande'),
       caf: AI.T.int('Milligrammes de cafeine, 0 si sans cafe'),
       temp2: AI.T.str('chaud, glace ou mixe'),
+      base: AI.T.enu(OPTS('sb', 'base'), 'Le gout dominant : cafe, lait (sans cafe), the ou fruit'),
       ing: ING(),
       steps: AI.T.arr(AI.T.str(''), 'Les etapes dans l ordre, une phrase chacune'),
       eletta: AI.T.str('Comment faire avec une machine a cafe automatique'),
       astuce: AI.T.str('Le detail qui change tout, une phrase')
-    }, ['nom', 'desc', 'cat', 'tag', 'kcal', 'ing', 'steps']),
+    }, ['nom', 'desc', 'cat', 'tag', 'kcal', 'base', 'ing', 'steps']),
     ck: () => AI.T.obj({
       nom: AI.T.str('Nom court du cocktail, en francais'),
       desc: AI.T.str('Deux phrases simples : le gout et le moment'),
@@ -566,10 +633,12 @@
       tech: AI.T.str('Shake, remue, construit, pile ou blende'),
       abv: AI.T.str('Degre estime, par exemple 14 %'),
       temps: AI.T.str('Temps de preparation, par exemple 4 min'),
+      alcool: AI.T.enu(OPTS('ck', 'alcool'), 'L alcool principal ; autre pour cognac, cachaca, bulles ou sans alcool'),
+      humeur: AI.T.arr(AI.T.enu(OPTS('ck', 'humeur'), ''), 'Un ou deux profils de gout'),
       ing: ING(),
       steps: AI.T.arr(AI.T.str(''), 'Les etapes dans l ordre'),
       astuce: AI.T.str('Le detail qui change tout')
-    }, ['nom', 'desc', 'cat', 'tag', 'ing', 'steps']),
+    }, ['nom', 'desc', 'cat', 'tag', 'alcool', 'humeur', 'ing', 'steps']),
     mm: () => AI.T.obj({
       nom: AI.T.str('Nom du plat, en francais'),
       desc: AI.T.str('Deux phrases simples'),
@@ -579,11 +648,13 @@
       portions: AI.T.str('Pour combien de personnes'),
       four: AI.T.str('Temperature et duree du four, ou « sans four »'),
       serv: AI.T.str('chaud ou froid'),
+      moment: AI.T.enu(OPTS('mm', 'moment'), 'Le moment du repas'),
+      mode: AI.T.enu(OPTS('mm', 'mode'), 'four si la recette passe au four, sinon sansfour'),
       ing: ING(),
       materiel: AI.T.arr(AI.T.str(''), 'Le materiel indispensable'),
       steps: AI.T.arr(AI.T.str(''), 'Les etapes dans l ordre'),
       astuce: AI.T.str('Le conseil qui evite de rater')
-    }, ['nom', 'desc', 'cat', 'tag', 'ing', 'steps'])
+    }, ['nom', 'desc', 'cat', 'tag', 'moment', 'mode', 'ing', 'steps'])
   };
 
   const ENVIES = {
@@ -628,7 +699,7 @@
             try {
               const trois = await proposerTrois(tab, txt.value.trim(), sh.querySelector('[data-stockonly]').checked);
               btn.classList.remove('is-loading');
-              montrerPropositions(sh, out, tab, trois);
+              montrerPropositions(sh, out, tab, trois, sh.querySelector('[data-stockonly]').checked);
             } catch (e) {
               btn.classList.remove('is-loading');
               out.innerHTML = UI.empty('alert', 'Ça n\'a pas marché', AI.humanError(e));
@@ -648,7 +719,7 @@
   const QUOI = { sb: 'une boisson', ck: 'un cocktail', mm: 'une recette' };
 
   async function proposerTrois(tab, envie, seulementStock) {
-    const dispo = Array.from(S.stock[tab]).map((k) => STOCKNAME[k]).filter(Boolean);
+    const dispo = Array.from(S.stock[tab]).map((k) => STOCKNAME[tab][k]).filter(Boolean);
     const dejaLa = ALL(tab).map((d) => d.nom).slice(0, 60).join(', ');
 
     const res = await AI.json(
@@ -672,7 +743,7 @@
     return (res.idees || []).slice(0, 3);
   }
 
-  function montrerPropositions(sh, out, tab, idees) {
+  function montrerPropositions(sh, out, tab, idees, seulementStock) {
     if (!idees.length) { out.innerHTML = UI.empty('search', 'Rien trouvé', 'Reformule ton envie.'); return; }
 
     out.innerHTML =
@@ -697,7 +768,7 @@
       const x = idees[+b.dataset.idee];
       b.querySelector('.cta').innerHTML = UI.thinking('Je détaille…');
       try {
-        const d = await detailler(tab, x);
+        const d = await detailler(tab, x, seulementStock);
         UI.closeSheet();
         openIt(d.id);
         UI.toast('Ajouté à ' + (tab === 'sb' ? 'Café' : tab === 'ck' ? 'Bar' : 'Recettes'));
@@ -710,13 +781,15 @@
   }
 
   /* Une idée retenue devient une fiche complète. */
-  async function detailler(tab, idee) {
+  async function detailler(tab, idee, seulementStock) {
+    /* La case « Seulement avec ce que j'ai » vaut aussi pour la
+       recette détaillée, pas seulement pour les trois idées. */
     return creerAvecIA(tab, idee.nom + '. ' + (idee.desc || '') +
-      ' Ingredients principaux : ' + (idee.ingredients || []).join(', ') + '.', false, idee);
+      ' Ingredients principaux : ' + (idee.ingredients || []).join(', ') + '.', !!seulementStock, idee);
   }
 
   async function creerAvecIA(tab, envie, seulementStock, idee) {
-    const dispo = Array.from(S.stock[tab]).map((k) => STOCKNAME[k]).filter(Boolean);
+    const dispo = Array.from(S.stock[tab]).map((k) => STOCKNAME[tab][k]).filter(Boolean);
     const dejaLa = ALL(tab).map((d) => d.nom).slice(0, 60).join(', ');
     const quoi = tab === 'sb' ? 'une boisson de type Starbucks, faisable a la maison'
                : tab === 'ck' ? 'un cocktail'
@@ -742,27 +815,42 @@
     const base = {
       tab: tab, cree: true, cat: cat,
       nom: res.nom, desc: res.desc,
-      tag: (res.tag || []).slice(0, 2).concat(['Ma creation']).slice(0, 2),
+      tag: (res.tag || []).slice(0, 1).concat(['Ma création']),
       ing: (res.ing || []).map((i) => ({ n: i.n, q: i.q, t: i.q, g: i.q, v: i.q })),
       steps: res.steps || [],
-      astuce: res.astuce || '',
-      sk: []
+      astuce: res.astuce || ''
     };
+    /* Ce qu'il faut au placard ou au garde-manger, déduit des
+       ingrédients : sans ça, une création passait toujours pour
+       faisable. */
+    base.sk = skDepuis(tab, base.ing);
     if (tab === 'sb') Object.assign(base, {
-      statut: 'secret', kcal: res.kcal || 0, caf: res.caf || 0,
+      statut: 'creation', kcal: res.kcal || 0, caf: res.caf || 0,
       temp2: ['chaud', 'glace', 'mixe'].indexOf(res.temp2) >= 0 ? res.temp2 : 'chaud',
       temp: res.temp2 === 'glace' ? 'froid' : 'chaud',
-      eletta: res.eletta || 'A adapter selon ta machine.'
+      base: permis('sb', 'base', res.base) || ((res.caf || 0) > 0 ? 'cafe' : null),
+      gour: gourDe(res.kcal),
+      eletta: res.eletta || 'À adapter selon ta machine.'
     });
-    if (tab === 'ck') Object.assign(base, {
-      ico: '', verre: res.verre || 'Highball', tech: res.tech || 'Construit',
-      abv: res.abv || '—', temps: res.temps || '5 min'
-    });
-    if (tab === 'mm') Object.assign(base, {
-      emoji: '', temps: res.temps || '30 min', portions: res.portions || '4 personnes',
-      four: res.four || 'sans four', serv: res.serv === 'froid' ? 'froid' : 'chaud',
-      materiel: res.materiel || [], notion: ''
-    });
+    if (tab === 'ck') {
+      const hum = [].concat(res.humeur || []).filter((h) => permis('ck', 'humeur', h));
+      Object.assign(base, {
+        ico: '', verre: res.verre || 'Highball', tech: res.tech || 'Construit',
+        abv: res.abv || '?', temps: res.temps || '5 min',
+        alcool: permis('ck', 'alcool', res.alcool) || 'autre',
+        humeur: hum.length ? hum : null
+      });
+    }
+    if (tab === 'mm') {
+      const four = res.four || 'sans four';
+      Object.assign(base, {
+        emoji: '', temps: res.temps || '30 min', portions: res.portions || '4 personnes',
+        four: four, serv: res.serv === 'froid' ? 'froid' : 'chaud',
+        moment: permis('mm', 'moment', res.moment) || (cat === 'mamie-sucre' ? 'dessert' : 'plat'),
+        mode: permis('mm', 'mode', res.mode) || (/sans/i.test(four) ? 'sansfour' : 'four'),
+        materiel: res.materiel || [], notion: ''
+      });
+    }
 
     if (idee && idee.visuel) base.visuel = idee.visuel;
     const saved = Store.add('creations', base);
@@ -781,6 +869,8 @@
     render();
   }
 
+  const TAILLE = { t: ['Tall', 355 / 473], g: ['Grande', 1], v: ['Venti', 591 / 473] };
+
   /* ---------- Fiche ---------- */
   function openIt(id) {
     const d = ALL(S.tab).find((x) => x.id === id);
@@ -793,7 +883,15 @@
         /* Les vignettes du placard se remplissent en arriere-plan. */
         Imagerie.peupler(s);
         const b = s.querySelector('[data-addfood]');
-        if (b) b.onclick = () => { UI.closeSheet(); Food.quickAdd({ nom: d.nom, kcal: d.kcal || null }); };
+        /* Les kcal de la fiche sont celles d'un Grande : on suit la
+           taille choisie (Tall 355 ml, Venti 591 ml, sur 473 ml). */
+        if (b) b.onclick = () => {
+          const f = S.tab === 'sb' ? (TAILLE[S.size] || TAILLE.g) : null;
+          UI.closeSheet();
+          Food.quickAdd(f
+            ? { nom: d.nom + ' · ' + f[0], kcal: d.kcal ? Math.round(d.kcal * f[1]) : null }
+            : { nom: d.nom, kcal: d.kcal || null });
+        };
         const del = s.querySelector('[data-delcrea]');
         if (del) del.onclick = () => supprimerCreation(d.id);
       }
@@ -838,19 +936,19 @@
   function stockLine(d) {
     const ms = missing(d, S.tab);
     return ms.length
-      ? '<div class="warn"><b>Il te manque ' + ms.length + ' chose' + (ms.length > 1 ? 's' : '') + ' :</b> ' + UI.esc(ms.map((k) => STOCKNAME[k]).join(', ')) + '.</div>'
+      ? '<div class="warn"><b>Il te manque ' + ms.length + ' chose' + (ms.length > 1 ? 's' : '') + ' :</b> ' + UI.esc(ms.map((k) => STOCKNAME[S.tab][k] || k).join(', ')) + '.</div>'
       : '<div class="warn good"><b>Tu as tout ce qu\'il faut.</b></div>';
   }
 
   function sheetSB(d) {
-    const b = BADGE[d.statut];
+    const b = estCreation(d) ? 'Ma création' : BADGE[d.statut];
     return (estCreation(d) ? bandeauCreation(d, 'sb') : mimg(IMG[d.id])) + '<div class="mbody">' +
       '<div class="mcat">' + CATOBJ[d.cat].ico + ' ' + UI.esc(CATNAME[d.cat]) + (b ? ' · ' + b : '') + '</div><h2>' + UI.esc(d.nom) + '</h2>' + tagsOf(d) +
       '<p class="mdesc">' + UI.esc(d.desc) + '</p>' +
       '<div class="nums"><div class="num"><b>' + d.kcal + '</b><span>kcal (Grande)</span></div>' +
-      '<div class="num"><b>' + d.caf + '</b><span>mg cafeine</span></div>' +
-      '<div class="num"><b>' + (d.temp2 === 'mixe' ? 'Mixe' : d.temp2 === 'chaud' ? 'Chaud' : 'Glace') + '</b><span>service</span></div>' +
-      '<div class="num"><b>' + d.ing.length + '</b><span>ingredients</span></div></div>' +
+      '<div class="num"><b>' + d.caf + '</b><span>mg caféine</span></div>' +
+      '<div class="num"><b>' + (d.temp2 === 'mixe' ? 'Mixé' : d.temp2 === 'chaud' ? 'Chaud' : 'Glacé') + '</b><span>service</span></div>' +
+      '<div class="num"><b>' + d.ing.length + '</b><span>ingrédients</span></div></div>' +
       stockLine(d) +
       '<button class="btn soft block" data-addfood>' + Icon('plus', 17) + 'Consigner dans Alimentation</button>' +
       '<div class="blk"><h4>Composition <span class="sz">' + SIZENAME[S.size] + '</span></h4>' +
@@ -888,13 +986,13 @@
       '<div class="num"><b>' + UI.esc(d.four) + '</b><span>four</span></div>' +
       '<div class="num"><b>' + (d.serv === 'chaud' ? 'Chaud' : 'Froid') + '</b><span>service</span></div></div>' +
       stockLine(d) +
-      '<div class="blk"><h4>Ingredients</h4>' +
+      '<div class="blk"><h4>Ingrédients</h4>' +
       grilleIngredients(d.ing.map((i) => ligneIngredient(i.n, i.q, '', '', estCreation(d))).join(''), estCreation(d)) + '</div>' +
       (d.materiel && d.materiel.length ? '<div class="blk"><h4>Matériel</h4><ul class="mat">' + d.materiel.map((m) => '<li>' + UI.esc(m) + '</li>').join('') + '</ul></div>' : '') +
       '<div class="blk"><h4>Préparation</h4><ol class="steps">' + d.steps.map((s) => '<li>' + UI.esc(s) + '</li>').join('') + '</ol></div>' +
       (d.img2 ? '<div class="blk"><h4>En vrai</h4><img src="' + IMG['mm-' + d.img2] + '" style="border-radius:14px;width:100%"></div>' : '') +
       '<div class="tipbox"><h4>Le conseil de Mamie</h4><p>' + UI.esc(d.astuce) + '</p></div>' +
-      '<a class="srclink" href="' + UI.attr(d.notion) + '" target="_blank" rel="noopener">Ouvrir la recette dans Notion</a></div>';
+      (d.notion ? '<a class="srclink" href="' + UI.attr(d.notion) + '" target="_blank" rel="noopener">Ouvrir la recette dans Notion</a>' : '') + '</div>';
   }
 
   /* ---------- Tiroir de stock ---------- */
@@ -904,12 +1002,12 @@
     const all = ALL(t), ok = all.filter((d) => doable(d, t)).length;
     UI.$('#drawer').innerHTML =
       '<div class="dhead"><h3>' + UI.esc(STOCKTITLE[t]) + '</h3><button class="tbtn" data-close>' + Icon('close', 16) + '</button></div>' +
-      '<p class="dsub">Tout est coche par défaut. Décoche ce que tu n\'as pas : les propositions s\'ajustent aussitot.</p>' +
-      '<div class="dcount"><b>' + ok + ' sur ' + all.length + '</b><span>réalisables avec ce que tu as coche</span></div>' +
-      '<div class="dact"><button data-sall="1">Tout cocher</button><button data-sall="0">Tout decocher</button></div>' +
+      '<p class="dsub">Tout est coché par défaut. Décoche ce que tu n\'as pas : les propositions s\'ajustent aussitôt.</p>' +
+      '<div class="dcount"><b>' + ok + ' sur ' + all.length + '</b><span>réalisables avec ce que tu as coché</span></div>' +
+      '<div class="dact"><button data-sall="1">Tout cocher</button><button data-sall="0">Tout décocher</button></div>' +
       fams.map((f) => '<div class="dfam"><h5>' + UI.esc(f) + '</h5>' +
         def.filter((b) => b.fam === f).map((b) => {
-          const n = all.filter((d) => (d.sk || []).indexOf(b.k) >= 0).length;
+          const n = all.filter((d) => besoins(d).indexOf(b.k) >= 0).length;
           const vis = Vis.trouve(b.k, 'ingredient') || Vis.trouve(b.n, 'ingredient');
           return '<div class="dline ' + (S.stock[t].has(b.k) ? 'on' : '') + '" data-b="' + UI.attr(b.k) + '"><div class="dbox">' + Icon('check', 13) + '</div>' +
             (vis ? Vis.html(vis, { classe: 'dvis' }) : '') + '<span>' + UI.esc(b.n) + '</span><i>' + n + '</i></div>';
@@ -920,9 +1018,9 @@
       '<button class="dbtn" data-copy>Copier</button>' +
       '<button class="dbtn sec" data-dl="json">Télécharger en JSON</button>' +
       '<button class="dbtn sec" data-dl="txt">Télécharger la liste de courses</button></div>' +
-      '<div class="dsec"><h5>Effacer</h5><p>Suppression definitive sur cet appareil.</p>' +
+      '<div class="dsec"><h5>Effacer</h5><p>Suppression définitive sur cet appareil.</p>' +
       '<button class="dbtn dan" data-wipe="fav">Effacer mes favoris (' + S.fav.size + ')</button>' +
-      '<button class="dbtn dan" data-wipe="stock">Reinitialiser ' + UI.esc(STOCKTITLE[t].toLowerCase()) + '</button></div>';
+      '<button class="dbtn dan" data-wipe="stock">Réinitialiser ' + UI.esc(STOCKTITLE[t].toLowerCase()) + '</button></div>';
 
     const dr = UI.$('#drawer');
     dr.querySelector('[data-close]').onclick = closeDrawer;
@@ -939,7 +1037,7 @@
     dr.querySelectorAll('[data-dl]').forEach((b) => b.onclick = () => dlExp(b.dataset.dl));
     dr.querySelectorAll('[data-wipe]').forEach((b) => b.onclick = async () => {
       const what = b.dataset.wipe;
-      if (!await UI.confirmSheet('Confirmer la suppression', 'Cette action est definitive sur cet appareil.', true)) return;
+      if (!await UI.confirmSheet('Confirmer la suppression', 'Cette action est définitive sur cet appareil.', true)) return;
       if (what === 'fav') { S.fav.clear(); saveFav(); }
       if (what === 'stock') { S.stock[t] = new Set(allKeys(t)); saveStock(t); }
       renderDrawer(); render(); UI.toast('Effacé');
@@ -955,21 +1053,26 @@
     });
     return o;
   }
+  /* Une même clé n'a pas le même sens d'un onglet à l'autre (le
+     lait du Café n'est pas celui de la cuisine) : on garde la paire
+     onglet et clé, et on précise l'onglet dans la liste. */
+  const OU = { sb: 'Café', ck: 'Bar', mm: 'Recettes' };
   function shopping() {
-    const need = new Set();
+    const need = new Map();
     S.fav.forEach((k) => {
       const p = k.split(':'), t = p[0], id = p[1];
+      if (!S.stock[t]) return;
       const d = ALL(t).find((x) => x.id === id);
-      if (d) missing(d, t).forEach((m) => need.add(m));
+      if (d) missing(d, t).forEach((m) => need.set(t + ':' + m, (STOCKNAME[t][m] || m) + ' (' + OU[t] + ')'));
     });
-    return Array.from(need).map((k) => STOCKNAME[k]);
+    return Array.from(need.values());
   }
   function exportObj() {
     const f = favNames();
     return {
-      mon_placard: Array.from(S.stock.sb).map((k) => STOCKNAME[k]).sort(),
-      mon_bar: Array.from(S.stock.ck).map((k) => STOCKNAME[k]).sort(),
-      mon_garde_manger: Array.from(S.stock.mm).map((k) => STOCKNAME[k]).sort(),
+      mon_placard: Array.from(S.stock.sb).map((k) => STOCKNAME.sb[k]).filter(Boolean).sort(),
+      mon_bar: Array.from(S.stock.ck).map((k) => STOCKNAME.ck[k]).filter(Boolean).sort(),
+      mon_garde_manger: Array.from(S.stock.mm).map((k) => STOCKNAME.mm[k]).filter(Boolean).sort(),
       cocktails_realisables: COCKTAILS.filter((c) => doable(c, 'ck')).map((c) => c.nom),
       favoris: { cafe: f.sb, bar: f.ck, recettes: f.mm },
       liste_de_courses: shopping()
@@ -980,8 +1083,8 @@
     const o = exportObj();
     if (kind === 'json') UI.download('ever-codex.json', JSON.stringify(o, null, 2), 'application/json');
     else {
-      const txt = 'LISTE DE COURSES\n\n' + (o.liste_de_courses.length ? o.liste_de_courses.map((x) => '- ' + x).join('\n') : 'Rien a acheter pour tes favoris.') +
-        '\n\nCOCKTAILS REALISABLES\n\n' + o.cocktails_realisables.map((x) => '- ' + x).join('\n');
+      const txt = 'LISTE DE COURSES\n\n' + (o.liste_de_courses.length ? o.liste_de_courses.map((x) => '- ' + x).join('\n') : 'Rien à acheter pour tes favoris.') +
+        '\n\nCOCKTAILS RÉALISABLES\n\n' + o.cocktails_realisables.map((x) => '- ' + x).join('\n');
       UI.download('liste-de-courses.txt', txt, 'text/plain');
     }
     UI.toast('Téléchargé');
@@ -1008,7 +1111,7 @@
   }
 
   function show(tab) {
-    S.tab = tab; S.q = ''; S.step = 0; S.all = false;
+    S.tab = tab; S.q = ''; S.step = 0; S.all = false; S.pileTout = false;
     const q = UI.$('#codexQ'); if (q) q.value = '';
     renderHero(); render();
   }

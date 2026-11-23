@@ -7,8 +7,11 @@
      AI.vision(images, prompt, ...)  analyse d'images
 
    Règles :
-   - la clé vit dans les réglages, sur l'appareil, jamais dans le
-     dépôt ; un proxy peut la remplacer (EVER_CONFIG.geminiProxyUrl) ;
+   - sans clé personnelle, tout passe par le serveur EVER
+     (sql/edge/ever-ai.ts, EVER_CONFIG.geminiProxyUrl), qui garde la
+     clé côté serveur. Une clé personnelle, si elle est saisie, vit
+     dans les réglages de l'appareil et n'est jamais synchronisée ;
+     refusée, le serveur prend le relais ;
    - le modèle n'est JAMAIS écrit en dur. L'app demande à Google la
      liste de ce qui existe, choisit le meilleur, et la garde en
      cache une semaine. Google retire des modèles régulièrement
@@ -78,9 +81,35 @@
   function key() { return Store.get('geminiKey', '') || ''; }
   function proxy() { return Store.get('geminiProxyUrl', '') || conf().geminiProxyUrl || ''; }
   function available() { return !!(key() || proxy()); }
-  /* Sans clé personnelle, tout passe par le serveur EVER, qui garde
-     la clé et choisit lui-même le modèle. */
-  function viaProxy() { return !key() && !!proxy(); }
+
+  /* Une clé personnelle refusée (BAD_KEY) est mise de côté pendant
+     dix minutes : les appels suivants vont droit au serveur au lieu
+     de refaire un aller-retour perdu vers Google à chaque fois. */
+  const PAUSE_CLE = 10 * 60e3;
+  let cleRefuseeA = 0;
+  function cleEnPause() { return !!key() && !!proxy() && Date.now() - cleRefuseeA < PAUSE_CLE; }
+
+  /* Sans clé personnelle (ou clé refusée), tout passe par le serveur
+     EVER, qui garde la clé et choisit lui-même le modèle. */
+  function viaProxy() { return !!proxy() && (!key() || cleEnPause()); }
+
+  /* 'serveur' | 'cle' | 'aucune' : une seule source de vérité pour
+     dire à l'écran comment l'IA fonctionne. */
+  function status() { return viaProxy() ? 'serveur' : (key() ? 'cle' : 'aucune'); }
+
+  /* Le jeton de session Supabase, quand on est connecté. Le serveur
+     EVER s'en sert pour compter les appels par compte, et finira par
+     l'exiger. Sans session, on envoie la clé anon comme avant. */
+  async function jetonSession() {
+    try {
+      const C = global.Cloud;
+      if (!C || !C.ready || !C.ready() || !C.client) return '';
+      const cl = C.client();
+      if (!cl || !cl.auth || !cl.auth.getSession) return '';
+      const r = await cl.auth.getSession();
+      return (r && r.data && r.data.session && r.data.session.access_token) || '';
+    } catch (e) { return ''; }
+  }
 
   /* ============================================================
      Choix du modèle
@@ -145,7 +174,9 @@
          aux valeurs de configuration, que le proxy sait honorer. */
       if (!k) return null;
 
-      const r = await fetch(BASE + '?key=' + encodeURIComponent(k) + '&pageSize=200');
+      /* La clé passe en en-tête, jamais dans l'URL : une URL finit
+         dans l'historique réseau et les journaux des proxys. */
+      const r = await fetch(BASE + '?pageSize=200', { headers: { 'x-goog-api-key': k } });
       if (!r.ok) {
         if (r.status === 400 || r.status === 403) throw new Error('BAD_KEY');
         throw new Error('UPSTREAM');
@@ -276,17 +307,24 @@
   }
   function clearCache() { Store.set(CACHE_KEY, {}); }
 
-  /* ---------- Appel bas niveau ---------- */
+  /* ---------- Appel bas niveau ----------
+     Délai maximal par requête : sans lui, un réseau qui ne répond
+     plus (ni erreur ni réponse) laissait un sablier tourner sans
+     fin. Passé ce délai, l'appel échoue avec TIMEOUT et l'écran
+     propose une autre voie. */
+  const DELAI = { text: 45e3, image: 90e3 };
+
   async function raw(model, body, signal, kind, forceProxy) {
     const px = proxy();
     let url, init;
-    if (px && (forceProxy || !key())) {
+    if (px && (forceProxy || !key() || cleEnPause())) {
       url = px;
       const anon = conf().supabaseAnonKey || '';
+      const jwt = await jetonSession();
       init = {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'apikey': anon, 'Authorization': 'Bearer ' + anon },
-        body: JSON.stringify({ kind: kind || 'text', model: model, payload: body }), signal: signal
+        headers: { 'Content-Type': 'application/json', 'apikey': anon, 'Authorization': 'Bearer ' + (jwt || anon) },
+        body: JSON.stringify({ kind: kind || 'text', model: model, payload: body })
       };
     } else {
       const k = key();
@@ -295,13 +333,28 @@
       init = {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-goog-api-key': k },
-        body: JSON.stringify(body), signal: signal
+        body: JSON.stringify(body)
       };
     }
 
+    /* Le signal de l'appelant et le délai maximal, réunis. */
+    const ctrl = new AbortController();
+    let expire = false;
+    const minuteur = setTimeout(() => { expire = true; ctrl.abort(); }, DELAI[kind] || DELAI.text);
+    const relayer = () => ctrl.abort();
+    if (signal) { if (signal.aborted) ctrl.abort(); else signal.addEventListener('abort', relayer); }
+    init.signal = ctrl.signal;
+
     let res;
     try { res = await fetch(url, init); }
-    catch (e) { throw new Error(e && e.name === 'AbortError' ? 'ABORT' : 'NETWORK'); }
+    catch (e) {
+      clearTimeout(minuteur);
+      if (signal) signal.removeEventListener('abort', relayer);
+      if (expire) throw new Error('TIMEOUT');
+      throw new Error(e && e.name === 'AbortError' ? 'ABORT' : 'NETWORK');
+    }
+    clearTimeout(minuteur);
+    if (signal) signal.removeEventListener('abort', relayer);
 
     if (!res.ok) {
       let detail = '';
@@ -352,11 +405,16 @@
      d'images echouait alors qu'un autre modele aurait repondu. */
   const RETRYABLE = { MODEL_GONE: 1, UPSTREAM: 1, QUOTA: 1 };
 
+  /* Le dernier modèle qui a répondu (en-tête x-ever-model via le
+     serveur), pour le diagnostic. */
+  let dernierModele = null;
+
   async function call(kind, body, opts) {
     opts = opts || {};
     let last = null;
     let disparu = false;
 
+    try {
     /* Deux passes. La premiere avec ce qu'on croit savoir, la
        seconde apres avoir REDEMANDE a Google sa liste. Sans cette
        seconde passe, un appareil dont le cache pointe vers des
@@ -371,6 +429,7 @@
         try {
           const out = await attempt(model, body, opts, kind);
           if (i > 0 || passe > 0) promote(kind, model);
+          if (out.model && out.model !== 'auto') dernierModele = out.model;
           return out;
         } catch (e) {
           last = e;
@@ -386,13 +445,23 @@
          les modeles ne se reglera pas en redemandant la liste. */
       if (!disparu || opts.model) break;
     }
+    } catch (e) {
+      /* Une erreur non réessayable sort de la boucle, y compris
+         BAD_KEY levée par la découverte des modèles (candidates).
+         Avant, elle quittait call() tout de suite et le relais
+         ci-dessous n'était jamais atteint : une clé personnelle
+         refusée bloquait toute l'IA alors que le serveur répondait. */
+      last = e;
+    }
 
     /* Clé personnelle refusée ou à court de quota : le serveur EVER
        prend le relais plutôt que de laisser l'écran sans réponse. */
     const code = String(last && last.message);
-    if (key() && proxy() && (code === 'BAD_KEY' || code === 'QUOTA' || code === 'MODEL_GONE' || code === 'UPSTREAM')) {
+    if (code === 'BAD_KEY' && key()) cleRefuseeA = Date.now();
+    if (key() && proxy() && (code === 'BAD_KEY' || code === 'QUOTA' || code === 'MODEL_GONE' || code === 'UPSTREAM' || code === 'TIMEOUT')) {
       try {
         const out = await attempt('auto', body, opts, kind, true);
+        if (out.model && out.model !== 'auto') dernierModele = out.model;
         noter({ ev: 'relais-serveur', kind: kind, apres: code });
         return out;
       } catch (e) { last = e; }
@@ -427,6 +496,8 @@
     if (c === 'MODEL_GONE') return "Le modèle a changé côté Google. Réessaie, l'app se remet à jour toute seule.";
     if (c === 'UPSTREAM')   return 'Google ne répond pas en ce moment. Réessaie dans un instant.';
     if (c === 'BAD_JSON')   return "La réponse n'était pas exploitable. Réessaie.";
+    if (c === 'TIMEOUT')    return "L'IA met trop de temps à répondre. Réessaie, ou continue sans elle.";
+    if (c === 'EMPTY')      return "L'IA n'a rien renvoyé. Réessaie dans un instant.";
     if (c === 'TRUNCATED')  return 'La réponse a été coupée. Réessaie, ou demande quelque chose de plus court.';
     if (c === 'ABORT')      return '';
     return 'Impossible de récupérer les suggestions pour le moment.';
@@ -633,7 +704,8 @@
      pas ne sert a rien, il faut savoir LAQUELLE ne marche pas. La
      cle peut etre bonne pour le texte et sans quota pour l'image,
      c'est meme le cas le plus frequent sur les cles gratuites. */
-  async function selfTest() {
+  async function selfTest(opts) {
+    opts = opts || {};
     const res = { cle: !!key(), proxy: !!proxy(), etapes: [] };
     if (!available()) {
       res.ok = false; res.message = humanError('NO_KEY');
@@ -666,15 +738,24 @@
       vision([PIXEL], 'Quelle est la couleur dominante de cette image ? Un seul mot.',
         null, { cache: false, maxTokens: 1024 }));
 
-    await etape('Génération d\'image', async () => {
-      const o = await image('un carre bleu uni, tres simple', { maxTokens: 2048 });
-      return o.images.length ? 'image reçue' : 'aucune image renvoyée';
-    });
+    /* La génération d'image consomme du quota : on peut la sauter
+       (vérification d'une clé qu'on vient d'enregistrer). */
+    if (opts.image !== false) {
+      await etape('Génération d\'image', async () => {
+        const o = await image('un carre bleu uni, tres simple', { maxTokens: 2048 });
+        return o.images.length ? 'image reçue' : 'aucune image renvoyée';
+      });
+    }
 
     const dur = res.etapes.filter((x) => !x.ok);
     res.ok = res.etapes.slice(0, 3).every((x) => x.ok);
-    res.model = (Store.get(MODELS_KEY, null) || {}).text || '?';
-    res.imageModel = (Store.get(MODELS_KEY, null) || {}).image || null;
+    /* Via le serveur, la liste des modèles n'est pas consultable :
+       on nomme le dernier modèle qui a répondu, sinon le serveur. */
+    const servi = dernierModele;
+    res.model = viaProxy()
+      ? (servi ? servi + ' (serveur EVER)' : 'serveur EVER')
+      : ((Store.get(MODELS_KEY, null) || {}).text || '?');
+    res.imageModel = viaProxy() ? null : ((Store.get(MODELS_KEY, null) || {}).image || null);
     res.echo = txt;
     res.vision = vis;
     res.message = res.ok ? null : ((dur[0] && dur[0].message) || humanError('UPSTREAM'));
@@ -685,7 +766,7 @@
 
   global.AI = {
     ask, json, jsonCherche, vision, image, shrink, fileToDataUrl,
-    available, humanError, clearCache, parseJson,
+    available, status, humanError, clearCache, parseJson,
     discover, modelFor, candidates, forget, selfTest,
     journal, viderJournal, noter,
     currentModel: () => (Store.get(MODELS_KEY, {}) || {}).text || null,

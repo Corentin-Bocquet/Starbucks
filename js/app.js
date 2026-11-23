@@ -43,34 +43,42 @@
     { id: 'profiles', label: 'Profils', icon: 'users', art: 'gens', accent: 'brand',
       g1: '#46536A', g2: '#8090A6' },
     { id: 'stats', label: 'Paliers', icon: 'trophy', art: 'medaille', accent: 'brand',
-      g1: '#96660F', g2: '#DCA842' }
+      g1: '#96660F', g2: '#DCA842' },
+
+    /* --- Pages sans tuile ---
+       On y arrive depuis une autre page (Sport depuis Paliers et
+       Santé). L'entrée leur donne un titre et une couleur, sans
+       ajouter de tuile en double dans le hub. */
+    { id: 'sport', label: 'Sport', icon: 'dumbbell', accent: 'health', cache: true }
   ];
 
   const TABS = DEST.filter((d) => d.bas);
-  const MODULES = DEST.filter((d) => !d.bas);
+  const MODULES = DEST.filter((d) => !d.bas && !d.cache);
   const dest = (id) => DEST.find((d) => d.id === id) || null;
 
-  const registry = {};           /* id -> { mount(el, route) } */
+  const registry = {};           /* id -> { mount(el, route), unmount?() } */
   let current = null;            /* onglet actif */
   let currentModule = null;      /* module secondaire actif */
+  let monte = null;              /* id du module affiché, pour son unmount */
 
   function register(id, mod) { registry[id] = mod; }
 
   /* ---------- Thème ---------- */
+  /* En mode « Système », on pose quand même data-theme selon le
+     téléphone : tout le thème Aurora et une partie des finitions ne
+     visent que [data-theme="dark"]. Sans attribut, un téléphone en
+     sombre recevait des fonds blancs sous des titres blancs. */
   function applyTheme() {
     const t = Store.get('theme', 'dark');
-    if (t === 'auto') document.documentElement.removeAttribute('data-theme');
-    else document.documentElement.setAttribute('data-theme', t);
+    const dark = t === 'dark' || (t === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
+    document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
     const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) {
-      const dark = t === 'dark' || (t === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
-      meta.setAttribute('content', dark ? '#050B10' : '#F6F4F3');
-    }
+    if (meta) meta.setAttribute('content', dark ? '#050B10' : '#F6F4F3');
   }
 
   /* ---------- Amorcage ---------- */
   function seedOnce() {
-    if (Store.get('seeded', false)) return;
+    if (Store.get('seeded', false)) { dedoublonnerDepart(); return; }
 
     Object.keys(SEED.ACTIVITIES).forEach((cityId) => {
       SEED.ACTIVITIES[cityId].forEach((a) => {
@@ -82,6 +90,64 @@
     Store.set('nutriGoals', SEED.NUTRI_DEFAULTS);
     Store.set('seeded', true);
     Store.set('seededAt', Date.now());
+    dedoublonnerDepart(true);
+  }
+
+  /* ============================================================
+     Migration : jeu de départ en double
+
+     Avant les ids stables (seed.js), un deuxième appareil ou une
+     reconnexion après « Tout effacer » doublait les 62 activités et
+     les 70 aliments. Pour chaque nom, on garde une seule copie et on
+     marque les autres supprimées, pour que la suppression se propage
+     aux autres appareils :
+       - d'abord la copie modifiée le plus récemment ;
+       - si aucune n'a été modifiée, la plus ancienne, celle à
+         laquelle l'historique et les favoris renvoient déjà.
+     Un favori posé sur une copie supprimée passe sur celle gardée.
+
+     Le choix ne dépend que des données (dates, puis id) : tous les
+     appareils font le même et convergent. Rejouée après chaque
+     synchro descendante, car le serveur peut ramener d'anciennes
+     copies.
+     ============================================================ */
+  function dedoublonnerDepart(force) {
+    if (!force && Store.get('seedSchema', 0) >= 2) return 0;
+    let n = 0;
+    const regles = {
+      activities: { fav: 'activity', cle: (x) => (x.city || '') + '|' + String(x.nom || '').toLowerCase().trim() },
+      foods:      { fav: 'food',     cle: (x) => (x.cat || '') + '|' + String(x.nom || '').toLowerCase().trim() }
+    };
+    const modifie = (x) => (x._up || 0) - (x._at || 0) > 2000;
+    const favs = Store.favs();
+    let favsChanges = false;
+    Object.keys(regles).forEach((coll) => {
+      const r = regles[coll];
+      const groupes = new Map();
+      Store.all(coll).forEach((x) => {
+        if (x.source !== 'seed') return;
+        const k = r.cle(x);
+        if (!groupes.has(k)) groupes.set(k, []);
+        groupes.get(k).push(x);
+      });
+      groupes.forEach((g) => {
+        if (g.length < 2) return;
+        g.sort((a, b) =>
+          (Number(modifie(b)) - Number(modifie(a))) ||
+          (modifie(a) ? (b._up || 0) - (a._up || 0) : (a._at || 0) - (b._at || 0)) ||
+          (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+        const garde = g[0];
+        g.slice(1).forEach((x) => {
+          const fk = Store.favKey(r.fav, x.id);
+          if (favs.has(fk)) { favs.delete(fk); favs.add(Store.favKey(r.fav, garde.id)); favsChanges = true; }
+          Store.del(coll, x.id);
+          n++;
+        });
+      });
+    });
+    if (favsChanges) Store.set('favs', Array.from(favs));
+    if (Store.get('seedSchema', 0) < 2) Store.set('seedSchema', 2);
+    return n;
   }
 
   /* ---------- Barre superieure ---------- */
@@ -158,6 +224,10 @@
   /* ---------- Routage ---------- */
   function go(hash) {
     if (location.hash === hash) route();
+    /* Une pop-up ouverte occupe une entrée d'historique (bouton
+       retour du téléphone). On la remplace par la nouvelle page,
+       sinon le retour suivant tomberait sur cette entrée morte. */
+    else if (history.state && history.state.sheet) location.replace(hash);
     else location.hash = hash;
   }
 
@@ -169,7 +239,8 @@
     const h = (location.hash || '#/' + defaut).replace(/^#\/?/, '');
     const parts = h.split('/').filter(Boolean);
     if (!parts.length) return { id: defaut, rest: [] };
-    if (parts[0] === 'm') return { id: parts[1] || 'settings', rest: parts.slice(2) };
+    /* `hub` est l'ancien nom de `m` (raccourcis du manifeste). */
+    if (parts[0] === 'm' || parts[0] === 'hub') return { id: parts[1] || 'settings', rest: parts.slice(2) };
     if (parts[0] === 'settings') return { id: 'settings', rest: parts.slice(1) };
     if (dest(parts[0])) return { id: parts[0], rest: parts.slice(1) };
     return { id: defaut, rest: [] };
@@ -179,6 +250,13 @@
     const r = parse();
     const d = dest(r.id);
     const reglages = r.id === 'settings';
+
+    /* Le module qu'on quitte détache ce qu'il a posé hors de sa vue
+       (flèches du clavier, gestes, minuteries). */
+    if (monte && registry[monte] && registry[monte].unmount) {
+      try { registry[monte].unmount(); } catch (e) { console.error(e); }
+    }
+    monte = null;
 
     current = d ? d.id : null;
     currentModule = d && d.bas ? null : r.id;
@@ -210,6 +288,7 @@
 
     const mod = registry[r.id];
     if (mod && mod.mount) {
+      monte = r.id;
       try { mod.mount(el, r.rest); }
       catch (e) { console.error(e); el.innerHTML = UI.empty('alert', 'Souci de chargement', String(e.message || e)); }
     } else if (!propre) {
@@ -263,6 +342,14 @@
       } catch (e) {}
       if (global.Photos) Photos.sync('garments', 'photo', 'garments').catch(() => {});
     });
+    /* Après une synchro descendante : thème et page courante à jour,
+       et nettoyage des doublons que le serveur aurait ramenés. */
+    Store.on('pulled', () => {
+      dedoublonnerDepart(true);
+      applyTheme();
+      renderTopbar();
+      if (!document.querySelector('#ov.on')) route();
+    });
     Store.on('sync', (s) => { if (!s.ok) console.warn('[EVER] synchronisation differee'); });
 
     /* Supabase en arrière-plan : on n'attend jamais dessus. */
@@ -274,7 +361,7 @@
     document.documentElement.classList.add('ready');
   }
 
-  global.App = { boot, go, register, route, setTitle, TABS, MODULES, openHub, applyTheme, seedOnce,
+  global.App = { boot, go, register, route, setTitle, TABS, MODULES, openHub, applyTheme, seedOnce, dedoublonnerDepart,
     refreshTopbar: renderTopbar,
     currentTab: () => current, currentModule: () => currentModule };
 })(window);
